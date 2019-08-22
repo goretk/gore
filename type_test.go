@@ -39,7 +39,7 @@ func testParseStructType(t *testing.T) {
 
 func TestGetTypes(t *testing.T) {
 	tests := []string{
-		"gold/gold-linux-amd64-1.13beta1",
+		"gold/gold-linux-amd64-1.13rc1",
 		"gold/gold-linux-amd64-1.12.0",
 		"gold/gold-linux-amd64-1.11.1",
 		"gold/gold-linux-amd64-1.10.8",

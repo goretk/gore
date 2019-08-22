@@ -105,4 +105,5 @@ AVAILABLE_VERSIONS=(
 "1.12beta2"
 "1.12rc1"
 "1.13beta1"
+"1.13rc1"
 )
