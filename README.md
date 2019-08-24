@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/goretk/gore.svg?branch=master)](https://travis-ci.org/goretk/gore)
+![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/goretk/gore?label=release&sort=semver)
 # GoRE - Package gore is a library for analyzing Go binaries
 
 ## How to use
