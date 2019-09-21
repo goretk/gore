@@ -5,6 +5,8 @@
 package gore
 
 import (
+	"debug/gosym"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -223,6 +225,68 @@ func TestSetGoVersion(t *testing.T) {
 		assert.Nil(err, "Should not return an error when the version string is correct format")
 		assert.Equal(expected, f.FileInfo.goversion, "Incorrect go version has be set")
 	})
+}
+
+type mockFileHandler struct {
+	mGetSectionDataFromOffset func(uint64) (uint64, []byte, error)
+}
+
+func (m *mockFileHandler) Close() error {
+	panic("not implemented")
+}
+
+func (m *mockFileHandler) getPCLNTab() (*gosym.Table, error) {
+	panic("not implemented")
+}
+
+func (m *mockFileHandler) getRData() ([]byte, error) {
+	panic("not implemented")
+}
+
+func (m *mockFileHandler) getCodeSection() ([]byte, error) {
+	panic("not implemented")
+}
+
+func (m *mockFileHandler) getSectionDataFromOffset(o uint64) (uint64, []byte, error) {
+	return m.mGetSectionDataFromOffset(o)
+}
+
+func (m *mockFileHandler) getSectionData(string) (uint64, []byte, error) {
+	panic("not implemented")
+}
+
+func (m *mockFileHandler) getFileInfo() *FileInfo {
+	panic("not implemented")
+}
+
+func (m *mockFileHandler) getPCLNTABData() (uint64, []byte, error) {
+	panic("not implemented")
+}
+
+func (m *mockFileHandler) moduledataSection() string {
+	panic("not implemented")
+}
+
+func TestBytes(t *testing.T) {
+	assert := assert.New(t)
+	expectedBase := uint64(0x40000)
+	expectedSection := []byte{0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7}
+	expectedBytes := []byte{0x2, 0x3, 0x4, 0x5}
+	address := uint64(expectedBase + 2)
+	length := uint64(len(expectedBytes))
+	fh := &mockFileHandler{
+		mGetSectionDataFromOffset: func(a uint64) (uint64, []byte, error) {
+			if a > expectedBase+uint64(len(expectedSection)) || a < expectedBase {
+				return 0, nil, errors.New("out of bound")
+			}
+			return expectedBase, expectedSection, nil
+		},
+	}
+	f := &GoFile{fh: fh}
+
+	data, err := f.Bytes(address, length)
+	assert.NoError(err, "Should not return an error")
+	assert.Equal(expectedBytes, data, "Return data not as expected")
 }
 
 func getTestResourcePath(resource string) (string, error) {

@@ -262,6 +262,15 @@ func (f *GoFile) GetTypes() ([]*GoType, error) {
 	return sortTypes(t), nil
 }
 
+// Bytes returns a slice of raw bytes with the length in the file from the address.
+func (f *GoFile) Bytes(address uint64, length uint64) ([]byte, error) {
+	base, section, err := f.fh.getSectionDataFromOffset(address)
+	if err != nil {
+		return nil, err
+	}
+	return section[address-base : address+length-base], nil
+}
+
 func sortTypes(types map[uint64]*GoType) []*GoType {
 	sortedList := make([]*GoType, len(types), len(types))
 
