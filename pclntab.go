@@ -41,9 +41,9 @@ func searchSectionForTab(secData []byte) ([]byte, error) {
 	if off == -1 {
 		return nil, ErrNoPCLNTab
 	}
-	buf := secData[off:]
 	for off != -1 {
 		if off != 0 {
+			buf := secData[off:]
 			if len(buf) < 16 || buf[4] != 0 || buf[5] != 0 ||
 				(buf[6] != 1 && buf[6] != 2 && buf[6] != 4) || // pc quantum
 				(buf[7] != 4 && buf[7] != 8) { // pointer size
@@ -51,8 +51,7 @@ func searchSectionForTab(secData []byte) ([]byte, error) {
 				if off-1 <= 0 {
 					return nil, ErrNoPCLNTab
 				}
-				buf = secData[:off-1]
-				off = bytes.LastIndex(buf, pclntabmagic)
+				off = bytes.LastIndex(secData[:off-1], pclntabmagic)
 				continue
 			}
 			// Header match
