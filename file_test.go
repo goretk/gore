@@ -345,7 +345,7 @@ func buildTestResource(body, os, arch string) (string, string) {
 	exe := filepath.Join(tmpdir, "a")
 	args := []string{"build", "-o", exe, "-ldflags", "-s -w", src}
 	cmd := exec.Command(goBin, args...)
-	cmd.Env = append(cmd.Env, "GOCACHE="+tmpdir, "GOARCH="+arch, "GOOS="+os)
+	cmd.Env = append(cmd.Env, "GOCACHE="+tmpdir, "GOARCH="+arch, "GOOS="+os, "GOPATH="+tmpdir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		panic("building test executable failed: " + string(out))
