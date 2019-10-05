@@ -3,8 +3,13 @@ language: go
 os:
   - linux
 
+env:
+  - GO111MODULE=on
+
 before_install:
   - ./testdata/helper.sh fetch
+  - go mod download
 
 script:
+  - go build -o a
   - go test

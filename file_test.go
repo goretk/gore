@@ -328,7 +328,7 @@ func testCompilerVersion() string {
 	return strings.Split(string(out), " ")[2]
 }
 
-func buildTestResource(body, os, arch string) (string, string) {
+func buildTestResource(body, goos, arch string) (string, string) {
 	goBin, err := exec.LookPath("go")
 	if err != nil {
 		panic("No go tool chain found: " + err.Error())
@@ -345,7 +345,11 @@ func buildTestResource(body, os, arch string) (string, string) {
 	exe := filepath.Join(tmpdir, "a")
 	args := []string{"build", "-o", exe, "-ldflags", "-s -w", src}
 	cmd := exec.Command(goBin, args...)
-	cmd.Env = append(cmd.Env, "GOCACHE="+tmpdir, "GOARCH="+arch, "GOOS="+os)
+	gopatch := os.Getenv("GOPATH")
+	if gopatch == "" {
+		gopatch = tmpdir
+	}
+	cmd.Env = append(cmd.Env, "GOCACHE="+tmpdir, "GOARCH="+arch, "GOOS="+goos, "GOPATH="+gopatch)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		panic("building test executable failed: " + string(out))
