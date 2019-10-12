@@ -3,6 +3,7 @@ package gore
 import (
 	"debug/gosym"
 	"debug/macho"
+	"fmt"
 )
 
 func openMachO(fp string) (*machoFile, error) {
@@ -86,4 +87,12 @@ func (m *machoFile) getPCLNTABData() (uint64, []byte, error) {
 
 func (m *machoFile) moduledataSection() string {
 	return "__noptrdata"
+}
+
+func (m *machoFile) getBuildID() (string, error) {
+	data, err := m.getCodeSection()
+	if err != nil {
+		return "", fmt.Errorf("failed to get code section: %w", err)
+	}
+	return parseBuildIDFromRaw(data)
 }

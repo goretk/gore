@@ -7,6 +7,7 @@ package gore
 import (
 	"debug/elf"
 	"debug/gosym"
+	"fmt"
 )
 
 func openELF(fp string) (*elfFile, error) {
@@ -91,4 +92,12 @@ func (e *elfFile) getFileInfo() *FileInfo {
 		OS:        e.file.Machine.String(),
 		WordSize:  wordSize,
 	}
+}
+
+func (e *elfFile) getBuildID() (string, error) {
+	_, data, err := e.getSectionData(".note.go.buildid")
+	if err != nil {
+		return "", fmt.Errorf("error when getting note section %w", err)
+	}
+	return parseBuildIDFromElf(data, e.file.ByteOrder)
 }

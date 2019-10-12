@@ -8,6 +8,7 @@ import (
 	"debug/gosym"
 	"debug/pe"
 	"encoding/binary"
+	"fmt"
 )
 
 func openPE(fp string) (*peFile, error) {
@@ -94,4 +95,12 @@ func (p *peFile) getFileInfo() *FileInfo {
 		p.imageBase = optHdr.ImageBase
 	}
 	return fi
+}
+
+func (p *peFile) getBuildID() (string, error) {
+	data, err := p.getCodeSection()
+	if err != nil {
+		return "", fmt.Errorf("failed to get code section: %w", err)
+	}
+	return parseBuildIDFromRaw(data)
 }

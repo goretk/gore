@@ -22,6 +22,7 @@ import (
 
 const (
 	resourceFolder = "testdata"
+	fixedBuildID   = "DrtsigZmOidE-wfbFVNF/io-X8KB-ByimyyODdYUe/Z7tIlu8GbOwt0Jup-Hji/fofocVx5sk8UpaKMTx0a"
 )
 
 var dynResources = []struct {
@@ -150,6 +151,23 @@ func TestGetCompilerVersion(t *testing.T) {
 	}
 }
 
+func TestGetBuildID(t *testing.T) {
+	for _, test := range dynResources {
+		t.Run("buildID_"+test.os+"-"+test.arch, func(t *testing.T) {
+			t.Parallel()
+			assert := assert.New(t)
+			require := require.New(t)
+			exe := dynResourceFiles.get(test.os, test.arch)
+			f, err := Open(exe)
+			require.NoError(err)
+			require.NotNil(f)
+			defer f.Close()
+
+			assert.Equal(fixedBuildID, f.BuildID, "BuildID extracted doesn't match expected value.")
+		})
+	}
+}
+
 func TestGoldFiles(t *testing.T) {
 	goldFiles, err := getGoldenResources()
 	if err != nil || len(goldFiles) == 0 {
@@ -267,6 +285,10 @@ func (m *mockFileHandler) moduledataSection() string {
 	panic("not implemented")
 }
 
+func (m *mockFileHandler) getBuildID() (string, error) {
+	panic("not implemented")
+}
+
 func TestBytes(t *testing.T) {
 	assert := assert.New(t)
 	expectedBase := uint64(0x40000)
@@ -343,7 +365,7 @@ func buildTestResource(body, goos, arch string) (string, string) {
 		panic(err)
 	}
 	exe := filepath.Join(tmpdir, "a")
-	args := []string{"build", "-o", exe, "-ldflags", "-s -w", src}
+	args := []string{"build", "-o", exe, "-ldflags", "-s -w -buildid=" + fixedBuildID, src}
 	cmd := exec.Command(goBin, args...)
 	gopatch := os.Getenv("GOPATH")
 	if gopatch == "" {
