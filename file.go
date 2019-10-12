@@ -71,12 +71,19 @@ func Open(filePath string) (*GoFile, error) {
 		return nil, ErrUnsupportedFile
 	}
 	gofile.FileInfo = gofile.fh.getFileInfo()
-	return gofile, nil
+
+	buildID, err := gofile.fh.getBuildID()
+	gofile.BuildID = buildID
+
+	return gofile, err
 }
 
 // GoFile is a structure representing a go binary file.
 type GoFile struct {
-	FileInfo     *FileInfo
+	// FileInfo holds information about the file.
+	FileInfo *FileInfo
+	// BuildID is the Go build ID hash extracted from the binary.
+	BuildID      string
 	fh           fileHandler
 	stdPkgs      []*Package
 	pkgs         []*Package
@@ -298,6 +305,7 @@ type fileHandler interface {
 	getFileInfo() *FileInfo
 	getPCLNTABData() (uint64, []byte, error)
 	moduledataSection() string
+	getBuildID() (string, error)
 }
 
 func fileMagicMatch(buf, magic []byte) bool {
