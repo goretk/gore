@@ -96,8 +96,12 @@ func (e *elfFile) getFileInfo() *FileInfo {
 
 func (e *elfFile) getBuildID() (string, error) {
 	_, data, err := e.getSectionData(".note.go.buildid")
+	// If the note section does not exist, we just ignore the build id.
+	if err == ErrSectionDoesNotExist {
+		return "", nil
+	}
 	if err != nil {
-		return "", fmt.Errorf("error when getting note section %w", err)
+		return "", fmt.Errorf("error when getting note section: %w", err)
 	}
 	return parseBuildIDFromElf(data, e.file.ByteOrder)
 }
