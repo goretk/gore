@@ -168,6 +168,39 @@ func TestGetBuildID(t *testing.T) {
 	}
 }
 
+func TestIssue11NoNoteSectionELF(t *testing.T) {
+	// Build test resource
+	goBin, err := exec.LookPath("go")
+	if err != nil {
+		panic("No go tool chain found: " + err.Error())
+	}
+	tmpdir, err := ioutil.TempDir("", "TestGORE-Issue11")
+	if err != nil {
+		panic(err)
+	}
+	defer os.RemoveAll(tmpdir)
+	src := filepath.Join(tmpdir, "a.go")
+	err = ioutil.WriteFile(src, []byte(testresourcesrc), 0644)
+	if err != nil {
+		panic(err)
+	}
+	exe := filepath.Join(tmpdir, "a")
+	args := []string{"build", "-o", exe, "-ldflags", "-s -w -buildid=", src}
+	cmd := exec.Command(goBin, args...)
+	gopatch := os.Getenv("GOPATH")
+	if gopatch == "" {
+		gopatch = tmpdir
+	}
+	cmd.Env = append(cmd.Env, "GOCACHE="+tmpdir, "GOOS=linux", "GOPATH="+gopatch)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		panic("building test executable failed: " + string(out))
+	}
+
+	_, err = Open(exe)
+	assert.NoError(t, err, "Should not fail to open an ELF file without a notes section.")
+}
+
 func TestGoldFiles(t *testing.T) {
 	goldFiles, err := getGoldenResources()
 	if err != nil || len(goldFiles) == 0 {
