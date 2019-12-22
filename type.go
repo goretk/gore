@@ -184,7 +184,11 @@ func (t *GoType) String() string {
 			if i != 0 {
 				buf += ", "
 			}
-			buf += fmt.Sprintf("%s", a)
+			if a.Kind == reflect.Func && a.Name == t.Name {
+				buf += fmt.Sprintf("%s", a.Name)
+			} else {
+				buf += fmt.Sprintf("%s", a)
+			}
 		}
 		if len(t.FuncReturnVals) > 1 {
 			buf += ") ("
@@ -197,7 +201,11 @@ func (t *GoType) String() string {
 			if i != 0 {
 				buf += ", "
 			}
-			buf += fmt.Sprintf("%s", r)
+			if r.Kind == reflect.Func && r.Name == t.Name {
+				buf += fmt.Sprintf("%s", r.Name)
+			} else {
+				buf += fmt.Sprintf("%s", r)
+			}
 		}
 		if len(t.FuncReturnVals) > 1 {
 			buf += ")"
