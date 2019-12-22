@@ -209,6 +209,8 @@ func (t *GoType) String() string {
 			return "interface{}"
 		}
 		return t.Name
+	case reflect.Invalid:
+		return t.Name
 	default:
 		return t.Kind.String()
 	}
@@ -318,6 +320,12 @@ func typeParse(types map[uint64]*GoType, fileInfo *FileInfo, offset uint64, sect
 		return typ
 	}
 	typ = new(GoType)
+	// XXX: This is to catch bad parsing. The current parser does not handle
+	// uncommon functions correctly. This ensures an out of bounds read does
+	// not occur.
+	if offset > uint64(len(sectionData)) {
+		return nil
+	}
 	r := bytes.NewReader(sectionData[offset:])
 
 	// Parse size
@@ -616,6 +624,14 @@ func typeParse(types map[uint64]*GoType, fileInfo *FileInfo, offset uint64, sect
 				// XXX: aa can sometimes be 0. This might be due to optimized out code by the compiler.
 				if aa != 0 {
 					a := typeParse(types, fileInfo, aa-sectionBaseAddr, sectionData, sectionBaseAddr)
+					// BUG: The current parser can't handle uncommon functions.
+					// After the methods have been parsed, the offset of the
+					// reader is not corrected. This causes bad data to be
+					// parsed. This workaround handles most cases but it is not
+					// a grantee.
+					if a == nil {
+						a = &GoType{Name: "!!unidentified!!", Kind: reflect.Invalid}
+					}
 					typ.FuncArgs = append(typ.FuncArgs, a)
 				}
 			}
@@ -628,6 +644,14 @@ func typeParse(types map[uint64]*GoType, fileInfo *FileInfo, offset uint64, sect
 				// XXX: aa can sometimes be less than sectionBaseAddr. This might be due to optimized out code by the compiler.
 				if aa > sectionBaseAddr {
 					a := typeParse(types, fileInfo, aa-sectionBaseAddr, sectionData, sectionBaseAddr)
+					// BUG: The current parser can't handle uncommon functions.
+					// After the methods have been parsed, the offset of the
+					// reader is not corrected. This causes bad data to be
+					// parsed. This workaround handles most cases but it is not
+					// a grantee.
+					if a == nil {
+						a = &GoType{Name: "!!unidentified!!", Kind: reflect.Invalid}
+					}
 					typ.FuncReturnVals = append(typ.FuncReturnVals, a)
 				}
 			}
