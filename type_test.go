@@ -38,72 +38,17 @@ func testParseStructType(t *testing.T) {
 }
 
 func TestGetTypes(t *testing.T) {
-	tests := []string{
-		"gold/gold-linux-amd64-1.13rc1",
-		"gold/gold-linux-amd64-1.12.0",
-		"gold/gold-linux-amd64-1.11.1",
-		"gold/gold-linux-amd64-1.10.8",
-		"gold/gold-linux-amd64-1.9.1",
-		"gold/gold-linux-amd64-1.8.1",
-		"gold/gold-linux-amd64-1.7.1",
-		"gold/gold-linux-amd64-1.7beta1",
-		"gold/gold-linux-amd64-1.7beta2",
-		"gold/gold-linux-amd64-1.6.1",
-		"gold/gold-linux-amd64-1.5.1",
-		"gold/gold-linux-386-1.13beta1",
-		"gold/gold-linux-386-1.12.0",
-		"gold/gold-linux-386-1.11.1",
-		"gold/gold-linux-386-1.10.8",
-		"gold/gold-linux-386-1.9.1",
-		"gold/gold-linux-386-1.8.1",
-		"gold/gold-linux-386-1.7.1",
-		"gold/gold-linux-386-1.6.1",
-		"gold/gold-linux-386-1.5.1",
-		"gold/gold-windows-amd64-1.13beta1",
-		"gold/gold-windows-amd64-1.12.0",
-		"gold/gold-windows-amd64-1.11.1",
-		"gold/gold-windows-amd64-1.10.8",
-		"gold/gold-windows-amd64-1.9.1",
-		"gold/gold-windows-amd64-1.8.1",
-		"gold/gold-windows-amd64-1.7.1",
-		"gold/gold-windows-amd64-1.6.1",
-		"gold/gold-windows-amd64-1.5.1",
-		"gold/gold-windows-386-1.13beta1",
-		"gold/gold-windows-386-1.12.0",
-		"gold/gold-windows-386-1.11.1",
-		"gold/gold-windows-386-1.10.8",
-		"gold/gold-windows-386-1.9.1",
-		"gold/gold-windows-386-1.8.1",
-		"gold/gold-windows-386-1.7.1",
-		"gold/gold-windows-386-1.6.1",
-		"gold/gold-windows-386-1.5.1",
-		"gold/gold-darwin-amd64-1.13beta1",
-		"gold/gold-darwin-amd64-1.12.0",
-		"gold/gold-darwin-amd64-1.11.1",
-		"gold/gold-darwin-amd64-1.10.8",
-		"gold/gold-darwin-amd64-1.9.1",
-		"gold/gold-darwin-amd64-1.8.1",
-		"gold/gold-darwin-amd64-1.7.1",
-		"gold/gold-darwin-amd64-1.7beta1",
-		"gold/gold-darwin-amd64-1.7beta2",
-		"gold/gold-darwin-amd64-1.6.1",
-		"gold/gold-darwin-amd64-1.5.1",
-		"gold/gold-darwin-386-1.13beta1",
-		"gold/gold-darwin-386-1.12.0",
-		"gold/gold-darwin-386-1.11.1",
-		"gold/gold-darwin-386-1.10.8",
-		"gold/gold-darwin-386-1.9.1",
-		"gold/gold-darwin-386-1.8.1",
-		"gold/gold-darwin-386-1.7.1",
-		"gold/gold-darwin-386-1.6.1",
-		"gold/gold-darwin-386-1.5.1",
+	goldFiles, err := getGoldenResources()
+	if err != nil || len(goldFiles) == 0 {
+		// Golden folder does not exist
+		t.Skip("No golden files")
 	}
-	for _, test := range tests {
+	for _, test := range goldFiles {
 		t.Run("get_types_"+test, func(t *testing.T) {
 			t.Parallel()
 			require := require.New(t)
 			assert := assert.New(t)
-			fp, err := getTestResourcePath(test)
+			fp, err := getTestResourcePath("gold/" + test)
 			require.NoError(err, "Failed to get path to resource")
 			if _, err = os.Stat(fp); os.IsNotExist(err) {
 				// Skip this file because it doesn't exist
