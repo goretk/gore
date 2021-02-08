@@ -189,21 +189,21 @@ func TestGoTypeStringer(t *testing.T) {
 		{&GoType{Kind: reflect.Chan, ChanDir: ChanSend, Element: &GoType{Kind: reflect.Struct}}, "chan<- struct{}"},
 		{&GoType{
 			Kind:           reflect.Func,
-			FuncArgs:       []*GoType{&GoType{Kind: reflect.String}, &GoType{Kind: reflect.Int}},
-			FuncReturnVals: []*GoType{&GoType{Kind: reflect.Uint}},
+			FuncArgs:       []*GoType{{Kind: reflect.String}, {Kind: reflect.Int}},
+			FuncReturnVals: []*GoType{{Kind: reflect.Uint}},
 		}, "func(string, int) uint"},
 		{&GoType{
 			Kind:           reflect.Func,
-			FuncArgs:       []*GoType{&GoType{Kind: reflect.String}, &GoType{Kind: reflect.Int}},
-			FuncReturnVals: []*GoType{&GoType{Kind: reflect.Uint}, &GoType{Kind: reflect.Struct}},
+			FuncArgs:       []*GoType{{Kind: reflect.String}, {Kind: reflect.Int}},
+			FuncReturnVals: []*GoType{{Kind: reflect.Uint}, {Kind: reflect.Struct}},
 		}, "func(string, int) (uint, struct{})"},
 		{&GoType{
 			Kind:     reflect.Func,
-			FuncArgs: []*GoType{&GoType{Kind: reflect.String}},
+			FuncArgs: []*GoType{{Kind: reflect.String}},
 		}, "func(string)"},
 		{&GoType{
 			Kind:           reflect.Func,
-			FuncReturnVals: []*GoType{&GoType{Kind: reflect.Uint}},
+			FuncReturnVals: []*GoType{{Kind: reflect.Uint}},
 		}, "func() uint"},
 		{&GoType{
 			Kind: reflect.Func,
@@ -232,26 +232,26 @@ func TestStructDef(t *testing.T) {
 			Kind: reflect.Struct,
 			Name: "myComplexStruct",
 			Fields: []*GoType{
-				&GoType{FieldName: "myString", Kind: reflect.String},
-				&GoType{FieldName: "person", Kind: reflect.Ptr, Element: &GoType{Kind: reflect.Struct, Name: "simpleStruct"}},
-				&GoType{FieldName: "myArray", Kind: reflect.Array, Length: 2, Element: &GoType{Kind: reflect.Int}},
-				&GoType{FieldName: "mySlice", Kind: reflect.Slice, Element: &GoType{Kind: reflect.Uint}},
-				&GoType{FieldName: "myChan", Kind: reflect.Chan, Element: &GoType{Kind: reflect.Struct}},
-				&GoType{FieldName: "myMap", Kind: reflect.Map, Element: &GoType{Kind: reflect.Int}, Key: &GoType{Kind: reflect.String}},
-				&GoType{FieldName: "myFunc", Kind: reflect.Func, FuncArgs: []*GoType{&GoType{Kind: reflect.String}, &GoType{Kind: reflect.Int}}, FuncReturnVals: []*GoType{&GoType{Kind: reflect.Uint}}},
+				{FieldName: "myString", Kind: reflect.String},
+				{FieldName: "person", Kind: reflect.Ptr, Element: &GoType{Kind: reflect.Struct, Name: "simpleStruct"}},
+				{FieldName: "myArray", Kind: reflect.Array, Length: 2, Element: &GoType{Kind: reflect.Int}},
+				{FieldName: "mySlice", Kind: reflect.Slice, Element: &GoType{Kind: reflect.Uint}},
+				{FieldName: "myChan", Kind: reflect.Chan, Element: &GoType{Kind: reflect.Struct}},
+				{FieldName: "myMap", Kind: reflect.Map, Element: &GoType{Kind: reflect.Int}, Key: &GoType{Kind: reflect.String}},
+				{FieldName: "myFunc", Kind: reflect.Func, FuncArgs: []*GoType{{Kind: reflect.String}, {Kind: reflect.Int}}, FuncReturnVals: []*GoType{{Kind: reflect.Uint}}},
 			}}, complexStructDef},
 		{&GoType{
 			Kind: reflect.Struct,
 			Name: "myComplexStruct",
 			Fields: []*GoType{
-				&GoType{FieldName: "myString", Kind: reflect.String},
-				&GoType{FieldName: "person", Kind: reflect.Ptr, Element: &GoType{Kind: reflect.Struct, Name: "simpleStruct"}},
-				&GoType{FieldName: "myArray", Kind: reflect.Array, Length: 2, Element: &GoType{Kind: reflect.Int}},
-				&GoType{FieldName: "mySlice", Kind: reflect.Slice, Element: &GoType{Kind: reflect.Uint}},
-				&GoType{FieldName: "myChan", Kind: reflect.Chan, Element: &GoType{Kind: reflect.Struct}},
-				&GoType{FieldName: "myMap", Kind: reflect.Map, Element: &GoType{Kind: reflect.Int}, Key: &GoType{Kind: reflect.String}},
-				&GoType{FieldName: "myFunc", Kind: reflect.Func, FuncArgs: []*GoType{&GoType{Kind: reflect.String}, &GoType{Kind: reflect.Int}}, FuncReturnVals: []*GoType{&GoType{Kind: reflect.Uint}}},
-				&GoType{FieldAnon: true, Kind: reflect.Struct, Name: "embeddedType"},
+				{FieldName: "myString", Kind: reflect.String},
+				{FieldName: "person", Kind: reflect.Ptr, Element: &GoType{Kind: reflect.Struct, Name: "simpleStruct"}},
+				{FieldName: "myArray", Kind: reflect.Array, Length: 2, Element: &GoType{Kind: reflect.Int}},
+				{FieldName: "mySlice", Kind: reflect.Slice, Element: &GoType{Kind: reflect.Uint}},
+				{FieldName: "myChan", Kind: reflect.Chan, Element: &GoType{Kind: reflect.Struct}},
+				{FieldName: "myMap", Kind: reflect.Map, Element: &GoType{Kind: reflect.Int}, Key: &GoType{Kind: reflect.String}},
+				{FieldName: "myFunc", Kind: reflect.Func, FuncArgs: []*GoType{{Kind: reflect.String}, {Kind: reflect.Int}}, FuncReturnVals: []*GoType{{Kind: reflect.Uint}}},
+				{FieldAnon: true, Kind: reflect.Struct, Name: "embeddedType"},
 			}}, complexStructWithAnonDef},
 	}
 	for _, test := range tests {
@@ -270,14 +270,14 @@ func TestMethodDefsAll(t *testing.T) {
 			Kind: reflect.Struct,
 			Name: "myStruct",
 			Methods: []*TypeMethod{
-				&TypeMethod{Name: "Read", Type: &GoType{
+				{Name: "Read", Type: &GoType{
 					Kind:           reflect.Func,
-					FuncArgs:       []*GoType{&GoType{Kind: reflect.Slice, Element: &GoType{Kind: reflect.Int8}}},
-					FuncReturnVals: []*GoType{&GoType{Kind: reflect.Int}, &GoType{Kind: reflect.Interface, Name: "error"}}}},
-				&TypeMethod{Name: "Close", Type: &GoType{
+					FuncArgs:       []*GoType{{Kind: reflect.Slice, Element: &GoType{Kind: reflect.Int8}}},
+					FuncReturnVals: []*GoType{{Kind: reflect.Int}, {Kind: reflect.Interface, Name: "error"}}}},
+				{Name: "Close", Type: &GoType{
 					Kind:           reflect.Func,
-					FuncReturnVals: []*GoType{&GoType{Kind: reflect.Interface, Name: "error"}}}},
-				&TypeMethod{Name: "private"},
+					FuncReturnVals: []*GoType{{Kind: reflect.Interface, Name: "error"}}}},
+				{Name: "private"},
 			},
 		}, methodAll},
 	}
@@ -298,8 +298,8 @@ func TestInterfaceDef(t *testing.T) {
 			Name:        "geometry",
 			PackagePath: "main",
 			Methods: []*TypeMethod{
-				&TypeMethod{Name: "area", Type: &GoType{Kind: reflect.Func, FuncReturnVals: []*GoType{&GoType{Kind: reflect.Float64}}}},
-				&TypeMethod{Name: "perim", Type: &GoType{Kind: reflect.Func, FuncReturnVals: []*GoType{&GoType{Kind: reflect.Float64}}}},
+				{Name: "area", Type: &GoType{Kind: reflect.Func, FuncReturnVals: []*GoType{{Kind: reflect.Float64}}}},
+				{Name: "perim", Type: &GoType{Kind: reflect.Func, FuncReturnVals: []*GoType{{Kind: reflect.Float64}}}},
 			}}, ifDef},
 		{&GoType{Kind: reflect.Interface, Name: "myEmptyIF", PackagePath: "main"}, "type myEmptyIF interface{}"},
 	}
