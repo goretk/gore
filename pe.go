@@ -89,10 +89,12 @@ func (p *peFile) getFileInfo() *FileInfo {
 		fi.WordSize = intSize32
 		optHdr := p.file.OptionalHeader.(*pe.OptionalHeader32)
 		p.imageBase = uint64(optHdr.ImageBase)
+		fi.Arch = Arch386
 	} else {
 		fi.WordSize = intSize64
 		optHdr := p.file.OptionalHeader.(*pe.OptionalHeader64)
 		p.imageBase = optHdr.ImageBase
+		fi.Arch = ArchAMD64
 	}
 	return fi
 }

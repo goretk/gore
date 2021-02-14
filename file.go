@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"debug/gosym"
 	"encoding/binary"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -275,6 +276,11 @@ func (f *GoFile) Bytes(address uint64, length uint64) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if address+length-base > uint64(len(section)) {
+		return nil, errors.New("length out of bounds")
+	}
+
 	return section[address-base : address+length-base], nil
 }
 
@@ -314,6 +320,8 @@ func fileMagicMatch(buf, magic []byte) bool {
 
 // FileInfo holds information about the file.
 type FileInfo struct {
+	// Arch is the architecture the binary is compiled for.
+	Arch string
 	// OS is the operating system the binary is compiled for.
 	OS string
 	// ByteOrder is the byte order.
@@ -322,3 +330,10 @@ type FileInfo struct {
 	WordSize  int
 	goversion *GoVersion
 }
+
+const (
+	ArchAMD64 = "amd64"
+	ArchARM   = "arm"
+	Arch386   = "i386"
+	ArchMIPS  = "mips"
+)
