@@ -12,3 +12,5 @@
 *.out
 *.swp
 testdata/gold/*
+
+.vscode/*

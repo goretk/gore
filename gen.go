@@ -35,7 +35,7 @@ package gore
 
 var stdPkgs = map[string]struct{}{
 {{- range .StdPkg }}
-	{{ printf "\"%s\": struct{}{}" . }},
+	{{ printf "\"%s\": {}" . }},
 {{- end }}
 }
 `))
@@ -52,7 +52,7 @@ package gore
 
 var goversions = map[string]*GoVersion{
 {{- range .GoVersions }}
-	{{ printf "\"%s\": &GoVersion{Name: \"%s\", SHA: \"%s\", Timestamp: \"%s\"}" .Name .Name .Sha .Date }},
+	{{ printf "\"%s\": {Name: \"%s\", SHA: \"%s\", Timestamp: \"%s\"}" .Name .Name .Sha .Date }},
 {{- end }}
 }
 `))
@@ -70,7 +70,7 @@ type ghTree struct {
 	Gittype string `json:"type"`
 	Sha     string `json:"sha"`
 	Size    int    `json:"size"`
-	Url     string `jsoin:"url"`
+	Url     string `json:"url"`
 }
 
 const (
@@ -267,7 +267,6 @@ func getNextPageURL(r *http.Response) string {
 
 func main() {
 	processGoVersions()
-	return
 	client := http.DefaultClient
 	resp, err := client.Get(fmt.Sprintf(requestURLFormatStr, "master"))
 	if err != nil {
