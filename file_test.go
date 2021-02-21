@@ -130,7 +130,16 @@ func TestGetPackages(t *testing.T) {
 }
 
 func TestGetCompilerVersion(t *testing.T) {
-	expectedVersion := ResolveGoVersion(testCompilerVersion())
+	testVersion := testCompilerVersion()
+	expectedVersion := ResolveGoVersion(testVersion)
+
+	// If the version could not be resolved, the version is new
+	// and the library doesn't know about it. Use the version string
+	// to created a new version.
+	if expectedVersion == nil {
+		expectedVersion = &GoVersion{Name: testVersion}
+	}
+
 	for _, test := range dynResources {
 		t.Run("parsing_"+test.os+"-"+test.arch, func(t *testing.T) {
 			t.Parallel()

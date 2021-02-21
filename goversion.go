@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"golang.org/x/arch/x86/x86asm"
 )
 
 var goVersionMatcher = regexp.MustCompile(`(go[\d+\.]*(beta|rc)?[\d*])`)
@@ -182,6 +184,14 @@ func GoVersionCompare(a, b string) int {
 }
 
 func findGoCompilerVersion(f *GoFile) (*GoVersion, error) {
+	// Try to determine the version based on the schedinit function.
+	if v := tryFromSchedInit(f); v != nil {
+		return v, nil
+	}
+
+	// If no version was found, search the sections for the
+	// version string.
+
 	data, err := f.fh.getRData()
 	// If read only data section does not exist, try text.
 	if err == ErrSectionDoesNotExist {
@@ -211,6 +221,136 @@ func findGoCompilerVersion(f *GoFile) (*GoVersion, error) {
 		return ver, nil
 	}
 	return nil, nil
+}
+
+// tryFromSchedInit tries to identify the version of the Go compiler that compiled the code.
+// The function "schedinit" in the "runtime" package has the only reference to this string
+// used to identify the version.
+// The function returns nil if no version is found.
+func tryFromSchedInit(f *GoFile) *GoVersion {
+	// Check for non supported architectures.
+	if f.FileInfo.Arch != Arch386 && f.FileInfo.Arch != ArchAMD64 {
+		return nil
+	}
+
+	is32 := false
+	if f.FileInfo.Arch == Arch386 {
+		is32 = true
+	}
+
+	// Find shedinit function.
+	var fcn *Function
+	std, err := f.GetSTDLib()
+	if err != nil {
+		return nil
+	}
+
+pkgLoop:
+	for _, v := range std {
+		if v.Name != "runtime" {
+			continue
+		}
+		for _, vv := range v.Functions {
+			if vv.Name != "schedinit" {
+				continue
+			}
+			fcn = vv
+			break pkgLoop
+		}
+	}
+
+	// Check if the functions was found
+	if fcn == nil {
+		// If we can't find the function there is nothing to do.
+		return nil
+	}
+
+	// Get the raw hex.
+	buf, err := f.Bytes(fcn.Offset, fcn.End-fcn.Offset)
+	if err != nil {
+		return nil
+	}
+
+	/*
+		Disassemble the function until the loading of the Go version is found.
+	*/
+
+	// Counter for how many bytes has been read.
+	s := 0
+	mode := f.FileInfo.WordSize * 8
+
+	for s < len(buf) {
+		inst, err := x86asm.Decode(buf[s:], mode)
+		if err != nil {
+			// If we fail to decode the instruction, something is wrong so
+			// bailout.
+			return nil
+		}
+
+		// Update next instruction location.
+		s = s + inst.Len
+
+		// Check if it's a "lea" instruction.
+		if inst.Op != x86asm.LEA {
+			continue
+		}
+
+		// Check what it's loading and if it's pointing to the compiler version used.
+		// First assume that the address is a direct addressing.
+		arg := inst.Args[1].(x86asm.Mem)
+		addr := arg.Disp
+		if arg.Base == x86asm.EIP || arg.Base == x86asm.RIP {
+			// If the addressing is based on the instruction pointer, fix the address.
+			addr = addr + int64(fcn.Offset) + int64(s)
+		}
+
+		// If the addressing is based on the stack pointer, this is not the right
+		// instruction.
+		if arg.Base == x86asm.ESP || arg.Base == x86asm.RSP {
+			continue
+		}
+
+		// Resolve the pointer to the string. If we get no data, this is not the
+		// right instruction.
+		b, _ := f.Bytes(uint64(addr), uint64(0x20))
+		if b == nil {
+			continue
+		}
+
+		r := bytes.NewReader(b)
+		ptr, err := readUIntTo64(r, f.FileInfo.ByteOrder, is32)
+		if err != nil {
+			// Probably not the right instruction, so go to next.
+			continue
+		}
+		l, err := readUIntTo64(r, f.FileInfo.ByteOrder, is32)
+		if err != nil {
+			// Probably not the right instruction, so go to next.
+			continue
+		}
+
+		bstr, _ := f.Bytes(ptr, l)
+		if bstr == nil {
+			continue
+		}
+
+		if !bytes.HasPrefix(bstr, []byte("go1.")) {
+			continue
+		}
+
+		// Likely the version string.
+		ver := string(bstr)
+
+		gover := ResolveGoVersion(ver)
+		if gover != nil {
+			return gover
+		}
+
+		// An unknown version.
+		return &GoVersion{Name: ver}
+	}
+
+	return nil
 }
 
 func matchGoVersionString(data []byte) string {

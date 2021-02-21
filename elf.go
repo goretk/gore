@@ -87,10 +87,24 @@ func (e *elfFile) getFileInfo() *FileInfo {
 	if class == elf.ELFCLASS64 {
 		wordSize = intSize64
 	}
+
+	var arch string
+	switch e.file.Machine {
+	case elf.EM_386:
+		arch = Arch386
+	case elf.EM_MIPS:
+		arch = ArchMIPS
+	case elf.EM_X86_64:
+		arch = ArchAMD64
+	case elf.EM_ARM:
+		arch = ArchARM
+	}
+
 	return &FileInfo{
 		ByteOrder: e.file.FileHeader.ByteOrder,
 		OS:        e.file.Machine.String(),
 		WordSize:  wordSize,
+		Arch:      arch,
 	}
 }
 
