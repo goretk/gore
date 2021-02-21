@@ -261,7 +261,7 @@ pkgLoop:
 
 	// Check if the functions was found
 	if fcn == nil {
-		// TODO: return an error type.
+		// If we can't find the function there is nothing to do.
 		return nil
 	}
 
@@ -282,6 +282,8 @@ pkgLoop:
 	for s < len(buf) {
 		inst, err := x86asm.Decode(buf[s:], mode)
 		if err != nil {
+			// If we fail to decode the instruction, something is wrong so
+			// bailout.
 			return nil
 		}
 
@@ -318,11 +320,13 @@ pkgLoop:
 		r := bytes.NewReader(b)
 		ptr, err := readUIntTo64(r, f.FileInfo.ByteOrder, is32)
 		if err != nil {
-			return nil
+			// Probably not the right instruction, so go to next.
+			continue
 		}
 		l, err := readUIntTo64(r, f.FileInfo.ByteOrder, is32)
 		if err != nil {
-			return nil
+			// Probably not the right instruction, so go to next.
+			continue
 		}
 
 		bstr, _ := f.Bytes(ptr, l)
