@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 )
 
@@ -42,7 +43,7 @@ func findModuledata(f fileHandler) ([]byte, error) {
 	}
 	// TODO: Verify that hit is correct.
 
-	return secData[off : off+0x120], nil
+	return secData[off : off+0x300], nil
 }
 
 func parseModuledata(fileInfo *FileInfo, f fileHandler) (*moduledata, error) {
@@ -54,14 +55,21 @@ func parseModuledata(fileInfo *FileInfo, f fileHandler) (*moduledata, error) {
 	md := new(moduledata)
 
 	// Parse types
-	r.Seek(int64(25*fileInfo.WordSize), io.SeekStart)
+	if GoVersionCompare("go1.16beta1", fileInfo.goversion.Name) <= 0 {
+		r.Seek(int64(35*fileInfo.WordSize), io.SeekStart)
+	} else {
+		r.Seek(int64(25*fileInfo.WordSize), io.SeekStart)
+	}
+
 	typeAddr, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 	if err != nil {
 		return nil, err
 	}
 	md.typesAddr = typeAddr
 
-	if GoVersionCompare("go1.8beta1", fileInfo.goversion.Name) <= 0 {
+	if GoVersionCompare("go1.16beta1", fileInfo.goversion.Name) <= 0 {
+		r.Seek(int64(40*fileInfo.WordSize), io.SeekStart)
+	} else if GoVersionCompare("go1.8beta1", fileInfo.goversion.Name) <= 0 {
 		r.Seek(int64(30*fileInfo.WordSize), io.SeekStart)
 	} else if GoVersionCompare("go1.7beta1", fileInfo.goversion.Name) <= 0 {
 		r.Seek(int64(27*fileInfo.WordSize), io.SeekStart)
@@ -72,12 +80,12 @@ func parseModuledata(fileInfo *FileInfo, f fileHandler) (*moduledata, error) {
 
 	typelinkAddr, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read typelink addres: %w", err)
 	}
 	md.typelinkAddr = typelinkAddr
 	typelinkLen, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read typelink length: %w", err)
 	}
 	md.typelinkLen = typelinkLen
 

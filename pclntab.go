@@ -9,7 +9,13 @@ import (
 	"debug/pe"
 )
 
+// pclntabmagic is the magic bytes used for binaries compiled with Go
+// prior to 1.16
 var pclntabmagic = []byte{0xfb, 0xff, 0xff, 0xff}
+
+// pclntab116magic is the magic bytes used for binaries compiled with
+// Go 1.16 and onwards.
+var pclntab116magic = []byte{0xfa, 0xff, 0xff, 0xff}
 
 // searchFileForPCLNTab will search the .rdata and .text section for the
 // PCLN table. Note!! The address returned by this function needs to be
@@ -37,27 +43,31 @@ func searchFileForPCLNTab(f *pe.File) (uint32, []byte, error) {
 
 // searchSectionForTab looks for the PCLN table within the section.
 func searchSectionForTab(secData []byte) ([]byte, error) {
-	off := bytes.LastIndex(secData, pclntabmagic)
-	if off == -1 {
-		return nil, ErrNoPCLNTab
-	}
-	for off != -1 {
-		if off != 0 {
-			buf := secData[off:]
-			if len(buf) < 16 || buf[4] != 0 || buf[5] != 0 ||
-				(buf[6] != 1 && buf[6] != 2 && buf[6] != 4) || // pc quantum
-				(buf[7] != 4 && buf[7] != 8) { // pointer size
-				// Header doesn't match.
-				if off-1 <= 0 {
-					return nil, ErrNoPCLNTab
-				}
-				off = bytes.LastIndex(secData[:off-1], pclntabmagic)
-				continue
-			}
-			// Header match
-			return secData[off:], nil
+	// First check for the current magic used. If this fails, it could be
+	// an older version. So check for the old header.
+	for _, magic := range [][]byte{pclntab116magic, pclntabmagic} {
+		off := bytes.LastIndex(secData, magic)
+		if off == -1 {
+			continue // Try other magic.
 		}
-		break
+		for off != -1 {
+			if off != 0 {
+				buf := secData[off:]
+				if len(buf) < 16 || buf[4] != 0 || buf[5] != 0 ||
+					(buf[6] != 1 && buf[6] != 2 && buf[6] != 4) || // pc quantum
+					(buf[7] != 4 && buf[7] != 8) { // pointer size
+					// Header doesn't match.
+					if off-1 <= 0 {
+						return nil, ErrNoPCLNTab
+					}
+					off = bytes.LastIndex(secData[:off-1], pclntabmagic)
+					continue
+				}
+				// Header match
+				return secData[off:], nil
+			}
+			break
+		}
 	}
 	return nil, ErrNoPCLNTab
 }
