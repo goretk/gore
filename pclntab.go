@@ -48,7 +48,7 @@ func searchSectionForTab(secData []byte) ([]byte, error) {
 	for _, magic := range [][]byte{pclntab116magic, pclntabmagic} {
 		off := bytes.LastIndex(secData, magic)
 		if off == -1 {
-			return nil, ErrNoPCLNTab
+			continue // Try other magic.
 		}
 		for off != -1 {
 			if off != 0 {
