@@ -45,7 +45,6 @@ func TestGetTypes(t *testing.T) {
 	}
 	for _, test := range goldFiles {
 		t.Run("get_types_"+test, func(t *testing.T) {
-			t.Parallel()
 			require := require.New(t)
 			assert := assert.New(t)
 			fp, err := getTestResourcePath("gold/" + test)
@@ -61,7 +60,7 @@ func TestGetTypes(t *testing.T) {
 			defer f.Close()
 
 			typs, err := f.GetTypes()
-			assert.NoError(err, "Should parse with no error")
+			require.NoError(err, "Should parse with no error")
 
 			var simpleStructTested bool
 			var complexStructTested bool
