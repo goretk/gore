@@ -46,39 +46,45 @@ func getTypes(fileInfo *FileInfo, f fileHandler) (map[uint64]*GoType, error) {
 	if GoVersionCompare(fileInfo.goversion.Name, "go1.7beta1") < 0 {
 		return getLegacyTypes(fileInfo, f)
 	}
+
 	md, err := parseModuledata(fileInfo, f)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse the module data: %w", err)
 	}
+
 	tbase, types, err := f.getSectionDataFromOffset(md.typesAddr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get types data section: %w", err)
 	}
+
 	base, typelinkSection, err := f.getSectionDataFromOffset(md.typelinkAddr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get type-link data section: %w", err)
 	}
 
 	r := bytes.NewReader(typelinkSection)
 	_, err = r.Seek(int64(md.typelinkAddr)-int64(base), io.SeekStart)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("seek error: %w", err)
 	}
 
-	goTypes := make(map[uint64]*GoType)
+	// New parser
+	parser := newTypeParser(types[md.typesAddr-tbase:], md.typesAddr, fileInfo)
+
 	for i := uint64(0); i < md.typelinkLen; i++ {
 		// Type offsets are always int32
 		var off int32
 		err = binary.Read(r, fileInfo.ByteOrder, &off)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to read type number %d: %w", i, err)
 		}
-		typ := typeParse(goTypes, fileInfo, uint64(off), types[md.typesAddr-tbase:], md.typesAddr)
-		if typ == nil {
-			continue
+
+		typ, err := parser.parseType(uint64(off) + parser.base)
+		if err != nil || typ == nil {
+			return nil, fmt.Errorf("failed to parse type at offset 0x%x: %w", off, err)
 		}
 	}
-	return goTypes, nil
+	return parser.parsedTypes(), nil
 }
 
 func getLegacyTypes(fileInfo *FileInfo, f fileHandler) (map[uint64]*GoType, error) {
@@ -87,6 +93,9 @@ func getLegacyTypes(fileInfo *FileInfo, f fileHandler) (map[uint64]*GoType, erro
 		return nil, err
 	}
 	typelinkAddr, typelinkData, err := f.getSectionDataFromOffset(md.typelinkAddr)
+	if err != nil {
+		return nil, fmt.Errorf("no typelink section found: %w", err)
+	}
 	r := bytes.NewReader(typelinkData)
 	_, err = r.Seek(int64(md.typelinkAddr)-int64(typelinkAddr), io.SeekStart)
 	if err != nil {
@@ -363,22 +372,12 @@ func typeParse(types map[uint64]*GoType, fileInfo *FileInfo, offset uint64, sect
 	// Parse nameOff
 	off = typeOffset(fileInfo, _typeFieldStr)
 	r.Seek(off, io.SeekStart)
-	if GoVersionCompare(fileInfo.goversion.Name, "go1.7beta1") >= 0 {
-		// Defined as int32
-		var n int32
-		r.Seek(off, io.SeekStart)
-		binary.Read(r, fileInfo.ByteOrder, &n)
-		nm, _ := resolveName(sectionData, uint64(n), typ.flag)
-		typ.Name = nm
-
-	} else {
-		ptrN, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
-		if err != nil {
-			return nil
-		}
-		if ptrN != 0 {
-			typ.Name = parseString(fileInfo, ptrN, sectionBaseAddr, sectionData)
-		}
+	ptrN, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
+	if err != nil {
+		return nil
+	}
+	if ptrN != 0 {
+		typ.Name = parseString(fileInfo, ptrN, sectionBaseAddr, sectionData)
 	}
 
 	typ.Addr = offset + sectionBaseAddr
@@ -387,27 +386,26 @@ func typeParse(types map[uint64]*GoType, fileInfo *FileInfo, offset uint64, sect
 	// Legacy types has a field with a pointer to the uncommonType.
 	// The flags location is unused, hence 0, so the parsing of the uncommonType
 	// is skipped below. So instead, if the binary uses legacy types parse it now.
-	if GoVersionCompare(fileInfo.goversion.Name, "go1.7beta1") < 0 {
-		// Pointer is right after the string pointer.
-		off = typeOffset(fileInfo, _typeFieldStr) + int64(fileInfo.WordSize)
-		r.Seek(off, io.SeekStart)
-		ptr, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
-		if err != nil {
-			return nil
-		}
-		if ptr != 0 {
-			// Since we don't know if the struct is located before or after this type,
-			// create a new reader.
-			ur := bytes.NewReader(sectionData)
-			ur.Seek(int64(ptr-sectionBaseAddr), io.SeekStart)
-			parseUncommonType(typ, ur, fileInfo, sectionData, sectionBaseAddr, types)
-		}
+	// Pointer is right after the string pointer.
+	off = typeOffset(fileInfo, _typeFieldStr) + int64(fileInfo.WordSize)
+	r.Seek(off, io.SeekStart)
+	ptr, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
+	if err != nil {
+		return nil
+	}
+	if ptr != 0 {
+		// Since we don't know if the struct is located before or after this type,
+		// create a new reader.
+		ur := bytes.NewReader(sectionData)
+		ur.Seek(int64(ptr-sectionBaseAddr), io.SeekStart)
+		parseUncommonType(typ, ur, fileInfo, sectionData, sectionBaseAddr, types)
 	}
 
 	// Parse extra fields
 	off = typeOffset(fileInfo, _typeFieldEnd)
 	r.Seek(off, io.SeekStart)
 	switch typ.Kind {
+
 	case reflect.Ptr:
 		ptr, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 		if err != nil {
@@ -419,21 +417,7 @@ func typeParse(types map[uint64]*GoType, fileInfo *FileInfo, offset uint64, sect
 			typ.Element = c
 		}
 
-		if typ.flag&tflagUncommon != 0 {
-			parseUncommonType(typ, r, fileInfo, sectionData, sectionBaseAddr, types)
-		}
 	case reflect.Struct:
-		if GoVersionCompare(fileInfo.goversion.Name, "go1.7beta1") >= 0 {
-			// This field does not exist in the legacy struct
-			pkgNamePtr, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
-			if err != nil {
-				return nil
-			}
-			if pkgNamePtr != 0 {
-				n, _ := resolveName(sectionData, pkgNamePtr-sectionBaseAddr, 0)
-				typ.PackagePath = n
-			}
-		}
 
 		// Parse struct fields
 		fieldptr, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
@@ -461,42 +445,32 @@ func typeParse(types map[uint64]*GoType, fileInfo *FileInfo, offset uint64, sect
 		for i := 0; i < int(numfield); i++ {
 			var fieldName string
 			var tag string
-			var nl int
-			var o int64
-			if GoVersionCompare(fileInfo.goversion.Name, "go1.7beta1") < 0 {
-				o = int64(fieldptr + uint64(i*5*fileInfo.WordSize) - sectionBaseAddr)
-			} else {
-				o = int64(fieldptr + uint64(i*3*fileInfo.WordSize) - sectionBaseAddr)
-			}
+			o := int64(fieldptr + uint64(i*5*fileInfo.WordSize) - sectionBaseAddr)
 			secR.Seek(o, io.SeekStart)
 			nptr, err := readUIntTo64(secR, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 			if err != nil {
 				return nil
 			}
-			if GoVersionCompare(fileInfo.goversion.Name, "go1.7beta1") < 0 {
-				ppp, err := readUIntTo64(secR, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
-				if err != nil {
-					return nil
-				}
-				if ppp != 0 {
-					pps := parseString(fileInfo, ppp, sectionBaseAddr, sectionData)
-					if pps != "" {
-						typ.PackagePath = pps
-					}
+			ppp, err := readUIntTo64(secR, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
+			if err != nil {
+				return nil
+			}
+			if ppp != 0 {
+				pps := parseString(fileInfo, ppp, sectionBaseAddr, sectionData)
+				if pps != "" {
+					typ.PackagePath = pps
 				}
 			}
 			tptr, err := readUIntTo64(secR, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 			if err != nil {
 				return nil
 			}
-			if GoVersionCompare(fileInfo.goversion.Name, "go1.7beta1") < 0 {
-				tagptr, err := readUIntTo64(secR, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
-				if err != nil {
-					return nil
-				}
-				if tagptr != 0 {
-					tag = parseString(fileInfo, tagptr, sectionBaseAddr, sectionData)
-				}
+			tagptr, err := readUIntTo64(secR, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
+			if err != nil {
+				return nil
+			}
+			if tagptr != 0 {
+				tag = parseString(fileInfo, tagptr, sectionBaseAddr, sectionData)
 			}
 			uptr, err := readUIntTo64(secR, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 			if err != nil {
@@ -506,14 +480,7 @@ func typeParse(types map[uint64]*GoType, fileInfo *FileInfo, offset uint64, sect
 			// Make a copy
 			field := *gt
 
-			if GoVersionCompare(fileInfo.goversion.Name, "go1.7beta1") >= 0 {
-				fieldName, nl = resolveName(sectionData, nptr-sectionBaseAddr, 0)
-				if nl != 0 {
-					field.FieldTag = resolveTag(int(nptr), nl-int(sectionBaseAddr), sectionData)
-				}
-			} else {
-				fieldName = parseString(fileInfo, nptr, sectionBaseAddr, sectionData)
-			}
+			fieldName = parseString(fileInfo, nptr, sectionBaseAddr, sectionData)
 			field.FieldName = fieldName
 			if tag != "" {
 				field.FieldTag = tag
@@ -524,6 +491,7 @@ func typeParse(types map[uint64]*GoType, fileInfo *FileInfo, offset uint64, sect
 			typ.Fields[i] = &field
 		}
 	case reflect.Array:
+
 		elementAddr, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 		if err != nil {
 			return nil
@@ -545,10 +513,9 @@ func typeParse(types map[uint64]*GoType, fileInfo *FileInfo, offset uint64, sect
 			return nil
 		}
 		typ.Length = int(l)
-		if typ.flag&tflagUncommon != 0 {
-			parseUncommonType(typ, r, fileInfo, sectionData, sectionBaseAddr, types)
-		}
+
 	case reflect.Slice:
+
 		elementAddr, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 		if err != nil {
 			return nil
@@ -557,10 +524,9 @@ func typeParse(types map[uint64]*GoType, fileInfo *FileInfo, offset uint64, sect
 			e := typeParse(types, fileInfo, elementAddr-sectionBaseAddr, sectionData, sectionBaseAddr)
 			typ.Element = e
 		}
-		if typ.flag&tflagUncommon != 0 {
-			parseUncommonType(typ, r, fileInfo, sectionData, sectionBaseAddr, types)
-		}
+
 	case reflect.Chan:
+
 		elementAddr, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 		if err != nil {
 			return nil
@@ -576,10 +542,9 @@ func typeParse(types map[uint64]*GoType, fileInfo *FileInfo, offset uint64, sect
 			return nil
 		}
 		typ.ChanDir = ChanDir(int(d))
-		if typ.flag&tflagUncommon != 0 {
-			parseUncommonType(typ, r, fileInfo, sectionData, sectionBaseAddr, types)
-		}
+
 	case reflect.Map:
+
 		keyAddr, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 		if err != nil {
 			return nil
@@ -597,134 +562,64 @@ func typeParse(types map[uint64]*GoType, fileInfo *FileInfo, offset uint64, sect
 			e := typeParse(types, fileInfo, elementAddr-sectionBaseAddr, sectionData, sectionBaseAddr)
 			typ.Element = e
 		}
-		// TODO: Implement uncommon type parsing for map type.
+
 	case reflect.Func:
-		if GoVersionCompare(fileInfo.goversion.Name, "go1.7beta1") >= 0 {
-			var in uint16
-			err = binary.Read(r, fileInfo.ByteOrder, &in)
+
+		// bool plus padding.
+		dotdotdot, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
+		typ.IsVariadic = dotdotdot > uint64(0)
+		// One for args and one for returns
+		rtypes := make([]uint64, 2, 2)
+		typelens := make([]uint64, 2, 2)
+		for i := 0; i < 2; i++ {
+			p, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 			if err != nil {
+				continue
+			}
+			rtypes[i] = p
+			l, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
+			if err != nil {
+				continue
+			}
+			typelens[i] = l
+
+			// Eat cap
+			_, err = readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
+			if err != nil {
+				println("Error when reading padding:", err)
 				return nil
 			}
-
-			var out uint16
-			err = binary.Read(r, fileInfo.ByteOrder, &out)
+		}
+		// Full section reader
+		sr := bytes.NewReader(sectionData)
+		// Parse the arg types and result types.
+		for i := 0; i < 2; i++ {
+			if rtypes[i] == 0 {
+				continue
+			}
+			_, err = sr.Seek(int64(rtypes[i]-sectionBaseAddr), io.SeekStart)
 			if err != nil {
-				return nil
+				continue
 			}
-			out = out & (1<<15 - 1)
-			typ.IsVariadic = out&(1<<15) != 0
-
-			// Eat padding
-			if fileInfo.WordSize == intSize64 {
-				var padding uint32
-				binary.Read(r, fileInfo.ByteOrder, &padding)
-			}
-			// Uncommon type
-			if typ.flag&tflagUncommon != 0 {
-				parseUncommonType(typ, r, fileInfo, sectionData, sectionBaseAddr, types)
-			}
-			// Get arg types
-			for i := 0; i < int(in); i++ {
-				aa, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
-				if err != nil {
-					return nil
-				}
-				// XXX: aa can sometimes be 0. This might be due to optimized out code by the compiler.
-				if aa != 0 {
-					a := typeParse(types, fileInfo, aa-sectionBaseAddr, sectionData, sectionBaseAddr)
-					// BUG: The current parser can't handle uncommon functions.
-					// After the methods have been parsed, the offset of the
-					// reader is not corrected. This causes bad data to be
-					// parsed. This workaround handles most cases but it is not
-					// a grantee.
-					if a == nil {
-						a = &GoType{Name: "!!unidentified!!", Kind: reflect.Invalid}
-					}
-					typ.FuncArgs = append(typ.FuncArgs, a)
-				}
-			}
-			// Get return types
-			for i := 0; i < int(out); i++ {
-				aa, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
-				if err != nil {
-					return nil
-				}
-				// XXX: aa can sometimes be less than sectionBaseAddr. This might be due to optimized out code by the compiler.
-				if aa > sectionBaseAddr {
-					a := typeParse(types, fileInfo, aa-sectionBaseAddr, sectionData, sectionBaseAddr)
-					// BUG: The current parser can't handle uncommon functions.
-					// After the methods have been parsed, the offset of the
-					// reader is not corrected. This causes bad data to be
-					// parsed. This workaround handles most cases but it is not
-					// a grantee.
-					if a == nil {
-						a = &GoType{Name: "!!unidentified!!", Kind: reflect.Invalid}
-					}
-					typ.FuncReturnVals = append(typ.FuncReturnVals, a)
-				}
-			}
-		} else {
-			// bool plus padding.
-			dotdotdot, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
-			typ.IsVariadic = dotdotdot > uint64(0)
-			// One for args and one for returns
-			rtypes := make([]uint64, 2, 2)
-			typelens := make([]uint64, 2, 2)
-			for i := 0; i < 2; i++ {
-				p, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
+			for j := 0; j < int(typelens[i]); j++ {
+				p, err := readUIntTo64(sr, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 				if err != nil {
 					continue
 				}
-				rtypes[i] = p
-				l, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
-				if err != nil {
+				if p == 0 {
 					continue
 				}
-				typelens[i] = l
-
-				// Eat cap
-				_, err = readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
-			}
-			// Full section reader
-			sr := bytes.NewReader(sectionData)
-			// Parse the arg types and result types.
-			for i := 0; i < 2; i++ {
-				if rtypes[i] == 0 {
-					continue
-				}
-				_, err = sr.Seek(int64(rtypes[i]-sectionBaseAddr), io.SeekStart)
-				if err != nil {
-					continue
-				}
-				for j := 0; j < int(typelens[i]); j++ {
-					p, err := readUIntTo64(sr, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
-					if err != nil {
-						continue
-					}
-					if p == 0 {
-						continue
-					}
-					t := typeParse(types, fileInfo, p-sectionBaseAddr, sectionData, sectionBaseAddr)
-					if i == 0 {
-						typ.FuncArgs = append(typ.FuncArgs, t)
-					} else {
-						typ.FuncReturnVals = append(typ.FuncReturnVals, t)
-					}
+				t := typeParse(types, fileInfo, p-sectionBaseAddr, sectionData, sectionBaseAddr)
+				if i == 0 {
+					typ.FuncArgs = append(typ.FuncArgs, t)
+				} else {
+					typ.FuncReturnVals = append(typ.FuncReturnVals, t)
 				}
 			}
 		}
+
 	case reflect.Interface:
-		if GoVersionCompare(fileInfo.goversion.Name, "go1.7beta1") >= 0 {
-			pkgOff, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
-			if err != nil {
-				return nil
-			}
 
-			if pkgOff != 0 {
-				n, _ := resolveName(sectionData, pkgOff-sectionBaseAddr, 0)
-				typ.PackagePath = n
-			}
-		}
 		ptrMethods, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 		if err != nil {
 			return nil
@@ -737,11 +632,6 @@ func typeParse(types map[uint64]*GoType, fileInfo *FileInfo, offset uint64, sect
 		_, err = readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 		if err != nil {
 			return nil
-		}
-
-		// Uncommon type
-		if typ.flag&tflagUncommon != 0 {
-			parseUncommonType(typ, r, fileInfo, sectionData, sectionBaseAddr, types)
 		}
 
 		// Parse imethods
@@ -761,23 +651,17 @@ func typeParse(types map[uint64]*GoType, fileInfo *FileInfo, offset uint64, sect
 				continue
 			}
 			if nameOff != 0 {
-				if GoVersionCompare(fileInfo.goversion.Name, "go1.7beta1") >= 0 {
-					n, _ := resolveName(sectionData, nameOff, 0)
-					meth.Name = n
-				} else {
-					meth.Name = parseString(fileInfo, nameOff, sectionBaseAddr, sectionData)
-				}
+				meth.Name = parseString(fileInfo, nameOff, sectionBaseAddr, sectionData)
 			}
-			if GoVersionCompare(fileInfo.goversion.Name, "go1.7beta1") < 0 {
-				pkgPathPtr, err := readUIntTo64(secR, fileInfo.ByteOrder, int32ptr)
-				if err != nil {
-					continue
-				}
-				if pkgPathPtr != 0 {
-					pkgPathStr := parseString(fileInfo, pkgPathPtr, sectionBaseAddr, sectionData)
-					if pkgPathStr != "" {
-						typ.PackagePath = pkgPathStr
-					}
+
+			pkgPathPtr, err := readUIntTo64(secR, fileInfo.ByteOrder, int32ptr)
+			if err != nil {
+				continue
+			}
+			if pkgPathPtr != 0 {
+				pkgPathStr := parseString(fileInfo, pkgPathPtr, sectionBaseAddr, sectionData)
+				if pkgPathStr != "" {
+					typ.PackagePath = pkgPathStr
 				}
 			}
 
@@ -786,9 +670,7 @@ func typeParse(types map[uint64]*GoType, fileInfo *FileInfo, offset uint64, sect
 				continue
 			}
 			if typeOff != 0 {
-				if GoVersionCompare(fileInfo.goversion.Name, "go1.7beta1") < 0 {
-					typeOff = typeOff - sectionBaseAddr
-				}
+				typeOff = typeOff - sectionBaseAddr
 				meth.Type = typeParse(types, fileInfo, typeOff, sectionData, sectionBaseAddr)
 			}
 			typ.Methods = append(typ.Methods, meth)
@@ -819,35 +701,24 @@ func parseString(fileInfo *FileInfo, off, base uint64, baseData []byte) string {
 }
 
 func parseUncommonType(typ *GoType, r *bytes.Reader, fileInfo *FileInfo, sectionData []byte, sectionBaseAddr uint64, types map[uint64]*GoType) {
-	if GoVersionCompare(fileInfo.goversion.Name, "go1.7beta1") >= 0 {
-		// First try to get the package path
-		var pkg uint32
-		binary.Read(r, fileInfo.ByteOrder, &pkg)
-		if pkg != 0 && typ.PackagePath == "" {
-			n, _ := resolveName(sectionData, uint64(pkg), 0)
-			typ.PackagePath = n
+	pname, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
+	if err != nil {
+		return
+	}
+	if pname != 0 {
+		n := parseString(fileInfo, pname, sectionBaseAddr, sectionData)
+		if typ.Name == "" && n != "" {
+			typ.Name = n
 		}
-	} else {
-		// Legacy uncommonType struct.
-		pname, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
-		if err != nil {
-			return
-		}
-		if pname != 0 {
-			n := parseString(fileInfo, pname, sectionBaseAddr, sectionData)
-			if typ.Name == "" && n != "" {
-				typ.Name = n
-			}
-		}
-		ppkg, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
-		if err != nil {
-			return
-		}
-		if ppkg != 0 {
-			p := parseString(fileInfo, ppkg, sectionBaseAddr, sectionData)
-			if typ.PackagePath == "" && p != "" {
-				typ.PackagePath = p
-			}
+	}
+	ppkg, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
+	if err != nil {
+		return
+	}
+	if ppkg != 0 {
+		p := parseString(fileInfo, ppkg, sectionBaseAddr, sectionData)
+		if typ.PackagePath == "" && p != "" {
+			typ.PackagePath = p
 		}
 	}
 	typ.Methods = parseMethods(r, fileInfo, sectionData, sectionBaseAddr, types)
@@ -855,65 +726,6 @@ func parseUncommonType(typ *GoType, r *bytes.Reader, fileInfo *FileInfo, section
 
 // The methods must start at the readers current location.
 func parseMethods(r *bytes.Reader, fileInfo *FileInfo, sectionData []byte, sectionBaseAddr uint64, types map[uint64]*GoType) []*TypeMethod {
-	if GoVersionCompare(fileInfo.goversion.Name, "go1.7beta1") >= 0 {
-		var mcount uint16
-		// xcount can be unused
-		var xcount uint16
-		var moff uint32
-		binary.Read(r, fileInfo.ByteOrder, &mcount)
-
-		if fileInfo.goversion.Name == "go1.7beta1" {
-			// In 1.7beta1 we only have 2 ints, both are uint16
-			// mcount and moff
-			var tmp uint16
-			binary.Read(r, fileInfo.ByteOrder, &tmp)
-			moff = uint32(tmp)
-		} else {
-			// In 1.7beta2 and later we have 4 ints. First 2 are
-			// uint16, second 2 are uint32.
-			binary.Read(r, fileInfo.ByteOrder, &xcount)
-			binary.Read(r, fileInfo.ByteOrder, &moff)
-
-			// Eat padding
-			var padding uint32
-			binary.Read(r, fileInfo.ByteOrder, &padding)
-		}
-		if mcount == uint16(0) {
-			return nil
-		}
-		var uncommonTypeSize uint32
-		if fileInfo.goversion.Name == "go1.7beta1" {
-			uncommonTypeSize = uint32(0x8)
-		} else {
-			uncommonTypeSize = uint32(0x10)
-		}
-		r.Seek(int64(moff-uncommonTypeSize), io.SeekCurrent)
-		var meth struct {
-			Name uint32
-			Mtyp uint32
-			Ifn  uint32
-			Tfn  uint32
-		}
-		methods := make([]*TypeMethod, mcount, mcount)
-		for i := 0; i < int(mcount); i++ {
-			binary.Read(r, fileInfo.ByteOrder, &meth)
-			m := &TypeMethod{}
-
-			if meth.Name == 0 || int(meth.Name) > len(sectionData) {
-				continue
-			}
-			nm, _ := resolveName(sectionData, uint64(meth.Name), 0)
-			m.Name = nm
-
-			if meth.Mtyp != 0 {
-				m.Type = typeParse(types, fileInfo, uint64(meth.Mtyp), sectionData, sectionBaseAddr)
-			}
-			m.FuncCallOffset = uint64(meth.Tfn)
-			m.IfaceCallOffset = uint64(meth.Ifn)
-			methods[i] = m
-		}
-		return methods
-	}
 	pdata, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 	if err != nil {
 		return nil
@@ -977,6 +789,7 @@ func parseMethods(r *bytes.Reader, fileInfo *FileInfo, sectionData []byte, secti
 
 // Helper function to resolve the type name.
 func resolveName(sectionData []byte, offset uint64, flags uint8) (string, int) {
+	// TODO(jk): Add bounds check.
 	nl := int(uint16(sectionData[offset+1])<<8 | uint16(sectionData[offset+2]))
 	if nl == 0 {
 		return "", 0
