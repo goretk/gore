@@ -35,7 +35,6 @@ func TestStringer(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run("stringer_"+test.name, func(t *testing.T) {
-			t.Parallel()
 			assert.Equal(test.expected, test.obj.String())
 		})
 	}

@@ -332,7 +332,6 @@ func TestClassifyPackage(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run("classify_"+test.pkgsName, func(t *testing.T) {
-			t.Parallel()
 			pkg := &Package{
 				Filepath: test.pkgPath,
 				Name:     test.pkgsName,
@@ -390,7 +389,6 @@ func TestAthenaCase(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run("classify_"+test.pkgsName, func(t *testing.T) {
-			t.Parallel()
 			pkg := &Package{
 				Filepath: test.pkgPath,
 				Name:     test.pkgsName,

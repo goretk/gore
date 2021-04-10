@@ -31,7 +31,6 @@ func TestResolvingVersionFromTag(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run("resolve_tag_"+test.tag, func(t *testing.T) {
-			t.Parallel()
 			v := ResolveGoVersion(test.tag)
 			if test.expectingNil {
 				assert.Nil(v)
@@ -84,7 +83,6 @@ func TestVersionComparer(t *testing.T) {
 
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("Testing case %d", i+1), func(t *testing.T) {
-			t.Parallel()
 			assert.Equal(test.val, GoVersionCompare(test.a, test.b), fmt.Sprintf("Case %d failed", i+1))
 		})
 	}
