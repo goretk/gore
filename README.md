@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.org/goretk/gore.svg?branch=master)](https://travis-ci.org/goretk/gore)
 ![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/goretk/gore?label=release&sort=semver)
-[![codecov](https://codecov.io/gh/goretk/gore/branch/develop/graph/badge.svg)](https://codecov.io/gh/goretk/gore)
+[![codecov](https://codecov.io/gh/goretk/gore/branch/develop/graph/badge.svg?token=q68t8P9A98)](https://codecov.io/gh/goretk/gore)
 [![Go Report Card](https://goreportcard.com/badge/github.com/goretk/gore)](https://goreportcard.com/report/github.com/goretk/gore)
 [![Go Reference](https://pkg.go.dev/badge/github.com/goretk/gore.svg)](https://pkg.go.dev/github.com/goretk/gore)
 # GoRE - Package gore is a library for analyzing Go binaries
