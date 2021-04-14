@@ -7,10 +7,10 @@ package gore
 import (
 	"bytes"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"golang.org/x/arch/x86/x86asm"
+	"golang.org/x/mod/semver"
 )
 
 var goVersionMatcher = regexp.MustCompile(`(go[\d+\.]*(beta|rc)?[\d*])`)
@@ -45,142 +45,22 @@ func GoVersionCompare(a, b string) int {
 	if a == b {
 		return 0
 	}
+	return semver.Compare(buildSemVerString(a), buildSemVerString(b))
+}
 
-	aa := strings.Split(a, ".")
-	ab := strings.Split(b, ".")
+func buildSemVerString(v string) string {
+	// First remove the go prefix
+	tmp := strings.TrimPrefix(v, "go")
 
-	if aa[0][:2] != "go" && ab[0][:2] != "go" {
-		panic("Not a go version string")
+	// If it has a pre-release, we need to add a dash and patch version of 0.
+	if strings.Contains(tmp, "beta") {
+		tmp = strings.ReplaceAll(tmp, "beta", ".0-beta")
 	}
-	amaj, err := strconv.Atoi(aa[0][2:])
-	if err != nil {
-		panic(err)
-	}
-	bmaj, err := strconv.Atoi(ab[0][2:])
-	if err != nil {
-		panic(err)
-	}
-	if amaj < bmaj {
-		return -1
-	}
-	if amaj > bmaj {
-		return 1
+	if strings.Contains(tmp, "rc") {
+		tmp = strings.ReplaceAll(tmp, "rc", ".0-rc")
 	}
 
-	if len(aa) == 1 && amaj == bmaj {
-		// Same major version but a is x.0.0
-		return -1
-	}
-
-	if len(ab) == 1 && amaj == bmaj {
-		// Same major version but b is x.0.0
-		return 1
-	}
-
-	var min string
-	var abeta int
-	var arc int
-	var bbeta int
-	var brc int
-	if strings.Contains(aa[1], "beta") {
-		idx := strings.Index(aa[1], "beta")
-		min = aa[1][:idx]
-		abeta, err = strconv.Atoi(aa[1][idx+4:])
-		if err != nil {
-			panic(err)
-		}
-	} else if strings.Contains(aa[1], "rc") {
-		idx := strings.Index(aa[1], "rc")
-		min = aa[1][:idx]
-		arc, err = strconv.Atoi(aa[1][idx+2:])
-		if err != nil {
-			panic(err)
-		}
-	} else {
-		min = aa[1]
-	}
-	amin, err := strconv.Atoi(min)
-	if err != nil {
-		panic(err)
-	}
-	if strings.Contains(ab[1], "beta") {
-		idx := strings.Index(ab[1], "beta")
-		min = ab[1][:idx]
-		bbeta, err = strconv.Atoi(ab[1][idx+4:])
-		if err != nil {
-			panic(err)
-		}
-	} else if strings.Contains(ab[1], "rc") {
-		idx := strings.Index(ab[1], "rc")
-		min = ab[1][:idx]
-		brc, err = strconv.Atoi(ab[1][idx+2:])
-		if err != nil {
-			panic(err)
-		}
-	} else {
-		min = ab[1]
-	}
-	bmin, err := strconv.Atoi(min)
-	if err != nil {
-		panic(err)
-	}
-	if amin < bmin {
-		return -1
-	}
-	if amin > bmin {
-		return 1
-	}
-
-	// At this point major and minor version are matching.
-	if len(aa) > len(ab) {
-		// a has patch version, b doesn't.
-		return 1
-	}
-	if len(aa) < len(ab) {
-		// b has patch version, a doesn't.
-		return -1
-	}
-
-	// Compare patch versions.
-	if len(aa) == 3 && len(ab) == 3 {
-		apatch, err := strconv.Atoi(aa[2])
-		if err != nil {
-			panic(err)
-		}
-		bpatch, err := strconv.Atoi(ab[2])
-		if err != nil {
-			panic(err)
-		}
-		if apatch > bpatch {
-			return 1
-		}
-		return -1
-	}
-
-	// Compare beta, rc and x.x.0 version.
-	// x.x.0 version should have beta == 0 and rc == 0.
-	if abeta < bbeta {
-		if abeta != 0 {
-			return -1
-		}
-		return 1
-	}
-	if abeta > bbeta {
-		if bbeta != 0 {
-			return 1
-		}
-		return -1
-	}
-	if arc < brc {
-		if arc != 0 {
-			return -1
-		}
-		return 1
-	}
-	if brc != 0 {
-		return 1
-	}
-	return -1
+	return "v" + tmp
 }
 
 func findGoCompilerVersion(f *GoFile) (*GoVersion, error) {
