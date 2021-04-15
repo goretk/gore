@@ -120,6 +120,11 @@ func (c *PackageClassifier) Classify(pkg *Package) PackageClass {
 		return ClassGenerated
 	}
 
+	// Some internal stuff, classify it as Generated
+	if pkg.Filepath == "." && (pkg.Name == "__x86" || pkg.Name == "__i686") {
+		return ClassGenerated
+	}
+
 	// Detect internal/golang.org/x/net/http2/hpack type/
 	tmp = strings.Split(pkg.Name, "/golang.org")[0]
 	if len(tmp) < len(pkg.Name) && IsStandardLibrary(tmp) {
