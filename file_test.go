@@ -124,6 +124,22 @@ func TestGetPackages(t *testing.T) {
 			require.NotNil(f)
 			defer f.Close()
 
+			std, err := f.GetSTDLib()
+			assert.NoError(err)
+			assert.NotEmpty(std, "Should have a list of standard library packages.")
+
+			gen, err := f.GetGeneratedPackages()
+			assert.NoError(err)
+			assert.NotEmpty(gen, "Should have a list of generated packages.")
+
+			ven, err := f.GetVendors()
+			assert.NoError(err)
+			assert.Empty(ven, "Should not have a list of vendor packages.")
+
+			unk, err := f.GetUnknown()
+			assert.NoError(err)
+			assert.Empty(unk, "Should not have a list of unknown packages")
+
 			pkgs, err := f.GetPackages()
 			assert.NoError(err)
 
@@ -161,6 +177,22 @@ func TestGetPackages(t *testing.T) {
 			require.NoError(err)
 			require.NotNil(f)
 			defer f.Close()
+
+			std, err := f.GetSTDLib()
+			assert.NoError(err)
+			assert.NotEmpty(std, "Should have a list of standard library packages.")
+
+			gen, err := f.GetGeneratedPackages()
+			assert.NoError(err)
+			assert.NotEmpty(gen, "Should have a list of generated packages.")
+
+			ven, err := f.GetVendors()
+			assert.NoError(err)
+			assert.Empty(ven, "Should not have a list of vendor packages.")
+
+			unk, err := f.GetUnknown()
+			assert.NoError(err)
+			assert.Empty(unk, "Should not have a list of unknown packages")
 
 			pkgs, err := f.GetPackages()
 			assert.NoError(err)
