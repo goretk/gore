@@ -9,6 +9,7 @@ import (
 	"debug/gosym"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -87,6 +88,7 @@ type GoFile struct {
 	BuildID      string
 	fh           fileHandler
 	stdPkgs      []*Package
+	generated    []*Package
 	pkgs         []*Package
 	vendors      []*Package
 	unknown      []*Package
@@ -130,13 +132,14 @@ func (f *GoFile) SetGoVersion(version string) error {
 	return nil
 }
 
-// GetPackages returns the go packages in the binary.
+// GetPackages returns the go packages that has been classified as part of the main
+// project.
 func (f *GoFile) GetPackages() ([]*Package, error) {
 	err := f.init()
 	return f.pkgs, err
 }
 
-// GetVendors returns the vendor packages used by the binary.
+// GetVendors returns the 3rd party packages used by the binary.
 func (f *GoFile) GetVendors() ([]*Package, error) {
 	err := f.init()
 	return f.vendors, err
@@ -148,7 +151,14 @@ func (f *GoFile) GetSTDLib() ([]*Package, error) {
 	return f.stdPkgs, err
 }
 
-// GetUnknown returns unclassified packages used by the binary.
+// GetGeneratedPackages returns the compiler generated packages used by the binary.
+func (f *GoFile) GetGeneratedPackages() ([]*Package, error) {
+	err := f.init()
+	return f.generated, err
+}
+
+// GetUnknown returns unclassified packages used by the binary. This is a catch all
+// category when the classification could not be determined.
 func (f *GoFile) GetUnknown() ([]*Package, error) {
 	err := f.init()
 	return f.unknown, err
@@ -222,7 +232,12 @@ func (f *GoFile) enumPackages() error {
 	}
 	allpkgs.Sort()
 
-	classifier := NewPackageClassifier(pkgs["main"].Filepath)
+	mainPkg, ok := pkgs["main"]
+	if !ok {
+		return fmt.Errorf("no main package found")
+	}
+
+	classifier := NewPackageClassifier(mainPkg.Filepath)
 
 	for n, p := range pkgs {
 		p.Name = n
@@ -236,6 +251,8 @@ func (f *GoFile) enumPackages() error {
 			f.pkgs = append(f.pkgs, p)
 		case ClassUnknown:
 			f.unknown = append(f.unknown, p)
+		case ClassGenerated:
+			f.generated = append(f.generated, p)
 		}
 	}
 	return nil
