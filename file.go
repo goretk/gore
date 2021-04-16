@@ -178,7 +178,9 @@ func findSourceLines(entry, end uint64, tab *gosym.Table) (int, int) {
 	// for us to tell this is the case.
 	srcEnd := srcStart
 
-	for i := entry; i <= end; i++ {
+	// We take a shortcut and only check every 4 bytes. This isn't perfect, but it speeds
+	// up the processes.
+	for i := entry; i <= end; i = i + 4 {
 		f, l, _ := tab.PCToLine(i)
 
 		// If this line is a different file, it's an inlined function so just continue.
