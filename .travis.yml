@@ -14,7 +14,7 @@ before_install:
 
 script:
   - go build -o a
-  - go test -v -race -coverprofile=coverage.txt -covermode=atomic
+  - go test -v -race -coverprofile=coverage.txt -covermode=atomic 2>&1
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
