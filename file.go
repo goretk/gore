@@ -72,10 +72,14 @@ func Open(filePath string) (*GoFile, error) {
 	}
 	gofile.FileInfo = gofile.fh.getFileInfo()
 
+	// If the ID has been removed or tampered with, this will fail. If we can't
+	// get a build ID, we skip it.
 	buildID, err := gofile.fh.getBuildID()
-	gofile.BuildID = buildID
+	if err == nil {
+		gofile.BuildID = buildID
+	}
 
-	return gofile, err
+	return gofile, nil
 }
 
 // GoFile is a structure representing a go binary file.
