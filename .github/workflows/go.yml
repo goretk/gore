@@ -1,0 +1,33 @@
+name: Go
+
+on:
+  push:
+    branches: [ develop, master ]
+  pull_request:
+    branches: [ develop, master ]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16
+
+    - name: Download test resources
+      run: ./testdata/helper.sh fetch
+    
+    - name: Build
+      run: go build -o a
+
+    - name: Test
+      run: go test -timeout 1800s -v -race -coverprofile=coverage.txt -covermode=atomic
+      
+    - name: Codecov
+      # You may pin to the exact commit or the version.
+      # uses: codecov/codecov-action@29386c70ef20e286228c72b668a06fd0e8399192
+      uses: codecov/codecov-action@v1.5.2
