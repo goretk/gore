@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/goretk/gore.svg?branch=master)](https://travis-ci.org/goretk/gore)
+[![Build Status](https://github.com/goretk/gore/actions/workflows/go.yml/badge.svg)](https://github.com/goretk/gore/actions/workflows/go.yml)
 ![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/goretk/gore?label=release&sort=semver)
 [![codecov](https://codecov.io/gh/goretk/gore/branch/develop/graph/badge.svg?token=q68t8P9A98)](https://codecov.io/gh/goretk/gore)
 [![Go Report Card](https://goreportcard.com/badge/github.com/goretk/gore)](https://goreportcard.com/report/github.com/goretk/gore)
