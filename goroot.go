@@ -242,8 +242,11 @@ pkgLoop:
 }
 
 func findGoRootPath(f *GoFile) (string, error) {
-	fileInfo := f.FileInfo
-	if GoVersionCompare("go1.16beta1", fileInfo.goversion.Name) >= 0 {
+	goversion, err := f.GetCompilerVersion()
+	if err != nil {
+		return "", err
+	}
+	if GoVersionCompare("go1.16beta1", goversion.Name) < 0 {
 		return tryFromTimeInit(f)
 	} else {
 		return tryFromGOROOT(f)
