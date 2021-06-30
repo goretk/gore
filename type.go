@@ -246,6 +246,9 @@ func StructDef(typ *GoType) string {
 		} else {
 			buf += fmt.Sprintf("\n\t%s %s", f.FieldName, f)
 		}
+		if f.FieldTag != "" {
+			buf += "\t`" + f.FieldTag + "`"
+		}
 	}
 	if len(typ.Fields) > 0 {
 		buf += "\n"
@@ -803,6 +806,9 @@ func resolveName(sectionData []byte, offset uint64, flags uint8) (string, int) {
 }
 
 func resolveTag(offset, nameLen int, sectionData []byte) string {
+	if sectionData[offset]&(1<<1) == 0 {
+		return ""
+	}
 	o := offset + 3 + nameLen
 	tl := int(uint16(sectionData[o])<<8 | uint16(sectionData[o+1]))
 	if tl == 0 {
