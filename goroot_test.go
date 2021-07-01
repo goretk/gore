@@ -33,8 +33,8 @@ func TestExtractGoRoot(t *testing.T) {
 			f, err := Open(fp)
 			r.NoError(err)
 			defer f.Close()
-			goroot, err := findGoRootPath(f)
-			r.NotNil(err)
+			goroot, err := f.GetGoRoot()
+			r.NoError(err)
 			r.Equal(expectGoRoot, goroot)
 		})
 	}
