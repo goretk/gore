@@ -1,21 +1,15 @@
+// Copyright 2019 The GoRE.tk Authors. All rights reserved.
+// Use of this source code is governed by the license that
+// can be found in the LICENSE file.
+
 package gore
 
 import (
 	"bytes"
-	"errors"
 	"golang.org/x/arch/x86/x86asm"
 	"reflect"
-	"unicode"
+	"unicode/utf8"
 )
-
-func isASCII(s string) bool {
-	for _, c := range s {
-		if c > unicode.MaxASCII {
-			return false
-		}
-	}
-	return true
-}
 
 func tryFromGOROOT(f *GoFile) (string, error) {
 	// Check for non supported architectures.
@@ -28,7 +22,7 @@ func tryFromGOROOT(f *GoFile) (string, error) {
 		is32 = true
 	}
 
-	// Find shedinit function.
+	// Find runtime.GOROOT function.
 	var fcn *Function
 	std, err := f.GetSTDLib()
 	if err != nil {
@@ -52,7 +46,7 @@ pkgLoop:
 	// Check if the functions was found
 	if fcn == nil {
 		// If we can't find the function there is nothing to do.
-		return "", nil
+		return "", ErrNoGoRootFound
 	}
 	// Get the raw hex.
 	buf, err := f.Bytes(fcn.Offset, fcn.End-fcn.Offset)
@@ -73,7 +67,7 @@ pkgLoop:
 		// Update next instruction location.
 		s = s + inst.Len
 
-		// Check if it's a "lea" instruction.
+		// Check if it's a "mov" instruction.
 		if inst.Op != x86asm.MOV {
 			continue
 		}
@@ -81,14 +75,14 @@ pkgLoop:
 			continue
 		}
 		arg := inst.Args[1].(x86asm.Mem)
-		// Check what it's loading and if it's pointing to the compiler version used.
+
 		// First assume that the address is a direct addressing.
-		//
 		addr := arg.Disp
 		if arg.Base == x86asm.EIP || arg.Base == x86asm.RIP {
 			// If the addressing is based on the instruction pointer, fix the address.
 			addr = addr + int64(fcn.Offset) + int64(s)
 		} else if arg.Base == 0 && arg.Disp > 0 {
+			// In order to support x32 direct addressing
 		} else {
 			continue
 		}
@@ -122,12 +116,12 @@ pkgLoop:
 			continue
 		}
 		ver := string(bstr)
-		if !isASCII(ver) {
-			return "", nil
+		if !utf8.ValidString(ver) {
+			return "", ErrNoGoRootFound
 		}
 		return ver, nil
 	}
-	return "", errors.New("not found GoRoot")
+	return "", ErrNoGoRootFound
 }
 
 func tryFromTimeInit(f *GoFile) (string, error) {
@@ -141,7 +135,7 @@ func tryFromTimeInit(f *GoFile) (string, error) {
 		is32 = true
 	}
 
-	// Find shedinit function.
+	// Find time.init function.
 	var fcn *Function
 	std, err := f.GetSTDLib()
 	if err != nil {
@@ -165,7 +159,7 @@ pkgLoop:
 	// Check if the functions was found
 	if fcn == nil {
 		// If we can't find the function there is nothing to do.
-		return "", nil
+		return "", ErrNoGoRootFound
 	}
 	// Get the raw hex.
 	buf, err := f.Bytes(fcn.Offset, fcn.End-fcn.Offset)
@@ -186,7 +180,7 @@ pkgLoop:
 		// Update next instruction location.
 		s = s + inst.Len
 
-		// Check if it's a "lea" instruction.
+		// Check if it's a "mov" instruction.
 		if inst.Op != x86asm.MOV {
 			continue
 		}
@@ -198,14 +192,14 @@ pkgLoop:
 			continue
 		}
 		arg := inst.Args[1].(x86asm.Mem)
-		// Check what it's loading and if it's pointing to the compiler version used.
+
 		// First assume that the address is a direct addressing.
-		//
 		addr := arg.Disp
 		if arg.Base == x86asm.EIP || arg.Base == x86asm.RIP {
 			// If the addressing is based on the instruction pointer, fix the address.
 			addr = addr + int64(fcn.Offset) + int64(s)
 		} else if arg.Base == 0 && arg.Disp > 0 {
+			// In order to support x32 direct addressing
 		} else {
 			continue
 		}
@@ -233,22 +227,24 @@ pkgLoop:
 			continue
 		}
 		ver := string(bstr)
-		if !isASCII(ver) {
-			return "", nil
+		if !utf8.ValidString(ver) {
+			return "", ErrNoGoRootFound
 		}
 		return ver, nil
 	}
-	return "", errors.New("not found GoRoot")
+	return "", ErrNoGoRootFound
 }
 
 func findGoRootPath(f *GoFile) (string, error) {
-	goversion, err := f.GetCompilerVersion()
+	var goroot string
+	// There is no GOROOT function may be inlined (after go1.16)
+	// at this time GOROOT is obtained through time_init function
+	goroot, err := tryFromGOROOT(f)
 	if err != nil {
+		if err == ErrNoGoRootFound {
+			return tryFromTimeInit(f)
+		}
 		return "", err
 	}
-	if GoVersionCompare("go1.16beta1", goversion.Name) < 0 {
-		return tryFromTimeInit(f)
-	} else {
-		return tryFromGOROOT(f)
-	}
+	return goroot, nil
 }

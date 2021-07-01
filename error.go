@@ -20,4 +20,6 @@ var (
 	// ErrInvalidGoVersion is returned if the go version set for the file is either invalid
 	// or does not match a known version by the library.
 	ErrInvalidGoVersion = errors.New("invalid go version")
+	// ErrNoGoRootFound is returned if no goroot was found in the binary.
+	ErrNoGoRootFound = errors.New("no goroot found")
 )
