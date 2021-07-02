@@ -146,6 +146,13 @@ func TestGetTypes(t *testing.T) {
 
 					complexStructTested = true
 				}
+
+				if typ.Name == "cpu.option" && typ.PackagePath == "" &&
+					GoVersionCompare(f.FileInfo.goversion.Name, "go1.7beta1") >= 0 {
+					for _, field := range typ.Fields {
+						assert.Equal("", field.FieldTag, "Field Tag should be empty")
+					}
+				}
 			}
 			if GoVersionCompare(f.FileInfo.goversion.Name, "go1.7beta1") >= 0 {
 				assert.True(complexStructTested, "myComplexStruct was not found")
@@ -252,6 +259,12 @@ func TestStructDef(t *testing.T) {
 				{FieldName: "myFunc", Kind: reflect.Func, FuncArgs: []*GoType{{Kind: reflect.String}, {Kind: reflect.Int}}, FuncReturnVals: []*GoType{{Kind: reflect.Uint}}},
 				{FieldAnon: true, Kind: reflect.Struct, Name: "embeddedType"},
 			}}, complexStructWithAnonDef},
+		{&GoType{
+			Kind: reflect.Struct,
+			Name: "myStruct",
+			Fields: []*GoType{
+				{FieldName: "myString", Kind: reflect.String, FieldTag: `json:"String"`},
+			}}, structWithFieldTag},
 	}
 	for _, test := range tests {
 		assert.Equal(test.expected, StructDef(test.typ))
@@ -327,6 +340,10 @@ const complexStructWithAnonDef = `type myComplexStruct struct{
 	myFunc func(string, int) uint
 	embeddedType
 }`
+
+const structWithFieldTag = "type myStruct struct{\n" +
+	"	myString string	`json:\"String\"`\n" +
+	"}"
 
 const ifDef = `type geometry interface {
 	area() float64
