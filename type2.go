@@ -26,6 +26,7 @@ func newTypeParser(typesData []byte, baseAddres uint64, fi *FileInfo) *typeParse
 		cache:     make(map[uint64]*GoType),
 		typesData: typesData,
 		r:         bytes.NewReader(typesData),
+		version:   fi.goversion.Name,
 	}
 
 	if fi.WordSize == 8 {
@@ -82,6 +83,9 @@ type typeParser struct {
 	// located.
 	typesData []byte
 
+	// version is the compiler version.
+	version string
+
 	// Parse functions
 
 	parseArrayType       arrayTypeParseFunc
@@ -98,8 +102,49 @@ type typeParser struct {
 	parseUncommon        uncommonTypeParseFunc
 }
 
+func (p *typeParser) hasTag(off uint64) bool {
+	return p.typesData[off]&(1<<1) != 0
+}
+
 func (p *typeParser) resolveName(ptr uint64, flags uint8) (string, int) {
-	return resolveName(p.typesData, ptr, flags)
+	if GoVersionCompare(p.version, "go1.17beta1") < 0 {
+		// before go1.17, the length of name used fixed 2-byte encoding.
+		return resolveName(p.typesData, ptr, flags)
+	} else {
+		// go1.17, the length of name used variant encoding.
+		i, l := binary.Uvarint(p.typesData[ptr+1:])
+		name := string(p.typesData[ptr+1+uint64(l) : ptr+1+uint64(l)+i])
+		nl := int(i)
+
+		if flags&tflagExtraStar != 0 {
+			// typ.Name = strData[1:]
+			return name[1:], nl - 1
+		}
+		return name, nl
+	}
+}
+
+func (p *typeParser) resolveTag(o uint64) string {
+	var (
+		nl, nll = uint64(0), 2
+		tl, tll = uint64(0), 2
+	)
+	if !p.hasTag(o) {
+		return ""
+	}
+	if GoVersionCompare(p.version, "go1.17beta1") < 0 {
+		// before go1.17, the length of tag used fixed 2-byte encoding.
+		nl = uint64(uint16(p.typesData[o+1])<<8 | uint16(p.typesData[o+2]))
+		tl = uint64(uint16(p.typesData[o+nl+3])<<8 | uint16(p.typesData[o+nl+4]))
+	} else {
+		nl, nll = binary.Uvarint(p.typesData[o+1:])
+		tl, tll = binary.Uvarint(p.typesData[o+1+uint64(nll)+nl:])
+	}
+	o += 1 + nl + uint64(nll+tll)
+	if tl > 0 {
+		return string(p.typesData[o : o+tl])
+	}
+	return ""
 }
 
 func (p *typeParser) readType(obj interface{}) (int, error) {
@@ -510,7 +555,7 @@ func (p *typeParser) parseType(address uint64) (*GoType, error) {
 				field.FieldName = name
 
 				if nl != 0 {
-					field.FieldTag = resolveTag(int(sf.Name-p.base), nl, p.typesData)
+					field.FieldTag = p.resolveTag(sf.Name - p.base)
 				}
 				field.FieldAnon = name == "" || sf.OffsetEmbed&1 != 0
 

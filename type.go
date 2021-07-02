@@ -805,16 +805,6 @@ func resolveName(sectionData []byte, offset uint64, flags uint8) (string, int) {
 	return strData, nl
 }
 
-func resolveTag(offset, nameLen int, sectionData []byte) string {
-	o := offset + 3 + nameLen
-	noTag := sectionData[offset]&(1<<1) == 0
-	tl := int(uint16(sectionData[o])<<8 | uint16(sectionData[o+1]))
-	if noTag || tl == 0 {
-		return ""
-	}
-	return string(sectionData[o+2 : o+2+tl])
-}
-
 func typeOffset(fileInfo *FileInfo, field _typeField) int64 {
 	intSize := intSize64
 	if fileInfo.WordSize == intSize32 {
