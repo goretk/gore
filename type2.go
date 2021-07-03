@@ -59,6 +59,15 @@ func newTypeParser(typesData []byte, baseAddres uint64, fi *FileInfo) *typeParse
 		p.parseUncommon = uncommonTypeParseFunc64
 	}
 
+	if GoVersionCompare(fi.goversion.Name, "go1.17beta1") < 0 {
+		// before go1.17, the length of tag used fixed 2-byte encoding.
+		p.parseNameLen = nameLenParseFuncTwoByteFixed
+	} else {
+		// See https://golang.org/cl/318249.
+		// Go1.17 switch to using varint encoding.
+		p.parseNameLen = nameLenParseFuncVarint
+	}
+
 	return p
 }
 
@@ -96,10 +105,38 @@ type typeParser struct {
 	parseStructType      structTypeParseFunc
 	parseUint            readUintFunc
 	parseUncommon        uncommonTypeParseFunc
+	parseNameLen         nameLenParseFunc
+}
+
+func (p *typeParser) hasTag(off uint64) bool {
+	return p.typesData[off]&(1<<1) != 0
 }
 
 func (p *typeParser) resolveName(ptr uint64, flags uint8) (string, int) {
-	return resolveName(p.typesData, ptr, flags)
+	i, l := p.parseNameLen(p, ptr+1)
+	name := string(p.typesData[ptr+1+uint64(l) : ptr+1+uint64(l)+i])
+	nl := int(i)
+	if nl == 0 {
+		return "", 0
+	}
+	if flags&tflagExtraStar != 0 {
+		// typ.Name = strData[1:]
+		return name[1:], nl - 1
+	}
+	return name, nl
+}
+
+func (p *typeParser) resolveTag(o uint64) string {
+	if !p.hasTag(o) {
+		return ""
+	}
+	nl, nll := p.parseNameLen(p, o+1)
+	tl, tll := p.parseNameLen(p, o+1+nl+uint64(nll))
+	if tl == 0 {
+		return ""
+	}
+	o += 1 + nl + uint64(nll+tll)
+	return string(p.typesData[o : o+tl])
 }
 
 func (p *typeParser) readType(obj interface{}) (int, error) {
@@ -510,7 +547,7 @@ func (p *typeParser) parseType(address uint64) (*GoType, error) {
 				field.FieldName = name
 
 				if nl != 0 {
-					field.FieldTag = resolveTag(int(sf.Name-p.base), nl, p.typesData)
+					field.FieldTag = p.resolveTag(sf.Name - p.base)
 				}
 				field.FieldAnon = name == "" || sf.OffsetEmbed&1 != 0
 
@@ -800,6 +837,16 @@ var uncommonTypeParseFunc17Beta1 = func(p *typeParser) (uncommonType, int, error
 		Mcount:  typ.Mcount,
 		Moff:    uint32(typ.Moff),
 	}, c, err
+}
+
+type nameLenParseFunc func(p *typeParser, offset uint64) (uint64, int)
+
+var nameLenParseFuncTwoByteFixed = func(p *typeParser, offset uint64) (uint64, int) {
+	return uint64(uint16(p.typesData[offset])<<8 | uint16(p.typesData[offset+1])), 2
+}
+
+var nameLenParseFuncVarint = func(p *typeParser, offset uint64) (uint64, int) {
+	return binary.Uvarint(p.typesData[offset:])
 }
 
 /*
