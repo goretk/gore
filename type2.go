@@ -19,6 +19,8 @@ import (
 */
 
 func newTypeParser(typesData []byte, baseAddres uint64, fi *FileInfo) *typeParser {
+	goversion := fi.goversion.Name
+
 	p := &typeParser{
 		base:      baseAddres,
 		order:     fi.ByteOrder,
@@ -34,22 +36,42 @@ func newTypeParser(typesData []byte, baseAddres uint64, fi *FileInfo) *typeParse
 		p.parseFuncType = funcTypeParseFunc64
 		p.parseIMethod = imethodTypeParseFunc64
 		p.parseInterface = interfaceTypeParseFunc64
-		p.parseMap = mapTypeParseFunc64
 		p.parseRtype = rtypeParseFunc64
 		p.parseStructFieldType = structFieldTypeParseFunc64
 		p.parseStructType = structTypeParseFunc64
 		p.parseUint = readUintFunc64
+
+		// Use the correct map parser based on Go version.
+		if GoVersionCompare(goversion, "go1.11beta1") < 0 {
+			p.parseMap = mapTypeParseFunc1764
+		} else if GoVersionCompare(goversion, "go1.12beta1") < 0 {
+			p.parseMap = mapTypeParseFunc1164
+		} else if GoVersionCompare(goversion, "go1.14beta1") < 0 {
+			p.parseMap = mapTypeParseFunc1264
+		} else {
+			p.parseMap = mapTypeParseFunc64
+		}
 	} else {
 		p.parseArrayType = arrayTypeParseFunc32
 		p.parseChanType = chanTypeParseFunc32
 		p.parseFuncType = funcTypeParseFunc32
 		p.parseIMethod = imethodTypeParseFunc64
 		p.parseInterface = interfaceTypeParseFunc32
-		p.parseMap = mapTypeParseFunc32
 		p.parseRtype = rtypeParseFunc32
 		p.parseStructFieldType = structFieldTypeParseFunc32
 		p.parseStructType = structTypeParseFunc32
 		p.parseUint = readUintFunc32
+
+		// Use the correct map parser based on Go version.
+		if GoVersionCompare(goversion, "go1.11beta1") < 0 {
+			p.parseMap = mapTypeParseFunc1732
+		} else if GoVersionCompare(goversion, "go1.12beta1") < 0 {
+			p.parseMap = mapTypeParseFunc1132
+		} else if GoVersionCompare(goversion, "go1.14beta1") < 0 {
+			p.parseMap = mapTypeParseFunc1232
+		} else {
+			p.parseMap = mapTypeParseFunc32
+		}
 	}
 
 	p.parseMethod = methodParseFunc64
@@ -707,6 +729,114 @@ var mapTypeParseFunc32 = func(p *typeParser) (mapType, int, error) {
 	}, c, err
 }
 
+// Map parser for Go 1.7 to 1.10 (64 bit)
+var mapTypeParseFunc1764 = func(p *typeParser) (mapType, int, error) {
+	var typ mapTypeGo1764
+	c, err := p.readType(&typ)
+	if err != nil {
+		return mapType{}, c, err
+	}
+
+	return mapType{
+		Key:        typ.Key,
+		Elem:       typ.Elem,
+		Bucket:     typ.Bucket,
+		Keysize:    typ.Keysize,
+		Valuesize:  typ.Valuesize,
+		Bucketsize: typ.Bucketsize,
+	}, c, err
+}
+
+// Map parser for Go 1.7 to 1.10 (32 bit)
+var mapTypeParseFunc1732 = func(p *typeParser) (mapType, int, error) {
+	var typ mapTypeGo1732
+	c, err := p.readType(&typ)
+	if err != nil {
+		return mapType{}, c, err
+	}
+
+	return mapType{
+		Key:        uint64(typ.Key),
+		Elem:       uint64(typ.Elem),
+		Bucket:     uint64(typ.Bucket),
+		Keysize:    typ.Keysize,
+		Valuesize:  typ.Valuesize,
+		Bucketsize: typ.Bucketsize,
+	}, c, err
+}
+
+// Map parser for Go 1.11 (64 bit)
+var mapTypeParseFunc1164 = func(p *typeParser) (mapType, int, error) {
+	var typ mapTypeGo1164
+	c, err := p.readType(&typ)
+	if err != nil {
+		return mapType{}, c, err
+	}
+
+	return mapType{
+		Key:        typ.Key,
+		Elem:       typ.Elem,
+		Bucket:     typ.Bucket,
+		Keysize:    typ.Keysize,
+		Valuesize:  typ.Valuesize,
+		Bucketsize: typ.Bucketsize,
+	}, c, err
+}
+
+// Map parser for Go 1.11 (32 bit)
+var mapTypeParseFunc1132 = func(p *typeParser) (mapType, int, error) {
+	var typ mapTypeGo1132
+	c, err := p.readType(&typ)
+	if err != nil {
+		return mapType{}, c, err
+	}
+
+	return mapType{
+		Key:        uint64(typ.Key),
+		Elem:       uint64(typ.Elem),
+		Bucket:     uint64(typ.Bucket),
+		Keysize:    typ.Keysize,
+		Valuesize:  typ.Valuesize,
+		Bucketsize: typ.Bucketsize,
+	}, c, err
+}
+
+// Map parser for Go 1.12 and 1.13 (64 bit)
+var mapTypeParseFunc1264 = func(p *typeParser) (mapType, int, error) {
+	var typ mapTypeGo1264
+	c, err := p.readType(&typ)
+	if err != nil {
+		return mapType{}, c, err
+	}
+
+	return mapType{
+		Key:        typ.Key,
+		Elem:       typ.Elem,
+		Bucket:     typ.Bucket,
+		Keysize:    typ.Keysize,
+		Valuesize:  typ.Valuesize,
+		Bucketsize: typ.Bucketsize,
+	}, c, err
+}
+
+// Map parser for Go 1.12 and 1.13 (32 bit)
+var mapTypeParseFunc1232 = func(p *typeParser) (mapType, int, error) {
+	var typ mapTypeGo1232
+	c, err := p.readType(&typ)
+	if err != nil {
+		return mapType{}, c, err
+	}
+
+	return mapType{
+		Key:        uint64(typ.Key),
+		Elem:       uint64(typ.Elem),
+		Bucket:     uint64(typ.Bucket),
+		Keysize:    typ.Keysize,
+		Valuesize:  typ.Valuesize,
+		Bucketsize: typ.Bucketsize,
+	}, c, err
+}
+
 // method
 
 type methodParseFunc func(p *typeParser) (method, int, error)
@@ -945,6 +1075,7 @@ type interfaceType32 struct {
 	MethodsCap uint32
 }
 
+// Map structure used for Go 1.14 to current.
 type mapType struct {
 	Key        uint64
 	Elem       uint64
@@ -961,6 +1092,83 @@ type mapType32 struct {
 	Elem       uint32
 	Bucket     uint32
 	Hasher     uint32
+	Keysize    uint8
+	Valuesize  uint8
+	Bucketsize uint16
+	Flags      uint32
+}
+
+// Map structure for Go 1.7 to Go 1.10
+type mapTypeGo1764 struct {
+	Key           uint64
+	Elem          uint64
+	Bucket        uint64
+	Hmap          uint64
+	Keysize       uint8
+	Indirectkey   uint8
+	Valuesize     uint8
+	Indirectvalue uint8
+	Bucketsize    uint16
+	Reflexivekey  bool
+	Needkeyupdate bool
+}
+
+type mapTypeGo1732 struct {
+	Key           uint32
+	Elem          uint32
+	Bucket        uint32
+	Hmap          uint32
+	Keysize       uint8
+	Indirectkey   uint8
+	Valuesize     uint8
+	Indirectvalue uint8
+	Bucketsize    uint16
+	Reflexivekey  bool
+	Needkeyupdate bool
+}
+
+// Map structure used for Go 1.11
+type mapTypeGo1164 struct {
+	Key           uint64
+	Elem          uint64
+	Bucket        uint64
+	Keysize       uint8
+	Indirectkey   uint8
+	Valuesize     uint8
+	Indirectvalue uint8
+	Bucketsize    uint16
+	Reflexivekey  bool
+	Needkeyupdate bool
+}
+
+type mapTypeGo1132 struct {
+	Key           uint32
+	Elem          uint32
+	Bucket        uint32
+	Keysize       uint8
+	Indirectkey   uint8
+	Valuesize     uint8
+	Indirectvalue uint8
+	Bucketsize    uint16
+	Reflexivekey  bool
+	Needkeyupdate bool
+}
+
+// Map structure used for Go 1.12 and Go 1.13
+type mapTypeGo1264 struct {
+	Key        uint64
+	Elem       uint64
+	Bucket     uint64
+	Keysize    uint8
+	Valuesize  uint8
+	Bucketsize uint16
+	Flags      uint32
+}
+
+type mapTypeGo1232 struct {
+	Key        uint32
+	Elem       uint32
+	Bucket     uint32
 	Keysize    uint8
 	Valuesize  uint8
 	Bucketsize uint16
