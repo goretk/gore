@@ -91,9 +91,6 @@ type typeParser struct {
 	// located.
 	typesData []byte
 
-	// version is the compiler version.
-	version string
-
 	// Parse functions
 
 	parseArrayType       arrayTypeParseFunc
