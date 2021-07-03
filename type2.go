@@ -26,7 +26,6 @@ func newTypeParser(typesData []byte, baseAddres uint64, fi *FileInfo) *typeParse
 		cache:     make(map[uint64]*GoType),
 		typesData: typesData,
 		r:         bytes.NewReader(typesData),
-		version:   fi.goversion.Name,
 	}
 
 	if fi.WordSize == 8 {
@@ -58,6 +57,15 @@ func newTypeParser(typesData []byte, baseAddres uint64, fi *FileInfo) *typeParse
 		p.parseUncommon = uncommonTypeParseFunc17Beta1
 	} else {
 		p.parseUncommon = uncommonTypeParseFunc64
+	}
+
+	if GoVersionCompare(fi.goversion.Name, "go1.17beta1") < 0 {
+		// before go1.17, the length of tag used fixed 2-byte encoding.
+		p.parseNameLen = nameLenParseFuncTwoByteFixed
+	} else {
+		// See https://golang.org/cl/318249.
+		// Go1.17 switch to using varint encoding.
+		p.parseNameLen = nameLenParseFuncVarint
 	}
 
 	return p
@@ -100,6 +108,7 @@ type typeParser struct {
 	parseStructType      structTypeParseFunc
 	parseUint            readUintFunc
 	parseUncommon        uncommonTypeParseFunc
+	parseNameLen         nameLenParseFunc
 }
 
 func (p *typeParser) hasTag(off uint64) bool {
@@ -107,44 +116,30 @@ func (p *typeParser) hasTag(off uint64) bool {
 }
 
 func (p *typeParser) resolveName(ptr uint64, flags uint8) (string, int) {
-	if GoVersionCompare(p.version, "go1.17beta1") < 0 {
-		// before go1.17, the length of name used fixed 2-byte encoding.
-		return resolveName(p.typesData, ptr, flags)
-	} else {
-		// go1.17, the length of name used variant encoding.
-		i, l := binary.Uvarint(p.typesData[ptr+1:])
-		name := string(p.typesData[ptr+1+uint64(l) : ptr+1+uint64(l)+i])
-		nl := int(i)
-
-		if flags&tflagExtraStar != 0 {
-			// typ.Name = strData[1:]
-			return name[1:], nl - 1
-		}
-		return name, nl
+	i, l := p.parseNameLen(p, ptr+1)
+	name := string(p.typesData[ptr+1+uint64(l) : ptr+1+uint64(l)+i])
+	nl := int(i)
+	if nl == 0 {
+		return "", 0
 	}
+	if flags&tflagExtraStar != 0 {
+		// typ.Name = strData[1:]
+		return name[1:], nl - 1
+	}
+	return name, nl
 }
 
 func (p *typeParser) resolveTag(o uint64) string {
-	var (
-		nl, nll = uint64(0), 2
-		tl, tll = uint64(0), 2
-	)
 	if !p.hasTag(o) {
 		return ""
 	}
-	if GoVersionCompare(p.version, "go1.17beta1") < 0 {
-		// before go1.17, the length of tag used fixed 2-byte encoding.
-		nl = uint64(uint16(p.typesData[o+1])<<8 | uint16(p.typesData[o+2]))
-		tl = uint64(uint16(p.typesData[o+nl+3])<<8 | uint16(p.typesData[o+nl+4]))
-	} else {
-		nl, nll = binary.Uvarint(p.typesData[o+1:])
-		tl, tll = binary.Uvarint(p.typesData[o+1+uint64(nll)+nl:])
+	nl, nll := p.parseNameLen(p, o+1)
+	tl, tll := p.parseNameLen(p, o+1+nl+uint64(nll))
+	if tl == 0 {
+		return ""
 	}
 	o += 1 + nl + uint64(nll+tll)
-	if tl > 0 {
-		return string(p.typesData[o : o+tl])
-	}
-	return ""
+	return string(p.typesData[o : o+tl])
 }
 
 func (p *typeParser) readType(obj interface{}) (int, error) {
@@ -845,6 +840,16 @@ var uncommonTypeParseFunc17Beta1 = func(p *typeParser) (uncommonType, int, error
 		Mcount:  typ.Mcount,
 		Moff:    uint32(typ.Moff),
 	}, c, err
+}
+
+type nameLenParseFunc func(p *typeParser, offset uint64) (uint64, int)
+
+var nameLenParseFuncTwoByteFixed = func(p *typeParser, offset uint64) (uint64, int) {
+	return uint64(uint16(p.typesData[offset])<<8 | uint16(p.typesData[offset+1])), 2
+}
+
+var nameLenParseFuncVarint = func(p *typeParser, offset uint64) (uint64, int) {
+	return binary.Uvarint(p.typesData[offset:])
 }
 
 /*

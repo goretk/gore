@@ -790,21 +790,6 @@ func parseMethods(r *bytes.Reader, fileInfo *FileInfo, sectionData []byte, secti
 	return methods
 }
 
-// Helper function to resolve the type name.
-func resolveName(sectionData []byte, offset uint64, flags uint8) (string, int) {
-	// TODO(jk): Add bounds check.
-	nl := int(uint16(sectionData[offset+1])<<8 | uint16(sectionData[offset+2]))
-	if nl == 0 {
-		return "", 0
-	}
-	strData := string(sectionData[offset+uint64(3) : offset+uint64(3)+uint64(nl)])
-	if flags&tflagExtraStar != 0 {
-		// typ.Name = strData[1:]
-		return strData[1:], nl - 1
-	}
-	return strData, nl
-}
-
 func typeOffset(fileInfo *FileInfo, field _typeField) int64 {
 	intSize := intSize64
 	if fileInfo.WordSize == intSize32 {
