@@ -121,6 +121,85 @@ pkgLoop:
 		}
 		return ver, nil
 	}
+
+	// for go version vary from 1.5 to 1.9
+	s = 0
+	for s < len(buf) {
+		var leaInst, movInst, movInst2, addInst, retInst x86asm.Inst
+		var err error
+		// We must find an instruction set of the form
+
+		//.text:00405DB3                 lea     eax, loc_4A5B32          // goroot string
+		//.text:00405DB9                 mov     [esp+10h+_r0.str], eax
+		//.text:00405DBD                 mov     [esp+10h+_r0.len], 0Dh   // goroot length
+		//.text:00405DC5                 add     esp, 10h
+		//.text:00405DC8                 retn
+
+		leaInst, err = x86asm.Decode(buf[s:], mode)
+		if err != nil {
+			return "", nil
+		}
+		s = s + leaInst.Len
+		if leaInst.Op != x86asm.LEA {
+			continue
+		}
+		arg := leaInst.Args[1].(x86asm.Mem)
+		if arg.Base == x86asm.ESP || arg.Base == x86asm.RSP {
+			continue
+		}
+		addr := arg.Disp
+		if arg.Base == x86asm.EIP || arg.Base == x86asm.RIP {
+			// If the addressing is based on the instruction pointer, fix the address.
+			addr = addr + int64(fcn.Offset) + int64(s)
+		} else if arg.Base == 0 && arg.Disp > 0 {
+			// In order to support x32 direct addressing
+		} else {
+			continue
+		}
+		movInst, err = x86asm.Decode(buf[s:], mode)
+		if err != nil {
+			return "", nil
+		}
+		s = s + movInst.Len
+		if movInst.Op != x86asm.MOV {
+			continue
+		}
+		movInst2, err = x86asm.Decode(buf[s:], mode)
+		if err != nil {
+			return "", nil
+		}
+		s = s + movInst2.Len
+		if movInst2.Op != x86asm.MOV {
+			continue
+		}
+		addInst, err = x86asm.Decode(buf[s:], mode)
+		if err != nil {
+			return "", nil
+		}
+		s = s + addInst.Len
+		if addInst.Op != x86asm.ADD {
+			continue
+		}
+		retInst, err = x86asm.Decode(buf[s:], mode)
+		if err != nil {
+			return "", nil
+		}
+		s = s + retInst.Len
+		if retInst.Op != x86asm.RET {
+			continue
+		}
+		length := movInst2.Args[1].(x86asm.Imm)
+		bstr, _ := f.Bytes(uint64(addr), uint64(length))
+		if bstr == nil {
+			continue
+		}
+		ver := string(bstr)
+		if !utf8.ValidString(ver) {
+			return "", ErrNoGoRootFound
+		}
+		return ver, nil
+	}
+
 	return "", ErrNoGoRootFound
 }
 
