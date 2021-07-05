@@ -149,22 +149,32 @@ pkgLoop:
 			return "", nil
 		}
 		s = s + leaInst.Len
-		if leaInst.Op != x86asm.LEA {
+		if leaInst.Op != x86asm.LEA && leaInst.Op != x86asm.MOV {
 			continue
 		}
-		arg := leaInst.Args[1].(x86asm.Mem)
-		if arg.Base == x86asm.ESP || arg.Base == x86asm.RSP {
+
+		var addr uint64
+		switch v := leaInst.Args[1].(type) {
+		case x86asm.Mem:
+			arg := v
+			if arg.Base == x86asm.ESP || arg.Base == x86asm.RSP {
+				continue
+			}
+			addr := arg.Disp
+			if arg.Base == x86asm.EIP || arg.Base == x86asm.RIP {
+				// If the addressing is based on the instruction pointer, fix the address.
+				addr = addr + int64(fcn.Offset) + int64(s)
+			} else if arg.Base == 0 && arg.Disp > 0 {
+				// In order to support x32 direct addressing
+			} else {
+				continue
+			}
+		case x86asm.Imm:
+			addr = uint64(v)
+		default:
 			continue
 		}
-		addr := arg.Disp
-		if arg.Base == x86asm.EIP || arg.Base == x86asm.RIP {
-			// If the addressing is based on the instruction pointer, fix the address.
-			addr = addr + int64(fcn.Offset) + int64(s)
-		} else if arg.Base == 0 && arg.Disp > 0 {
-			// In order to support x32 direct addressing
-		} else {
-			continue
-		}
+
 		newS := s
 		movInst, err = x86asm.Decode(buf[newS:], mode)
 		if err != nil {
