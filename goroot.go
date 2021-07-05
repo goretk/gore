@@ -124,105 +124,69 @@ pkgLoop:
 
 	// for go version vary from 1.5 to 1.9
 	s = 0
+	var insts []x86asm.Inst
 	for s < len(buf) {
-		var leaInst, movInst, movInst2, retInst x86asm.Inst
-		var err error
-		// We must find an instruction set of the form
-
-		// for go 1.6
-		//.text:00405DB3                 lea     eax, loc_4A5B32          // goroot string
-		//.text:00405DB9                 mov     [esp+10h+_r0.str], eax
-		//.text:00405DBD                 mov     [esp+10h+_r0.len], 0Dh   // goroot length
-		//.text:00405DC5                 add     esp, 10h
-		//.text:00405DC8                 retn
-
-		// for go 1.9
-		//.text:0000000000406F69                 lea     rax, unk_4BA481
-		//.text:0000000000406F70                 mov     [rsp+28h+arg_0], rax
-		//.text:0000000000406F75                 mov     [rsp+28h+arg_8], 0Dh
-		//.text:0000000000406F7E                 mov     rbp, [rsp+28h+var_8]
-		//.text:0000000000406F83                 add     rsp, 28h
-		//.text:0000000000406F87                 retn
-
-		leaInst, err = x86asm.Decode(buf[s:], mode)
+		inst, err := x86asm.Decode(buf[s:], mode)
 		if err != nil {
 			return "", nil
 		}
-		s = s + leaInst.Len
-		if leaInst.Op != x86asm.LEA && leaInst.Op != x86asm.MOV {
-			continue
-		}
-
-		var addr uint64
-		switch v := leaInst.Args[1].(type) {
-		case x86asm.Mem:
-			arg := v
-			if arg.Base == x86asm.ESP || arg.Base == x86asm.RSP {
-				continue
-			}
-			addr := arg.Disp
-			if arg.Base == x86asm.EIP || arg.Base == x86asm.RIP {
-				// If the addressing is based on the instruction pointer, fix the address.
-				addr = addr + int64(fcn.Offset) + int64(s)
-			} else if arg.Base == 0 && arg.Disp > 0 {
-				// In order to support x32 direct addressing
-			} else {
-				continue
-			}
-		case x86asm.Imm:
-			addr = uint64(v)
-		default:
-			continue
-		}
-
-		newS := s
-		movInst, err = x86asm.Decode(buf[newS:], mode)
-		if err != nil {
-			return "", nil
-		}
-		newS = newS + movInst.Len
-		if movInst.Op != x86asm.MOV {
-			continue
-		}
-
-		movInst2, err = x86asm.Decode(buf[newS:], mode)
-		if err != nil {
-			return "", nil
-		}
-		newS = newS + movInst2.Len
-		if movInst2.Op != x86asm.MOV {
-			continue
-		}
-
-		// Next, don’t pay attention to what the instruction is
-		// as long as the ret instruction is found in the three instructions
-		isRet := false
-		for i := 3; i >= 0; i-- {
-			retInst, err = x86asm.Decode(buf[newS:], mode)
-			if err != nil {
-				return "", nil
-			}
-			newS = newS + retInst.Len
-			if retInst.Op == x86asm.RET {
-				isRet = true
-				break
-			}
-		}
-		if !isRet {
-			continue
-		}
-		length := movInst2.Args[1].(x86asm.Imm)
-		bstr, _ := f.Bytes(uint64(addr), uint64(length))
-		if bstr == nil {
-			continue
-		}
-		ver := string(bstr)
-		if !utf8.ValidString(ver) {
-			return "", ErrNoGoRootFound
-		}
-		return ver, nil
+		s = s + inst.Len
+		insts = append(insts, inst)
 	}
+	var length, addr uint64
+	for i := len(insts) - 1; i >= 0; i-- {
+		inst := insts[i]
 
+		if inst.Op == x86asm.MOV && length == 0 {
+			switch v := inst.Args[1].(type) {
+			case x86asm.Imm:
+				length = uint64(v)
+				continue
+			default:
+				continue
+			}
+		}
+		if (inst.Op == x86asm.LEA || inst.Op == x86asm.MOV) && addr == 0 {
+			switch v := inst.Args[1].(type) {
+			case x86asm.Mem:
+				arg := v
+				if arg.Base == x86asm.ESP || arg.Base == x86asm.RSP {
+					continue
+				}
+				addr = uint64(arg.Disp)
+				if arg.Base == x86asm.EIP || arg.Base == x86asm.RIP {
+					// If the addressing is based on the instruction pointer, fix the address.
+					s = 0
+					for i2, inst2 := range insts {
+						if i2 > i {
+							break
+						}
+						s += inst2.Len
+					}
+					addr = addr + fcn.Offset + uint64(s)
+				} else if arg.Base == 0 && arg.Disp > 0 {
+					// In order to support x32 direct addressing
+				} else {
+					continue
+				}
+			case x86asm.Imm:
+				addr = uint64(v)
+			default:
+				continue
+			}
+		}
+		if length > 0 && addr > 0 {
+			bstr, _ := f.Bytes(addr, length)
+			if bstr == nil {
+				continue
+			}
+			ver := string(bstr)
+			if !utf8.ValidString(ver) {
+				return "", ErrNoGoRootFound
+			}
+			return ver, nil
+		}
+	}
 	return "", ErrNoGoRootFound
 }
 
