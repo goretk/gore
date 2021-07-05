@@ -134,6 +134,7 @@ pkgLoop:
 		insts = append(insts, inst)
 	}
 	var length, addr uint64
+	// Look up the address from the end of the assembly instruction
 	for i := len(insts) - 1; i >= 0; i-- {
 		inst := insts[i]
 
