@@ -125,15 +125,24 @@ pkgLoop:
 	// for go version vary from 1.5 to 1.9
 	s = 0
 	for s < len(buf) {
-		var leaInst, movInst, movInst2, addInst, retInst x86asm.Inst
+		var leaInst, movInst, movInst2, retInst x86asm.Inst
 		var err error
 		// We must find an instruction set of the form
 
+		// for go 1.6
 		//.text:00405DB3                 lea     eax, loc_4A5B32          // goroot string
 		//.text:00405DB9                 mov     [esp+10h+_r0.str], eax
 		//.text:00405DBD                 mov     [esp+10h+_r0.len], 0Dh   // goroot length
 		//.text:00405DC5                 add     esp, 10h
 		//.text:00405DC8                 retn
+
+		// for go 1.9
+		//.text:0000000000406F69                 lea     rax, unk_4BA481
+		//.text:0000000000406F70                 mov     [rsp+28h+arg_0], rax
+		//.text:0000000000406F75                 mov     [rsp+28h+arg_8], 0Dh
+		//.text:0000000000406F7E                 mov     rbp, [rsp+28h+var_8]
+		//.text:0000000000406F83                 add     rsp, 28h
+		//.text:0000000000406F87                 retn
 
 		leaInst, err = x86asm.Decode(buf[s:], mode)
 		if err != nil {
@@ -156,36 +165,40 @@ pkgLoop:
 		} else {
 			continue
 		}
-		movInst, err = x86asm.Decode(buf[s:], mode)
+		newS := s
+		movInst, err = x86asm.Decode(buf[newS:], mode)
 		if err != nil {
 			return "", nil
 		}
-		s = s + movInst.Len
+		newS = newS + movInst.Len
 		if movInst.Op != x86asm.MOV {
 			continue
 		}
-		movInst2, err = x86asm.Decode(buf[s:], mode)
+
+		movInst2, err = x86asm.Decode(buf[newS:], mode)
 		if err != nil {
 			return "", nil
 		}
-		s = s + movInst2.Len
+		newS = newS + movInst2.Len
 		if movInst2.Op != x86asm.MOV {
 			continue
 		}
-		addInst, err = x86asm.Decode(buf[s:], mode)
-		if err != nil {
-			return "", nil
+
+		// Next, don’t pay attention to what the instruction is
+		// as long as the ret instruction is found in the three instructions
+		isRet := false
+		for i := 3; i >= 0; i-- {
+			retInst, err = x86asm.Decode(buf[newS:], mode)
+			if err != nil {
+				return "", nil
+			}
+			newS = newS + retInst.Len
+			if retInst.Op == x86asm.RET {
+				isRet = true
+				break
+			}
 		}
-		s = s + addInst.Len
-		if addInst.Op != x86asm.ADD {
-			continue
-		}
-		retInst, err = x86asm.Decode(buf[s:], mode)
-		if err != nil {
-			return "", nil
-		}
-		s = s + retInst.Len
-		if retInst.Op != x86asm.RET {
+		if !isRet {
 			continue
 		}
 		length := movInst2.Args[1].(x86asm.Imm)
