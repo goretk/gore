@@ -36,29 +36,29 @@ func TestExtractGoRoot(t *testing.T) {
 			goroot, err := findGoRootPath(f)
 			// Windows version 1.5 to 1.9 did not find a goroot string that can be searched, so we ruled it out
 			switch test {
-			case "windows-386-1.5.0":
+			case "gold-windows-386-1.5.0":
 				r.Equal(ErrNoGoRootFound, err)
-			case "windows-386-1.6.0":
+			case "gold-windows-386-1.6.0":
 				r.Equal(ErrNoGoRootFound, err)
-			case "windows-386-1.7.0":
+			case "gold-windows-386-1.7.0":
 				r.Equal(ErrNoGoRootFound, err)
-			case "windows-386-1.7beta1":
+			case "gold-windows-386-1.7beta1":
 				r.Equal(ErrNoGoRootFound, err)
-			case "windows-386-1.8.0":
+			case "gold-windows-386-1.8.0":
 				r.Equal(ErrNoGoRootFound, err)
-			case "windows-386-1.9.0":
+			case "gold-windows-386-1.9.0":
 				r.Equal(ErrNoGoRootFound, err)
-			case "windows-amd64-1.5.0":
+			case "gold-windows-amd64-1.5.0":
 				r.Equal(ErrNoGoRootFound, err)
-			case "windows-amd64-1.6.0":
+			case "gold-windows-amd64-1.6.0":
 				r.Equal(ErrNoGoRootFound, err)
-			case "windows-amd64-1.7.0":
+			case "gold-windows-amd64-1.7.0":
 				r.Equal(ErrNoGoRootFound, err)
-			case "windows-amd64-1.7beta1":
+			case "gold-windows-amd64-1.7beta1":
 				r.Equal(ErrNoGoRootFound, err)
-			case "windows-amd64-1.8.0":
+			case "gold-windows-amd64-1.8.0":
 				r.Equal(ErrNoGoRootFound, err)
-			case "windows-amd64-1.9.0":
+			case "gold-windows-amd64-1.9.0":
 				r.Equal(ErrNoGoRootFound, err)
 			default:
 				r.NoError(err)
