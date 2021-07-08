@@ -121,6 +121,16 @@ func (f *GoFile) GetCompilerVersion() (*GoVersion, error) {
 	return findGoCompilerVersion(f)
 }
 
+// GetGoRoot returns the Go Root path
+// that was used to compile the binary.
+func (f *GoFile) GetGoRoot() (string, error) {
+	err := f.init()
+	if err != nil {
+		return "", err
+	}
+	return findGoRootPath(f)
+}
+
 // SetGoVersion sets the assumed compiler version that was used. This
 // can be used to force a version if gore is not able to determine the
 // compiler version used. The version string must match one of the strings
