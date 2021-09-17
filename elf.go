@@ -23,10 +23,20 @@ type elfFile struct {
 }
 
 func (e *elfFile) getPCLNTab() (*gosym.Table, error) {
-	pclndat, err := e.file.Section(".gopclntab").Data()
-	if err != nil {
-		return nil, err
+	pclnSection := e.file.Section(".gopclntab")
+	if pclnSection == nil {
+		// No section found. Check if the PIE section exist instead.
+		pclnSection = e.file.Section(".data.rel.ro.gopclntab")
 	}
+	if pclnSection == nil {
+		return nil, fmt.Errorf("no gopclntab section found")
+	}
+
+	pclndat, err := pclnSection.Data()
+	if err != nil {
+		return nil, fmt.Errorf("could not get the data for the pclntab: %w", err)
+	}
+
 	pcln := gosym.NewLineTable(pclndat, e.file.Section(".text").Addr)
 	return gosym.NewTable(make([]byte, 0), pcln)
 }
@@ -52,7 +62,12 @@ func (e *elfFile) getCodeSection() ([]byte, error) {
 }
 
 func (e *elfFile) getPCLNTABData() (uint64, []byte, error) {
-	return e.getSectionData(".gopclntab")
+	start, data, err := e.getSectionData(".gopclntab")
+	if err == ErrSectionDoesNotExist {
+		// Try PIE location
+		return e.getSectionData(".data.rel.ro.gopclntab")
+	}
+	return start, data, err
 }
 
 func (e *elfFile) moduledataSection() string {
@@ -87,10 +102,24 @@ func (e *elfFile) getFileInfo() *FileInfo {
 	if class == elf.ELFCLASS64 {
 		wordSize = intSize64
 	}
+
+	var arch string
+	switch e.file.Machine {
+	case elf.EM_386:
+		arch = Arch386
+	case elf.EM_MIPS:
+		arch = ArchMIPS
+	case elf.EM_X86_64:
+		arch = ArchAMD64
+	case elf.EM_ARM:
+		arch = ArchARM
+	}
+
 	return &FileInfo{
 		ByteOrder: e.file.FileHeader.ByteOrder,
 		OS:        e.file.Machine.String(),
 		WordSize:  wordSize,
+		Arch:      arch,
 	}
 }
 

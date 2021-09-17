@@ -6,9 +6,11 @@ package gore
 
 import (
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestResolvingVersionFromTag(t *testing.T) {
@@ -29,7 +31,6 @@ func TestResolvingVersionFromTag(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run("resolve_tag_"+test.tag, func(t *testing.T) {
-			t.Parallel()
 			v := ResolveGoVersion(test.tag)
 			if test.expectingNil {
 				assert.Nil(v)
@@ -82,8 +83,87 @@ func TestVersionComparer(t *testing.T) {
 
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("Testing case %d", i+1), func(t *testing.T) {
-			t.Parallel()
 			assert.Equal(test.val, GoVersionCompare(test.a, test.b), fmt.Sprintf("Case %d failed", i+1))
+		})
+	}
+}
+
+func TestExtractVersionFromInitSched(t *testing.T) {
+	r := require.New(t)
+
+	tests := []struct {
+		f       string
+		version string
+	}{
+		{"gold-linux-amd64-1.15.0", "go1.15"},
+		{"gold-linux-386-1.15.0", "go1.15"},
+		{"gold-windows-amd64-1.15.0", "go1.15"},
+		{"gold-windows-386-1.15.0", "go1.15"},
+		{"gold-darwin-amd64-1.15.0", "go1.15"},
+
+		{"gold-linux-amd64-1.14.0", "go1.14"},
+		{"gold-linux-386-1.14.0", "go1.14"},
+		{"gold-windows-amd64-1.14.0", "go1.14"},
+		{"gold-windows-386-1.14.0", "go1.14"},
+		{"gold-darwin-amd64-1.14.0", "go1.14"},
+		{"gold-darwin-386-1.14.0", "go1.14"},
+
+		{"gold-linux-amd64-1.13.0", "go1.13"},
+		{"gold-linux-386-1.13.0", "go1.13"},
+		{"gold-windows-amd64-1.13.0", "go1.13"},
+		{"gold-windows-386-1.13.0", "go1.13"},
+		{"gold-darwin-amd64-1.13.0", "go1.13"},
+		{"gold-darwin-386-1.13.0", "go1.13"},
+
+		{"gold-linux-amd64-1.12.0", "go1.12"},
+		{"gold-linux-386-1.12.0", "go1.12"},
+		{"gold-windows-amd64-1.12.0", "go1.12"},
+		{"gold-windows-386-1.12.0", "go1.12"},
+		{"gold-darwin-amd64-1.12.0", "go1.12"},
+		{"gold-darwin-386-1.12.0", "go1.12"},
+
+		{"gold-linux-amd64-1.11.0", "go1.11"},
+		{"gold-linux-386-1.11.0", "go1.11"},
+		{"gold-windows-amd64-1.11.0", "go1.11"},
+		{"gold-windows-386-1.11.0", "go1.11"},
+		{"gold-darwin-amd64-1.11.0", "go1.11"},
+		{"gold-darwin-386-1.11.0", "go1.11"},
+
+		{"gold-linux-amd64-1.10.0", "go1.10"},
+		{"gold-linux-386-1.10.0", "go1.10"},
+		{"gold-windows-amd64-1.10.0", "go1.10"},
+		{"gold-windows-386-1.10.0", "go1.10"},
+		{"gold-darwin-amd64-1.10.0", "go1.10"},
+		{"gold-darwin-386-1.10.0", "go1.10"},
+
+		{"gold-linux-amd64-1.9.0", "go1.9"},
+		{"gold-linux-386-1.9.0", "go1.9"},
+		{"gold-windows-amd64-1.9.0", "go1.9"},
+		{"gold-windows-386-1.9.0", "go1.9"},
+		{"gold-darwin-amd64-1.9.0", "go1.9"},
+		{"gold-darwin-386-1.9.0", "go1.9"},
+
+		{"gold-linux-amd64-1.8.0", "go1.8"},
+		{"gold-linux-386-1.8.0", "go1.8"},
+		{"gold-windows-amd64-1.8.0", "go1.8"},
+		{"gold-windows-386-1.8.0", "go1.8"},
+		{"gold-darwin-amd64-1.8.0", "go1.8"},
+		{"gold-darwin-386-1.8.0", "go1.8"},
+	}
+
+	for _, test := range tests {
+		t.Run("parse version from "+test.f, func(t *testing.T) {
+			pt, err := filepath.Abs(filepath.Join("testdata", "gold", test.f))
+			r.NoError(err)
+
+			f, err := Open(pt)
+			r.NoError(err)
+			defer f.Close()
+
+			ver := tryFromSchedInit(f)
+			r.NotNil(ver)
+
+			r.Equal(goversions[test.version], ver)
 		})
 	}
 }

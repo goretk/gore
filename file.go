@@ -6,8 +6,11 @@ package gore
 
 import (
 	"bytes"
+	"context"
 	"debug/gosym"
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -90,6 +93,7 @@ type GoFile struct {
 	BuildID      string
 	fh           fileHandler
 	stdPkgs      []*Package
+	generated    []*Package
 	pkgs         []*Package
 	vendors      []*Package
 	unknown      []*Package
@@ -117,6 +121,16 @@ func (f *GoFile) GetCompilerVersion() (*GoVersion, error) {
 	return findGoCompilerVersion(f)
 }
 
+// GetGoRoot returns the Go Root path
+// that was used to compile the binary.
+func (f *GoFile) GetGoRoot() (string, error) {
+	err := f.init()
+	if err != nil {
+		return "", err
+	}
+	return findGoRootPath(f)
+}
+
 // SetGoVersion sets the assumed compiler version that was used. This
 // can be used to force a version if gore is not able to determine the
 // compiler version used. The version string must match one of the strings
@@ -133,13 +147,14 @@ func (f *GoFile) SetGoVersion(version string) error {
 	return nil
 }
 
-// GetPackages returns the go packages in the binary.
+// GetPackages returns the go packages that has been classified as part of the main
+// project.
 func (f *GoFile) GetPackages() ([]*Package, error) {
 	err := f.init()
 	return f.pkgs, err
 }
 
-// GetVendors returns the vendor packages used by the binary.
+// GetVendors returns the 3rd party packages used by the binary.
 func (f *GoFile) GetVendors() ([]*Package, error) {
 	err := f.init()
 	return f.vendors, err
@@ -151,83 +166,205 @@ func (f *GoFile) GetSTDLib() ([]*Package, error) {
 	return f.stdPkgs, err
 }
 
-// GetUnknown returns unclassified packages used by the binary.
+// GetGeneratedPackages returns the compiler generated packages used by the binary.
+func (f *GoFile) GetGeneratedPackages() ([]*Package, error) {
+	err := f.init()
+	return f.generated, err
+}
+
+// GetUnknown returns unclassified packages used by the binary. This is a catch all
+// category when the classification could not be determined.
 func (f *GoFile) GetUnknown() ([]*Package, error) {
 	err := f.init()
 	return f.unknown, err
 }
 
-func findFuncEndLine(entry, end uint64, lineTable *gosym.LineTable) int {
-	srcStart := lineTable.PCToLine(entry)
-	srcStop := lineTable.PCToLine(end)
-	// XXX: This hack should be rewritten.
-	if (srcStop - srcStart) <= 0 {
-		i := uint64(0)
-		s := entry
-		e := end
-		for (srcStop - srcStart) <= 0 {
-			srcStop = lineTable.PCToLine(e - i)
-			if (e - i) <= s {
-				return srcStop
-			}
-			i++
+// findSourceLines walks from the entry of the function to the end and looks for the
+// final source code line number. This function is pretty expensive to execute.
+func findSourceLines(entry, end uint64, tab *gosym.Table) (int, int) {
+	// We don't need the Func returned since we are operating within the same function.
+	file, srcStart, _ := tab.PCToLine(entry)
+
+	// We walk from entry to end and check the source code line number. If it's greater
+	// then the current value, we set it as the new value. If the file is different, we
+	// have entered an inlined function. In this case we skip it. There is a possibility
+	// that we enter an inlined function that's defined in the same file. There is no way
+	// for us to tell this is the case.
+	srcEnd := srcStart
+
+	// We take a shortcut and only check every 4 bytes. This isn't perfect, but it speeds
+	// up the processes.
+	for i := entry; i <= end; i = i + 4 {
+		f, l, _ := tab.PCToLine(i)
+
+		// If this line is a different file, it's an inlined function so just continue.
+		if f != file {
+			continue
+		}
+
+		// If the current line is less than the starting source line, we have entered
+		// an inline function defined before this function.
+		if l < srcStart {
+			continue
+		}
+
+		// If the current line is greater, we assume it being closer to the end of the
+		// function definition. So we take it as the current srcEnd value.
+		if l > srcEnd {
+			srcEnd = l
 		}
 	}
-	return srcStop
+
+	return srcStart, srcEnd
 }
 
 func (f *GoFile) enumPackages() error {
-	// TODO: Rewrite this function
-	tab := f.pclntab
-	pkgs := make(map[string]*Package)
-	allpkgs := sort.StringSlice{}
+	// Because finding the end source line of a function is costly, this function uses
+	// a worker pool to analyze multiple functions in parallel.
 
-	for _, n := range tab.Funcs {
-		srcStop := findFuncEndLine(n.Entry, n.End, n.LineTable)
-		srcStart := n.LineTable.PCToLine(n.Entry)
-		name, _, _ := tab.PCToLine(n.Entry)
-		p, ok := pkgs[n.PackageName()]
-		if !ok {
-			p = &Package{
-				Filepath:  filepath.Dir(name),
-				Functions: make([]*Function, 0),
-				Methods:   make([]*Method, 0),
-			}
-			pkgs[n.PackageName()] = p
-			allpkgs = append(allpkgs, n.PackageName())
-		}
-		if n.ReceiverName() != "" {
-			p.Methods = append(p.Methods, &Method{
-				Function: &Function{
+	tab := f.pclntab
+	packages := make(map[string]*Package)
+	allPackages := sort.StringSlice{}
+
+	type methodChanPayload struct {
+		pkgName string
+		name    string
+		method  *Method
+	}
+
+	type functionChanPayload struct {
+		pkgName  string
+		name     string
+		function *Function
+	}
+
+	var wg sync.WaitGroup
+	work := make(chan gosym.Func)
+	methodResultChan := make(chan methodChanPayload)
+	functionResultChan := make(chan functionChanPayload)
+	var pkgMutex sync.Mutex
+
+	// Function executed by each worker.
+	worker := func(wg *sync.WaitGroup, w <-chan gosym.Func, methodChan chan<- methodChanPayload, functionChan chan<- functionChanPayload) {
+		defer wg.Done()
+
+		for n := range w {
+			srcStart, srcStop := findSourceLines(n.Entry, n.End, tab)
+			name, _, _ := tab.PCToLine(n.Entry)
+
+			if n.ReceiverName() != "" {
+				m := &Method{
+					Function: &Function{
+						Name:          n.BaseName(),
+						SrcLineLength: (srcStop - srcStart),
+						SrcLineStart:  srcStart,
+						SrcLineEnd:    srcStop,
+						Offset:        n.Entry,
+						End:           n.End,
+						Filename:      filepath.Base(name),
+						PackageName:   n.PackageName(),
+					},
+					Receiver: n.ReceiverName(),
+				}
+
+				// Send the method.
+				methodChan <- methodChanPayload{pkgName: n.PackageName(), name: name, method: m}
+			} else {
+				f := &Function{
 					Name:          n.BaseName(),
 					SrcLineLength: (srcStop - srcStart),
-					SrcLineStart:  srcStart,
-					SrcLineEnd:    srcStop,
 					Offset:        n.Entry,
 					End:           n.End,
+					SrcLineStart:  srcStart,
+					SrcLineEnd:    srcStop,
 					Filename:      filepath.Base(name),
 					PackageName:   n.PackageName(),
-				},
-				Receiver: n.ReceiverName(),
-			})
-		} else {
-			p.Functions = append(p.Functions, &Function{
-				Name:          n.BaseName(),
-				SrcLineLength: (srcStop - srcStart),
-				Offset:        n.Entry,
-				End:           n.End,
-				SrcLineStart:  srcStart,
-				SrcLineEnd:    srcStop,
-				Filename:      filepath.Base(name),
-				PackageName:   n.PackageName(),
-			})
+				}
+				functionChan <- functionChanPayload{pkgName: n.PackageName(), name: name, function: f}
+			}
 		}
 	}
-	allpkgs.Sort()
 
-	classifier := NewPackageClassifier(pkgs["main"].Filepath)
+	// Start workers. 10 workers appears to be enough. No extra performance above it.
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go worker(&wg, work, methodResultChan, functionResultChan)
+	}
 
-	for n, p := range pkgs {
+	// Context cancelation is used to signal the result routine that all workers
+	// have completed their work.
+	ctx, done := context.WithCancel(context.Background())
+
+	// Result routine. This reads from all channels until the context has been canceled.
+	go func() {
+		// Locking the mutex prevents potential race condition when this routine still hasn't
+		// finished and the main routine wants to start processing the result.
+		pkgMutex.Lock()
+		defer pkgMutex.Unlock()
+		for {
+			select {
+
+			case <-ctx.Done():
+				return
+
+			case m := <-methodResultChan:
+				p, ok := packages[m.pkgName]
+				if !ok {
+					p = &Package{
+						Filepath:  filepath.Dir(m.name),
+						Functions: make([]*Function, 0),
+						Methods:   make([]*Method, 0),
+					}
+				}
+				p.Methods = append(p.Methods, m.method)
+				packages[m.pkgName] = p
+				allPackages = append(allPackages, m.pkgName)
+
+			case f := <-functionResultChan:
+				p, ok := packages[f.pkgName]
+				if !ok {
+					p = &Package{
+						Filepath:  filepath.Dir(f.name),
+						Functions: make([]*Function, 0),
+						Methods:   make([]*Method, 0),
+					}
+				}
+				p.Functions = append(p.Functions, f.function)
+				packages[f.pkgName] = p
+				allPackages = append(allPackages, f.pkgName)
+
+			}
+		}
+	}()
+
+	// Send work to workers
+	for _, n := range tab.Funcs {
+		work <- n
+	}
+
+	// Close the work channel to indicate no more work is queued.
+	close(work)
+
+	// Wait for all workers to finish.
+	wg.Wait()
+
+	// Signal to the result routine to exit.
+	done()
+
+	// Get the lock, we wait here until the result routine has released the lock.
+	pkgMutex.Lock()
+	defer pkgMutex.Unlock()
+
+	allPackages.Sort()
+
+	mainPkg, ok := packages["main"]
+	if !ok {
+		return fmt.Errorf("no main package found")
+	}
+
+	classifier := NewPackageClassifier(mainPkg.Filepath)
+
+	for n, p := range packages {
 		p.Name = n
 		class := classifier.Classify(p)
 		switch class {
@@ -239,6 +376,8 @@ func (f *GoFile) enumPackages() error {
 			f.pkgs = append(f.pkgs, p)
 		case ClassUnknown:
 			f.unknown = append(f.unknown, p)
+		case ClassGenerated:
+			f.generated = append(f.generated, p)
 		}
 	}
 	return nil
@@ -279,6 +418,11 @@ func (f *GoFile) Bytes(address uint64, length uint64) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if address+length-base > uint64(len(section)) {
+		return nil, errors.New("length out of bounds")
+	}
+
 	return section[address-base : address+length-base], nil
 }
 
@@ -318,6 +462,8 @@ func fileMagicMatch(buf, magic []byte) bool {
 
 // FileInfo holds information about the file.
 type FileInfo struct {
+	// Arch is the architecture the binary is compiled for.
+	Arch string
 	// OS is the operating system the binary is compiled for.
 	OS string
 	// ByteOrder is the byte order.
@@ -326,3 +472,10 @@ type FileInfo struct {
 	WordSize  int
 	goversion *GoVersion
 }
+
+const (
+	ArchAMD64 = "amd64"
+	ArchARM   = "arm"
+	Arch386   = "i386"
+	ArchMIPS  = "mips"
+)

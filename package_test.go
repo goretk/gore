@@ -5,6 +5,7 @@
 package gore
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -332,13 +333,12 @@ func TestClassifyPackage(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run("classify_"+test.pkgsName, func(t *testing.T) {
-			t.Parallel()
 			pkg := &Package{
 				Filepath: test.pkgPath,
 				Name:     test.pkgsName,
 			}
 			class := classifier.Classify(pkg)
-			assert.Equal(test.pkgClass, class, "Incorrect classification of: "+test.pkgsName)
+			assert.Equal(test.pkgClass, class, fmt.Sprintf("Incorrect classification of: %s with filepath: %s", test.pkgsName, test.pkgPath))
 		})
 	}
 }
@@ -390,7 +390,88 @@ func TestAthenaCase(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run("classify_"+test.pkgsName, func(t *testing.T) {
-			t.Parallel()
+			pkg := &Package{
+				Filepath: test.pkgPath,
+				Name:     test.pkgsName,
+			}
+			class := classifier.Classify(pkg)
+			assert.Equal(test.pkgClass, class, "Incorrect classification of: "+test.pkgsName)
+		})
+	}
+}
+
+func TestUseGoModVersion(t *testing.T) {
+	tests := []struct {
+		pkgsName string
+		pkgPath  string
+		pkgClass PackageClass
+	}{
+		{"github.com/gohugoio/hugo/watcher", "/root/project/hugo/watcher", ClassMain},
+		{"github.com/gohugoio/hugo/cache/filecache", "/root/project/hugo/cache/filecache", ClassMain},
+		{"cloud.google.com/go/storage", "/go/pkg/mod/cloud.google.com/go/storage@v1.10.0", ClassVendor},
+	}
+
+	assert := assert.New(t)
+	mainPath := "/root/project/hugo"
+	classifier := NewPackageClassifier(mainPath)
+
+	for _, test := range tests {
+		t.Run("classify_"+test.pkgsName, func(t *testing.T) {
+			pkg := &Package{
+				Filepath: test.pkgPath,
+				Name:     test.pkgsName,
+			}
+			class := classifier.Classify(pkg)
+			assert.Equal(test.pkgClass, class, "Incorrect classification of: "+test.pkgsName)
+		})
+	}
+}
+
+func TestCommandLineArgumentsPagkageDetection(t *testing.T) {
+	tests := []struct {
+		pkgsName string
+		pkgPath  string
+		pkgClass PackageClass
+	}{
+		{"x_cgo_sys_thread_creater", ".", ClassSTD},
+		{"_cgo_sys_thread_star", ".", ClassSTD},
+		{"", ".", ClassGenerated},
+		{"gopackage", "gopackage", ClassMain},
+		{"gopackage/subpackage", "gopackage/subpackage", ClassMain},
+	}
+
+	assert := assert.New(t)
+	mainPath := "command-line-arguments"
+	classifier := NewPackageClassifier(mainPath)
+
+	for _, test := range tests {
+		t.Run("classify_"+test.pkgsName, func(t *testing.T) {
+			pkg := &Package{
+				Filepath: test.pkgPath,
+				Name:     test.pkgsName,
+			}
+			class := classifier.Classify(pkg)
+			assert.Equal(test.pkgClass, class, "Incorrect classification of: "+test.pkgsName)
+		})
+	}
+}
+
+func TestSubSubSubPackage(t *testing.T) {
+	tests := []struct {
+		pkgsName string
+		pkgPath  string
+		pkgClass PackageClass
+	}{
+		{"gopackage", "gopackage", ClassMain},
+		{"gopackage/subpackage", "gopackage/subpackage", ClassMain},
+	}
+
+	assert := assert.New(t)
+	mainPath := "gopackage/cmds/gopackage"
+	classifier := NewPackageClassifier(mainPath)
+
+	for _, test := range tests {
+		t.Run("classify_"+test.pkgsName, func(t *testing.T) {
 			pkg := &Package{
 				Filepath: test.pkgPath,
 				Name:     test.pkgsName,

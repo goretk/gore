@@ -115,10 +115,30 @@ func (c *PackageClassifier) Classify(pkg *Package) PackageClass {
 		return ClassGenerated
 	}
 
+	// Special case for no package name and path of ".".
+	if pkg.Name == "" && pkg.Filepath == "." {
+		return ClassGenerated
+	}
+
+	// Some internal stuff, classify it as Generated
+	if pkg.Filepath == "." && (pkg.Name == "__x86" || pkg.Name == "__i686") {
+		return ClassGenerated
+	}
+
 	// Detect internal/golang.org/x/net/http2/hpack type/
 	tmp = strings.Split(pkg.Name, "/golang.org")[0]
 	if len(tmp) < len(pkg.Name) && IsStandardLibrary(tmp) {
 		return ClassSTD
+	}
+
+	// cgo packages.
+	if strings.HasPrefix(pkg.Name, "_cgo_") || strings.HasPrefix(pkg.Name, "x_cgo_") {
+		return ClassSTD
+	}
+
+	// If the file path contains "@v", it's a 3rd party package.
+	if strings.Contains(pkg.Filepath, "@v") {
+		return ClassVendor
 	}
 
 	parentFolder := filepath.Dir(pkg.Filepath)
@@ -156,6 +176,22 @@ func (c *PackageClassifier) Classify(pkg *Package) PackageClass {
 	// Special case for entry point package.
 	if pkg.Name == "" && filepath.Base(pkg.Filepath) == "runtime" {
 		return ClassSTD
+	}
+
+	// At this point, if it's a subpackage of the main assume main.
+	if strings.HasPrefix(pkg.Filepath, c.mainFilepath) {
+		return ClassMain
+	}
+
+	// Check if it's the main parent package.
+	if pkg.Name != "" && !strings.Contains(pkg.Name, "/") && strings.Contains(c.mainFilepath, pkg.Name) {
+		return ClassMain
+	}
+
+	// At this point, if the main package has a file path of "command-line-arguments" and we haven't figured out
+	// what class it is. We assume it being part of the main package.
+	if c.mainFilepath == "command-line-arguments" {
+		return ClassMain
 	}
 
 	return ClassUnknown

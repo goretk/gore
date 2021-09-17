@@ -65,20 +65,21 @@ func (m *machoFile) getSectionData(s string) (uint64, []byte, error) {
 }
 
 func (m *machoFile) getFileInfo() *FileInfo {
-	var wordSize int
+	fi := &FileInfo{
+		ByteOrder: m.file.ByteOrder,
+		OS:        "macOS",
+	}
 	switch m.file.Cpu {
 	case macho.Cpu386:
-		wordSize = intSize32
+		fi.WordSize = intSize32
+		fi.Arch = Arch386
 	case macho.CpuAmd64:
-		wordSize = intSize64
+		fi.WordSize = intSize64
+		fi.Arch = ArchAMD64
 	default:
 		panic("Unsupported architecture")
 	}
-	return &FileInfo{
-		ByteOrder: m.file.ByteOrder,
-		OS:        "macOS",
-		WordSize:  wordSize,
-	}
+	return fi
 }
 
 func (m *machoFile) getPCLNTABData() (uint64, []byte, error) {
