@@ -82,11 +82,24 @@ func Open(filePath string) (*GoFile, error) {
 		gofile.BuildID = buildID
 	}
 
+	// Try to extract build information.
+	if bi, err := gofile.extractBuildInfo(); err == nil {
+		// This error is a minor failure, it just means we don't have
+		// this information. So if fails we just ignores it.
+		gofile.BuildInfo = bi
+		if bi.Compiler != nil {
+			gofile.FileInfo.goversion = bi.Compiler
+		}
+	}
+
 	return gofile, nil
 }
 
 // GoFile is a structure representing a go binary file.
 type GoFile struct {
+	// BuildInfo holds the data from the buildinf structure. This can be nil
+	// because it's not always available.
+	BuildInfo *BuildInfo
 	// FileInfo holds information about the file.
 	FileInfo *FileInfo
 	// BuildID is the Go build ID hash extracted from the binary.

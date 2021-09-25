@@ -66,6 +66,11 @@ func (p *peFile) getPCLNTABData() (uint64, []byte, error) {
 
 func (p *peFile) getSectionDataFromOffset(off uint64) (uint64, []byte, error) {
 	for _, section := range p.file.Sections {
+		if section.Offset == 0 {
+			// Only exist in memory
+			continue
+		}
+
 		if p.imageBase+uint64(section.VirtualAddress) <= off && off < p.imageBase+uint64(section.VirtualAddress+section.Size) {
 			data, err := section.Data()
 			return p.imageBase + uint64(section.VirtualAddress), data, err

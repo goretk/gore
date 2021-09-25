@@ -76,6 +76,11 @@ func (e *elfFile) moduledataSection() string {
 
 func (e *elfFile) getSectionDataFromOffset(off uint64) (uint64, []byte, error) {
 	for _, section := range e.file.Sections {
+		if section.Offset == 0 {
+			// Only exist in memory
+			continue
+		}
+
 		if section.Addr <= off && off < (section.Addr+section.Size) {
 			data, err := section.Data()
 			return section.Addr, data, err
