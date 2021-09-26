@@ -5,10 +5,13 @@
 package gore
 
 import (
+	"bytes"
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClassifyPackage(t *testing.T) {
@@ -344,32 +347,41 @@ func TestClassifyPackage(t *testing.T) {
 }
 
 func TestGetSourceFiles(t *testing.T) {
-	assert := assert.New(t)
-	// Setup
-	pn := "main"
-	fp1 := "main.go"
-	fp2 := "extra.go"
+	r := require.New(t)
+	const expected string = `Package main: /build
+	File: target.go
+		(*simpleStruct)String Lines: 21 to 29 (8)
+		main Lines: 29 to 33 (4)`
+	fp, err := filepath.Abs("testdata/gold/gold-linux-amd64-1.17.0")
+	r.NoError(err)
 
-	f1 := &Function{Filename: fp1, PackageName: pn, SrcLineStart: 8, Name: "main"}
-	f2 := &Function{Filename: fp1, PackageName: pn, SrcLineStart: 15, Name: "start"}
-	f3 := &Function{Filename: fp2, PackageName: pn, SrcLineStart: 5, Name: "e1"}
-	f4 := &Function{Filename: fp2, PackageName: pn, SrcLineStart: 15, Name: "e2"}
+	f, err := Open(fp)
+	r.NoError(err)
 
-	m1 := &Method{Function: &Function{Filename: fp2, PackageName: pn, SrcLineStart: 10, Name: "m1"}, Receiver: "test"}
-	m2 := &Method{Function: &Function{Filename: fp2, PackageName: pn, SrcLineStart: 25, Name: "m2"}, Receiver: "test"}
+	pkgs, err := f.GetPackages()
+	r.NoError(err)
 
-	pkg := &Package{Name: pn, Filepath: "/",
-		Functions: []*Function{f2, f1, f4, f3},
-		Methods:   []*Method{m2, m1},
+	var pkg *Package
+	for _, p := range pkgs {
+		if p.Name == "main" {
+			pkg = p
+			break
+		}
 	}
+	r.NotNil(pkg)
 
 	// Test
 
-	sf := pkg.GetSourceFiles()
+	sf := f.GetSourceFiles(pkg)
 
-	assert.Len(sf, 2, "Should return a count of 2 files")
-	assert.Equal(fp2, sf[0].Name, "extra should be sorted first")
-	assert.Equal(fp1, sf[1].Name, "main should be sorted last")
+	buf := &bytes.Buffer{}
+	buf.WriteString(fmt.Sprintf("Package %s: %s\n", pkg.Name, pkg.Filepath))
+	for _, s := range sf {
+		s.Prefix = "\t"
+		buf.WriteString(s.String())
+	}
+
+	r.Equal(expected, buf.String())
 }
 
 func TestAthenaCase(t *testing.T) {

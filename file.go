@@ -6,7 +6,6 @@ package gore
 
 import (
 	"bytes"
-	"context"
 	"debug/gosym"
 	"encoding/binary"
 	"errors"
@@ -20,9 +19,7 @@ import (
 
 var (
 	elfMagic       = []byte{0x7f, 0x45, 0x4c, 0x46}
-	elfMagicOffset = 0
 	peMagic        = []byte{0x4d, 0x5a}
-	peMagicOffset  = 0
 	maxMagicBufLen = 4
 	machoMagic1    = []byte{0xfe, 0xed, 0xfa, 0xce}
 	machoMagic2    = []byte{0xfe, 0xed, 0xfa, 0xcf}
@@ -134,6 +131,14 @@ func (f *GoFile) GetCompilerVersion() (*GoVersion, error) {
 	return findGoCompilerVersion(f)
 }
 
+// SourceInfo returns the source code filename, starting line number
+// and ending line number for the function.
+func (f *GoFile) SourceInfo(fn *Function) (string, int, int) {
+	srcFile, _, _ := f.pclntab.PCToLine(fn.Offset)
+	start, end := findSourceLines(fn.Offset, fn.End, f.pclntab)
+	return srcFile, start, end
+}
+
 // GetGoRoot returns the Go Root path
 // that was used to compile the binary.
 func (f *GoFile) GetGoRoot() (string, error) {
@@ -192,181 +197,58 @@ func (f *GoFile) GetUnknown() ([]*Package, error) {
 	return f.unknown, err
 }
 
-// findSourceLines walks from the entry of the function to the end and looks for the
-// final source code line number. This function is pretty expensive to execute.
-func findSourceLines(entry, end uint64, tab *gosym.Table) (int, int) {
-	// We don't need the Func returned since we are operating within the same function.
-	file, srcStart, _ := tab.PCToLine(entry)
-
-	// We walk from entry to end and check the source code line number. If it's greater
-	// then the current value, we set it as the new value. If the file is different, we
-	// have entered an inlined function. In this case we skip it. There is a possibility
-	// that we enter an inlined function that's defined in the same file. There is no way
-	// for us to tell this is the case.
-	srcEnd := srcStart
-
-	// We take a shortcut and only check every 4 bytes. This isn't perfect, but it speeds
-	// up the processes.
-	for i := entry; i <= end; i = i + 4 {
-		f, l, _ := tab.PCToLine(i)
-
-		// If this line is a different file, it's an inlined function so just continue.
-		if f != file {
-			continue
-		}
-
-		// If the current line is less than the starting source line, we have entered
-		// an inline function defined before this function.
-		if l < srcStart {
-			continue
-		}
-
-		// If the current line is greater, we assume it being closer to the end of the
-		// function definition. So we take it as the current srcEnd value.
-		if l > srcEnd {
-			srcEnd = l
-		}
-	}
-
-	return srcStart, srcEnd
-}
-
 func (f *GoFile) enumPackages() error {
-	// Because finding the end source line of a function is costly, this function uses
-	// a worker pool to analyze multiple functions in parallel.
-
 	tab := f.pclntab
 	packages := make(map[string]*Package)
 	allPackages := sort.StringSlice{}
 
-	type methodChanPayload struct {
-		pkgName string
-		name    string
-		method  *Method
-	}
-
-	type functionChanPayload struct {
-		pkgName  string
-		name     string
-		function *Function
-	}
-
-	var wg sync.WaitGroup
-	work := make(chan gosym.Func)
-	methodResultChan := make(chan methodChanPayload)
-	functionResultChan := make(chan functionChanPayload)
-	var pkgMutex sync.Mutex
-
-	// Function executed by each worker.
-	worker := func(wg *sync.WaitGroup, w <-chan gosym.Func, methodChan chan<- methodChanPayload, functionChan chan<- functionChanPayload) {
-		defer wg.Done()
-
-		for n := range w {
-			srcStart, srcStop := findSourceLines(n.Entry, n.End, tab)
-			name, _, _ := tab.PCToLine(n.Entry)
-
-			if n.ReceiverName() != "" {
-				m := &Method{
-					Function: &Function{
-						Name:          n.BaseName(),
-						SrcLineLength: (srcStop - srcStart),
-						SrcLineStart:  srcStart,
-						SrcLineEnd:    srcStop,
-						Offset:        n.Entry,
-						End:           n.End,
-						Filename:      filepath.Base(name),
-						PackageName:   n.PackageName(),
-					},
-					Receiver: n.ReceiverName(),
-				}
-
-				// Send the method.
-				methodChan <- methodChanPayload{pkgName: n.PackageName(), name: name, method: m}
-			} else {
-				f := &Function{
-					Name:          n.BaseName(),
-					SrcLineLength: (srcStop - srcStart),
-					Offset:        n.Entry,
-					End:           n.End,
-					SrcLineStart:  srcStart,
-					SrcLineEnd:    srcStop,
-					Filename:      filepath.Base(name),
-					PackageName:   n.PackageName(),
-				}
-				functionChan <- functionChanPayload{pkgName: n.PackageName(), name: name, function: f}
-			}
-		}
-	}
-
-	// Start workers. 10 workers appears to be enough. No extra performance above it.
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go worker(&wg, work, methodResultChan, functionResultChan)
-	}
-
-	// Context cancelation is used to signal the result routine that all workers
-	// have completed their work.
-	ctx, done := context.WithCancel(context.Background())
-
-	// Result routine. This reads from all channels until the context has been canceled.
-	go func() {
-		// Locking the mutex prevents potential race condition when this routine still hasn't
-		// finished and the main routine wants to start processing the result.
-		pkgMutex.Lock()
-		defer pkgMutex.Unlock()
-		for {
-			select {
-
-			case <-ctx.Done():
-				return
-
-			case m := <-methodResultChan:
-				p, ok := packages[m.pkgName]
-				if !ok {
-					p = &Package{
-						Filepath:  filepath.Dir(m.name),
-						Functions: make([]*Function, 0),
-						Methods:   make([]*Method, 0),
-					}
-				}
-				p.Methods = append(p.Methods, m.method)
-				packages[m.pkgName] = p
-				allPackages = append(allPackages, m.pkgName)
-
-			case f := <-functionResultChan:
-				p, ok := packages[f.pkgName]
-				if !ok {
-					p = &Package{
-						Filepath:  filepath.Dir(f.name),
-						Functions: make([]*Function, 0),
-						Methods:   make([]*Method, 0),
-					}
-				}
-				p.Functions = append(p.Functions, f.function)
-				packages[f.pkgName] = p
-				allPackages = append(allPackages, f.pkgName)
-
-			}
-		}
-	}()
-
-	// Send work to workers
 	for _, n := range tab.Funcs {
-		work <- n
+		needFilepath := false
+
+		p, ok := packages[n.PackageName()]
+		if !ok {
+			p = &Package{
+				Filepath:  filepath.Dir(n.BaseName()),
+				Functions: make([]*Function, 0),
+				Methods:   make([]*Method, 0),
+			}
+			packages[n.PackageName()] = p
+			allPackages = append(allPackages, n.PackageName())
+			needFilepath = true
+		}
+
+		if n.ReceiverName() != "" {
+			m := &Method{
+				Function: &Function{
+					Name:        n.BaseName(),
+					Offset:      n.Entry,
+					End:         n.End,
+					PackageName: n.PackageName(),
+				},
+				Receiver: n.ReceiverName(),
+			}
+
+			p.Methods = append(p.Methods, m)
+
+			if !ok && needFilepath {
+				fp, _, _ := tab.PCToLine(m.Offset)
+				p.Filepath = filepath.Dir(fp)
+			}
+		} else {
+			f := &Function{
+				Name:        n.BaseName(),
+				Offset:      n.Entry,
+				End:         n.End,
+				PackageName: n.PackageName(),
+			}
+			p.Functions = append(p.Functions, f)
+
+			if !ok && needFilepath {
+				fp, _, _ := tab.PCToLine(f.Offset)
+				p.Filepath = filepath.Dir(fp)
+			}
+		}
 	}
-
-	// Close the work channel to indicate no more work is queued.
-	close(work)
-
-	// Wait for all workers to finish.
-	wg.Wait()
-
-	// Signal to the result routine to exit.
-	done()
-
-	// Get the lock, we wait here until the result routine has released the lock.
-	pkgMutex.Lock()
-	defer pkgMutex.Unlock()
 
 	allPackages.Sort()
 
@@ -440,7 +322,7 @@ func (f *GoFile) Bytes(address uint64, length uint64) ([]byte, error) {
 }
 
 func sortTypes(types map[uint64]*GoType) []*GoType {
-	sortedList := make([]*GoType, len(types), len(types))
+	sortedList := make([]*GoType, len(types))
 
 	i := 0
 	for _, typ := range types {
