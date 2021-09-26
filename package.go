@@ -5,6 +5,7 @@
 package gore
 
 import (
+	"fmt"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -30,30 +31,40 @@ type Package struct {
 
 // GetSourceFiles returns a slice of source files within the package.
 // The source files are a representations of the source code files in the package.
-func (p *Package) GetSourceFiles() []*SourceFile {
+func (f *GoFile) GetSourceFiles(p *Package) []*SourceFile {
 	tmp := make(map[string]*SourceFile)
 	getSourceFile := func(fileName string) *SourceFile {
 		sf, ok := tmp[fileName]
 		if !ok {
-			return &SourceFile{Name: fileName}
+			return &SourceFile{Name: filepath.Base(fileName)}
 		}
 		return sf
 	}
 
-	// Sort functions and methods by source file
-	for _, f := range p.Functions {
-		sf := getSourceFile(f.Filename)
-		sf.entries = append(sf.entries, f)
-		tmp[f.Filename] = sf
+	// Sort functions and methods by source file.
+	for _, fn := range p.Functions {
+		fileName, _, _ := f.pclntab.PCToLine(fn.Offset)
+		start, end := findSourceLines(fn.Offset, fn.End, f.pclntab)
+
+		e := FileEntry{Name: fn.Name, Start: start, End: end}
+
+		sf := getSourceFile(fileName)
+		sf.entries = append(sf.entries, e)
+		tmp[fileName] = sf
 	}
 	for _, m := range p.Methods {
-		sf := getSourceFile(m.Filename)
-		sf.entries = append(sf.entries, m)
-		tmp[m.Filename] = sf
+		fileName, _, _ := f.pclntab.PCToLine(m.Offset)
+		start, end := findSourceLines(m.Offset, m.End, f.pclntab)
+
+		e := FileEntry{Name: fmt.Sprintf("%s%s", m.Receiver, m.Name), Start: start, End: end}
+
+		sf := getSourceFile(fileName)
+		sf.entries = append(sf.entries, e)
+		tmp[fileName] = sf
 	}
 
 	// Create final slice and populate it.
-	files := make([]*SourceFile, len(tmp), len(tmp))
+	files := make([]*SourceFile, len(tmp))
 	i := 0
 	for _, sf := range tmp {
 		files[i] = sf
