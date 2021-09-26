@@ -1,6 +1,19 @@
-// Copyright 2019 The GoRE.tk Authors. All rights reserved.
-// Use of this source code is governed by the license that
-// can be found in the LICENSE file.
+// This file is part of GoRE.
+//
+// Copyright (C) 2019-2021 GoRE Authors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 package gore
 
@@ -142,7 +155,7 @@ type GoType struct {
 	FieldTag string
 	// FieldAnon is true if the field does not have a name and is an embedded type.
 	FieldAnon bool
-	// Element is the element type for arrays, sliceis chans or the resolved type for
+	// Element is the element type for arrays, slices channels or the resolved type for
 	// a pointer type. For example int if the slice is a []int.
 	Element *GoType
 	// Length is the array or slice length.
@@ -155,7 +168,7 @@ type GoType struct {
 	FuncArgs []*GoType
 	// FuncReturnVals holds the return types for the function if the type is a function kind.
 	FuncReturnVals []*GoType
-	// IsVariadic is true if the last argument type is variadic. For example "func(s striing, n ...int)"
+	// IsVariadic is true if the last argument type is variadic. For example "func(s string, n ...int)"
 	IsVariadic bool
 	// Methods holds information of the types methods.
 	Methods []*TypeMethod
@@ -176,7 +189,7 @@ func (t *GoType) String() string {
 		if t.Name == "" {
 			return "struct{}"
 		}
-		return fmt.Sprintf("%s", t.Name)
+		return t.Name
 	case reflect.Ptr:
 		return fmt.Sprintf("*%s", t.Element)
 	case reflect.Chan:
@@ -194,9 +207,9 @@ func (t *GoType) String() string {
 				buf += ", "
 			}
 			if a.Kind == reflect.Func && a.Name == t.Name {
-				buf += fmt.Sprintf("%s", a.Name)
+				buf += a.Name
 			} else {
-				buf += fmt.Sprintf("%s", a)
+				buf += a.String()
 			}
 		}
 		if len(t.FuncReturnVals) > 1 {
@@ -211,9 +224,9 @@ func (t *GoType) String() string {
 				buf += ", "
 			}
 			if r.Kind == reflect.Func && r.Name == t.Name {
-				buf += fmt.Sprintf("%s", r.Name)
+				buf += r.Name
 			} else {
-				buf += fmt.Sprintf("%s", r)
+				buf += r.String()
 			}
 		}
 		if len(t.FuncReturnVals) > 1 {
@@ -443,7 +456,7 @@ func typeParse(types map[uint64]*GoType, fileInfo *FileInfo, offset uint64, sect
 		}
 
 		// Parse fields
-		typ.Fields = make([]*GoType, numfield, numfield)
+		typ.Fields = make([]*GoType, numfield)
 		secR := bytes.NewReader(sectionData)
 		for i := 0; i < int(numfield); i++ {
 			var fieldName string
@@ -570,10 +583,13 @@ func typeParse(types map[uint64]*GoType, fileInfo *FileInfo, offset uint64, sect
 
 		// bool plus padding.
 		dotdotdot, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
+		if err != nil {
+			return nil
+		}
 		typ.IsVariadic = dotdotdot > uint64(0)
 		// One for args and one for returns
-		rtypes := make([]uint64, 2, 2)
-		typelens := make([]uint64, 2, 2)
+		rtypes := make([]uint64, 2)
+		typelens := make([]uint64, 2)
 		for i := 0; i < 2; i++ {
 			p, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 			if err != nil {
@@ -737,7 +753,7 @@ func parseMethods(r *bytes.Reader, fileInfo *FileInfo, sectionData []byte, secti
 	if err != nil {
 		return nil
 	}
-	methods := make([]*TypeMethod, numMeth, numMeth)
+	methods := make([]*TypeMethod, numMeth)
 	r.Seek(int64(pdata-sectionBaseAddr), io.SeekStart)
 	for i := 0; i < int(numMeth); i++ {
 		m := &TypeMethod{}
