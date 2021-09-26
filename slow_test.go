@@ -3,6 +3,7 @@
 // can be found in the LICENSE file.
 
 //go:build slow_test
+// +build slow_test
 
 package gore
 
