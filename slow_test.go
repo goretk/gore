@@ -457,12 +457,12 @@ func buildTestResource(body, goos, arch string, pie bool) (string, string) {
 	args = append(args, src)
 
 	cmd := exec.Command(goBin, args...)
-	gopatch := os.Getenv("GOPATH")
-	if gopatch == "" {
-		gopatch = tmpdir
+	gopath := os.Getenv("GOPATH")
+	if gopath == "" {
+		gopath = tmpdir
 	}
 
-	cmd.Env = append(cmd.Env, "GOCACHE="+tmpdir, "GOARCH="+arch, "GOOS="+goos, "GOPATH="+gopatch, "PATH="+os.Getenv("PATH"))
+	cmd.Env = append(cmd.Env, "GOCACHE="+tmpdir, "GOARCH="+arch, "GOOS="+goos, "GOPATH="+gopath, "PATH="+os.Getenv("PATH"))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		panic("building test executable failed: " + string(out))

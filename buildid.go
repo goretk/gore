@@ -23,15 +23,15 @@ func parseBuildIDFromElf(data []byte, byteOrder binary.ByteOrder) (string, error
 	var tag uint32
 	err := binary.Read(r, byteOrder, &nameLen)
 	if err != nil {
-		return "", fmt.Errorf("Error when reading the BuildID name length: %w", err)
+		return "", fmt.Errorf("error when reading the BuildID name length: %w", err)
 	}
 	err = binary.Read(r, byteOrder, &idLen)
 	if err != nil {
-		return "", fmt.Errorf("Error when reading the BuildID ID length: %w", err)
+		return "", fmt.Errorf("error when reading the BuildID ID length: %w", err)
 	}
 	err = binary.Read(r, byteOrder, &tag)
 	if err != nil {
-		return "", fmt.Errorf("Error when reading the BuildID tag: %w", err)
+		return "", fmt.Errorf("error when reading the BuildID tag: %w", err)
 	}
 
 	if tag != uint32(4) {

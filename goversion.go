@@ -14,7 +14,6 @@ import (
 )
 
 var goVersionMatcher = regexp.MustCompile(`(go[\d+\.]*(beta|rc)?[\d*])`)
-var versionMarker = []byte("go")
 
 // GoVersion holds information about the compiler version.
 type GoVersion struct {
