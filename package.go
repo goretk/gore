@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/goretk/gore/extern"
 )
 
 //go:generate go run gen.go
@@ -107,9 +109,15 @@ const (
 	ClassGenerated
 )
 
-// NewPackageClassifier constructs a new classifier based on the main package's filepath.
-func NewPackageClassifier(mainPkgFilepath string) *PackageClassifier {
-	return &PackageClassifier{
+// PackageClassifier classifies a package to the correct class type.
+type PackageClassifier interface {
+	// Classify performs the classification.
+	Classify(pkg *Package) PackageClass
+}
+
+// NewPathPackageClassifier constructs a new classifier based on the main package's filepath.
+func NewPathPackageClassifier(mainPkgFilepath string) *PathPackageClassifier {
+	return &PathPackageClassifier{
 		mainFilepath: mainPkgFilepath, mainFolders: []string{
 			filepath.Dir(mainPkgFilepath),
 			mainPkgFilepath,
@@ -117,14 +125,14 @@ func NewPackageClassifier(mainPkgFilepath string) *PackageClassifier {
 	}
 }
 
-// PackageClassifier can classify the class of a go package.
-type PackageClassifier struct {
+// PathPackageClassifier can classify the class of a go package.
+type PathPackageClassifier struct {
 	mainFilepath string
 	mainFolders  []string
 }
 
 // Classify returns the package class for the package.
-func (c *PackageClassifier) Classify(pkg *Package) PackageClass {
+func (c *PathPackageClassifier) Classify(pkg *Package) PackageClass {
 	if pkg.Name == "type" || strings.HasPrefix(pkg.Name, "type..") {
 		return ClassGenerated
 	}
@@ -133,24 +141,12 @@ func (c *PackageClassifier) Classify(pkg *Package) PackageClass {
 		return ClassSTD
 	}
 
-	// Detect regexp.(*onePassInst).regexp/syntax type packages
-	tmp := strings.Split(pkg.Name, ".")[0]
-	if len(tmp) < len(pkg.Name) && IsStandardLibrary(tmp) {
-		return ClassGenerated
-	}
-
-	// Special case for no package name and path of ".".
-	if pkg.Name == "" && pkg.Filepath == "." {
-		return ClassGenerated
-	}
-
-	// Some internal stuff, classify it as Generated
-	if pkg.Filepath == "." && (pkg.Name == "__x86" || pkg.Name == "__i686") {
+	if isGeneratedPackage(pkg) {
 		return ClassGenerated
 	}
 
 	// Detect internal/golang.org/x/net/http2/hpack type/
-	tmp = strings.Split(pkg.Name, "/golang.org")[0]
+	tmp := strings.Split(pkg.Name, "/golang.org")[0]
 	if len(tmp) < len(pkg.Name) && IsStandardLibrary(tmp) {
 		return ClassSTD
 	}
@@ -226,4 +222,69 @@ func (c *PackageClassifier) Classify(pkg *Package) PackageClass {
 func IsStandardLibrary(pkg string) bool {
 	_, ok := stdPkgs[pkg]
 	return ok
+}
+
+func isGeneratedPackage(pkg *Package) bool {
+	// Detect regexp.(*onePassInst).regexp/syntax type packages
+	tmp := strings.Split(pkg.Name, ".")[0]
+	if len(tmp) < len(pkg.Name) && IsStandardLibrary(tmp) {
+		return true
+	}
+
+	// Special case for no package name and path of ".".
+	if pkg.Name == "" && pkg.Filepath == "." {
+		return true
+	}
+
+	// Some internal stuff, classify it as Generated
+	if pkg.Filepath == "." && (pkg.Name == "__x86" || pkg.Name == "__i686") {
+		return true
+	}
+
+	return false
+}
+
+// NewModPackageClassifier creates a new mod based package classifier.
+func NewModPackageClassifier(buildInfo *extern.BuildInfo) *ModPackageClassifier {
+	return &ModPackageClassifier{modInfo: buildInfo}
+}
+
+// ModPackageClassifier uses the mod info extracted from the binary to classify packages.
+type ModPackageClassifier struct {
+	modInfo *extern.BuildInfo
+}
+
+// Classify performs the classification.
+func (c *ModPackageClassifier) Classify(pkg *Package) PackageClass {
+	if IsStandardLibrary(pkg.Name) {
+		return ClassSTD
+	}
+
+	// Main package.
+	if pkg.Name == "main" {
+		return ClassMain
+	}
+
+	if strings.HasPrefix(pkg.Filepath, c.modInfo.Main.Path) {
+		return ClassMain
+	}
+
+	// Check if the package is a direct dependency.
+	for _, dep := range c.modInfo.Deps {
+		if strings.HasPrefix(pkg.Filepath, dep.Path) {
+			return ClassVendor
+		}
+	}
+
+	if isGeneratedPackage(pkg) {
+		return ClassGenerated
+	}
+
+	// cgo packages.
+	if strings.HasPrefix(pkg.Name, "_cgo_") || strings.HasPrefix(pkg.Name, "x_cgo_") {
+		return ClassSTD
+	}
+
+	// Only indirect dependencies should be left.
+	return ClassVendor
 }

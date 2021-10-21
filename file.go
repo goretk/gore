@@ -265,12 +265,18 @@ func (f *GoFile) enumPackages() error {
 
 	allPackages.Sort()
 
-	mainPkg, ok := packages["main"]
-	if !ok {
-		return fmt.Errorf("no main package found")
-	}
+	var classifier PackageClassifier
 
-	classifier := NewPackageClassifier(mainPkg.Filepath)
+	if f.BuildInfo != nil && f.BuildInfo.ModInfo != nil {
+		classifier = NewModPackageClassifier(f.BuildInfo.ModInfo)
+	} else {
+		mainPkg, ok := packages["main"]
+		if !ok {
+			return fmt.Errorf("no main package found")
+		}
+
+		classifier = NewPathPackageClassifier(mainPkg.Filepath)
+	}
 
 	for n, p := range packages {
 		p.Name = n

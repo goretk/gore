@@ -345,7 +345,7 @@ func TestClassifyPackage(t *testing.T) {
 
 	assert := assert.New(t)
 	mainPath := "C:/Users/h/CloudStation/Projects/0/ly/lady/src/lady"
-	classifier := NewPackageClassifier(mainPath)
+	classifier := NewPathPackageClassifier(mainPath)
 
 	for _, test := range tests {
 		t.Run("classify_"+test.pkgsName, func(t *testing.T) {
@@ -411,7 +411,7 @@ func TestAthenaCase(t *testing.T) {
 
 	assert := assert.New(t)
 	mainPath := "/Users/ruben/Programming/Athena"
-	classifier := NewPackageClassifier(mainPath)
+	classifier := NewPathPackageClassifier(mainPath)
 
 	for _, test := range tests {
 		t.Run("classify_"+test.pkgsName, func(t *testing.T) {
@@ -438,7 +438,7 @@ func TestUseGoModVersion(t *testing.T) {
 
 	assert := assert.New(t)
 	mainPath := "/root/project/hugo"
-	classifier := NewPackageClassifier(mainPath)
+	classifier := NewPathPackageClassifier(mainPath)
 
 	for _, test := range tests {
 		t.Run("classify_"+test.pkgsName, func(t *testing.T) {
@@ -467,7 +467,7 @@ func TestCommandLineArgumentsPagkageDetection(t *testing.T) {
 
 	assert := assert.New(t)
 	mainPath := "command-line-arguments"
-	classifier := NewPackageClassifier(mainPath)
+	classifier := NewPathPackageClassifier(mainPath)
 
 	for _, test := range tests {
 		t.Run("classify_"+test.pkgsName, func(t *testing.T) {
@@ -493,7 +493,7 @@ func TestSubSubSubPackage(t *testing.T) {
 
 	assert := assert.New(t)
 	mainPath := "gopackage/cmds/gopackage"
-	classifier := NewPackageClassifier(mainPath)
+	classifier := NewPathPackageClassifier(mainPath)
 
 	for _, test := range tests {
 		t.Run("classify_"+test.pkgsName, func(t *testing.T) {
