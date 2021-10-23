@@ -265,13 +265,13 @@ func (c *ModPackageClassifier) Classify(pkg *Package) PackageClass {
 		return ClassMain
 	}
 
-	if strings.HasPrefix(pkg.Filepath, c.modInfo.Main.Path) {
+	if strings.HasPrefix(pkg.Filepath, c.modInfo.Main.Path) || strings.HasPrefix(pkg.Name, c.modInfo.Main.Path) {
 		return ClassMain
 	}
 
 	// Check if the package is a direct dependency.
 	for _, dep := range c.modInfo.Deps {
-		if strings.HasPrefix(pkg.Filepath, dep.Path) {
+		if strings.HasPrefix(pkg.Filepath, dep.Path) || strings.HasPrefix(pkg.Name, dep.Path) {
 			return ClassVendor
 		}
 	}

@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -504,5 +505,135 @@ func TestSubSubSubPackage(t *testing.T) {
 			class := classifier.Classify(pkg)
 			assert.Equal(test.pkgClass, class, "Incorrect classification of: "+test.pkgsName)
 		})
+	}
+}
+
+func TestModInfoPackageClassification(t *testing.T) {
+	r := require.New(t)
+	a := require.New(t)
+
+	fp, err := getGoldTestResourcePath("dolt")
+	r.NoError(err)
+
+	f, err := Open(fp)
+	r.NoError(err)
+
+	// Check build and mod info
+	r.NotNil(f.BuildInfo)
+	r.NotNil(f.BuildInfo.ModInfo)
+
+	// Get the packages in the main module.
+	pkgs, err := f.GetPackages()
+	r.NoError(err)
+
+	// Check that the correct number of packages was found.
+	r.Len(pkgs, 96, fmt.Sprintf("Number of packages: %d", len(pkgs)))
+
+	// Check that the correct packages were found.
+	mainPackages := []string{
+		"github.com/dolthub/dolt/go/cmd/dolt/cli",
+		"github.com/dolthub/dolt/go/cmd/dolt/commands",
+		"github.com/dolthub/dolt/go/cmd/dolt/commands/cnfcmds",
+		"github.com/dolthub/dolt/go/cmd/dolt/commands/credcmds",
+		"github.com/dolthub/dolt/go/cmd/dolt/commands/cvcmds",
+		"github.com/dolthub/dolt/go/cmd/dolt/commands/indexcmds",
+		"github.com/dolthub/dolt/go/cmd/dolt/commands/schcmds",
+		"github.com/dolthub/dolt/go/cmd/dolt/commands/sqlserver",
+		"github.com/dolthub/dolt/go/cmd/dolt/commands/tblcmds",
+		"github.com/dolthub/dolt/go/cmd/dolt/errhand",
+		"github.com/dolthub/dolt/go/gen/proto/dolt/services/eventsapi/v1alpha1",
+		"github.com/dolthub/dolt/go/gen/proto/dolt/services/remotesapi/v1alpha1",
+		"github.com/dolthub/dolt/go/libraries/doltcore/creds",
+		"github.com/dolthub/dolt/go/libraries/doltcore/dbfactory",
+		"github.com/dolthub/dolt/go/libraries/doltcore/diff",
+		"github.com/dolthub/dolt/go/libraries/doltcore/doltdb",
+		"github.com/dolthub/dolt/go/libraries/doltcore/doltdocs",
+		"github.com/dolthub/dolt/go/libraries/doltcore/dtestutils",
+		"github.com/dolthub/dolt/go/libraries/doltcore/env",
+		"github.com/dolthub/dolt/go/libraries/doltcore/env/actions",
+		"github.com/dolthub/dolt/go/libraries/doltcore/env/actions/commitwalk",
+		"github.com/dolthub/dolt/go/libraries/doltcore/merge",
+		"github.com/dolthub/dolt/go/libraries/doltcore/mvdata",
+		"github.com/dolthub/dolt/go/libraries/doltcore/rebase",
+		"github.com/dolthub/dolt/go/libraries/doltcore/ref",
+		"github.com/dolthub/dolt/go/libraries/doltcore/remotestorage",
+		"github.com/dolthub/dolt/go/libraries/doltcore/row",
+		"github.com/dolthub/dolt/go/libraries/doltcore/rowconv",
+		"github.com/dolthub/dolt/go/libraries/doltcore/schema",
+		"github.com/dolthub/dolt/go/libraries/doltcore/schema/alterschema",
+		"github.com/dolthub/dolt/go/libraries/doltcore/schema/encoding",
+		"github.com/dolthub/dolt/go/libraries/doltcore/schema/typeinfo",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/dfunctions",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/dsess",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/dtables",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/expreval",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/globalstate",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/json",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/json.(*NomsJSON).github.com/dolthub/dolt/go/store/types",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/json.NomsJSON.github.com/dolthub/dolt/go/store/types",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/lookup",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/setalgebra",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/sqlfmt",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/sqlutil",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/editor",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/editor/creation",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/pipeline",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/typed/json",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/typed/noms",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/untyped",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/untyped/csv",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/untyped/fwt",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/untyped/nullprinter",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/untyped/sqlexport",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/untyped/tabular",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/untyped/xlsx",
+		"github.com/dolthub/dolt/go/libraries/events",
+		"github.com/dolthub/dolt/go/libraries/utils/argparser",
+		"github.com/dolthub/dolt/go/libraries/utils/async",
+		"github.com/dolthub/dolt/go/libraries/utils/config",
+		"github.com/dolthub/dolt/go/libraries/utils/earl",
+		"github.com/dolthub/dolt/go/libraries/utils/editor",
+		"github.com/dolthub/dolt/go/libraries/utils/file",
+		"github.com/dolthub/dolt/go/libraries/utils/filesys",
+		"github.com/dolthub/dolt/go/libraries/utils/funcitr",
+		"github.com/dolthub/dolt/go/libraries/utils/iohelp",
+		"github.com/dolthub/dolt/go/libraries/utils/mathutil",
+		"github.com/dolthub/dolt/go/libraries/utils/pipeline",
+		"github.com/dolthub/dolt/go/libraries/utils/set",
+		"github.com/dolthub/dolt/go/libraries/utils/strhelp",
+		"github.com/dolthub/dolt/go/libraries/utils/tracing",
+		"github.com/dolthub/dolt/go/libraries/utils/valutil",
+		"github.com/dolthub/dolt/go/store/atomicerr",
+		"github.com/dolthub/dolt/go/store/blobstore",
+		"github.com/dolthub/dolt/go/store/chunks",
+		"github.com/dolthub/dolt/go/store/constants",
+		"github.com/dolthub/dolt/go/store/d",
+		"github.com/dolthub/dolt/go/store/datas",
+		"github.com/dolthub/dolt/go/store/diff",
+		"github.com/dolthub/dolt/go/store/hash",
+		"github.com/dolthub/dolt/go/store/marshal",
+		"github.com/dolthub/dolt/go/store/metrics",
+		"github.com/dolthub/dolt/go/store/nbs",
+		"github.com/dolthub/dolt/go/store/nomdl",
+		"github.com/dolthub/dolt/go/store/sloppy",
+		"github.com/dolthub/dolt/go/store/spec",
+		"github.com/dolthub/dolt/go/store/types",
+		"github.com/dolthub/dolt/go/store/types/edits",
+		"github.com/dolthub/dolt/go/store/util/datetime",
+		"github.com/dolthub/dolt/go/store/util/random",
+		"github.com/dolthub/dolt/go/store/util/sizecache",
+		"github.com/dolthub/dolt/go/store/util/tempfiles",
+		"github.com/dolthub/dolt/go/store/util/verbose",
+		"main",
+	}
+
+	sort.Slice(pkgs, func(i, j int) bool {
+		return pkgs[i].Name < pkgs[j].Name
+	})
+
+	for i, expected := range mainPackages {
+		a.Equal(expected, pkgs[i].Name, fmt.Sprintf("Index %d is incorrect.", i))
 	}
 }
