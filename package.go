@@ -1,13 +1,29 @@
-// Copyright 2019 The GoRE.tk Authors. All rights reserved.
-// Use of this source code is governed by the license that
-// can be found in the LICENSE file.
+// This file is part of GoRE.
+//
+// Copyright (C) 2019-2021 GoRE Authors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 package gore
 
 import (
+	"fmt"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/goretk/gore/extern"
 )
 
 //go:generate go run gen.go
@@ -30,30 +46,40 @@ type Package struct {
 
 // GetSourceFiles returns a slice of source files within the package.
 // The source files are a representations of the source code files in the package.
-func (p *Package) GetSourceFiles() []*SourceFile {
+func (f *GoFile) GetSourceFiles(p *Package) []*SourceFile {
 	tmp := make(map[string]*SourceFile)
 	getSourceFile := func(fileName string) *SourceFile {
 		sf, ok := tmp[fileName]
 		if !ok {
-			return &SourceFile{Name: fileName}
+			return &SourceFile{Name: filepath.Base(fileName)}
 		}
 		return sf
 	}
 
-	// Sort functions and methods by source file
-	for _, f := range p.Functions {
-		sf := getSourceFile(f.Filename)
-		sf.entries = append(sf.entries, f)
-		tmp[f.Filename] = sf
+	// Sort functions and methods by source file.
+	for _, fn := range p.Functions {
+		fileName, _, _ := f.pclntab.PCToLine(fn.Offset)
+		start, end := findSourceLines(fn.Offset, fn.End, f.pclntab)
+
+		e := FileEntry{Name: fn.Name, Start: start, End: end}
+
+		sf := getSourceFile(fileName)
+		sf.entries = append(sf.entries, e)
+		tmp[fileName] = sf
 	}
 	for _, m := range p.Methods {
-		sf := getSourceFile(m.Filename)
-		sf.entries = append(sf.entries, m)
-		tmp[m.Filename] = sf
+		fileName, _, _ := f.pclntab.PCToLine(m.Offset)
+		start, end := findSourceLines(m.Offset, m.End, f.pclntab)
+
+		e := FileEntry{Name: fmt.Sprintf("%s%s", m.Receiver, m.Name), Start: start, End: end}
+
+		sf := getSourceFile(fileName)
+		sf.entries = append(sf.entries, e)
+		tmp[fileName] = sf
 	}
 
 	// Create final slice and populate it.
-	files := make([]*SourceFile, len(tmp), len(tmp))
+	files := make([]*SourceFile, len(tmp))
 	i := 0
 	for _, sf := range tmp {
 		files[i] = sf
@@ -83,9 +109,15 @@ const (
 	ClassGenerated
 )
 
-// NewPackageClassifier constructs a new classifier based on the main package's filepath.
-func NewPackageClassifier(mainPkgFilepath string) *PackageClassifier {
-	return &PackageClassifier{
+// PackageClassifier classifies a package to the correct class type.
+type PackageClassifier interface {
+	// Classify performs the classification.
+	Classify(pkg *Package) PackageClass
+}
+
+// NewPathPackageClassifier constructs a new classifier based on the main package's filepath.
+func NewPathPackageClassifier(mainPkgFilepath string) *PathPackageClassifier {
+	return &PathPackageClassifier{
 		mainFilepath: mainPkgFilepath, mainFolders: []string{
 			filepath.Dir(mainPkgFilepath),
 			mainPkgFilepath,
@@ -93,14 +125,14 @@ func NewPackageClassifier(mainPkgFilepath string) *PackageClassifier {
 	}
 }
 
-// PackageClassifier can classify the class of a go package.
-type PackageClassifier struct {
+// PathPackageClassifier can classify the class of a go package.
+type PathPackageClassifier struct {
 	mainFilepath string
 	mainFolders  []string
 }
 
 // Classify returns the package class for the package.
-func (c *PackageClassifier) Classify(pkg *Package) PackageClass {
+func (c *PathPackageClassifier) Classify(pkg *Package) PackageClass {
 	if pkg.Name == "type" || strings.HasPrefix(pkg.Name, "type..") {
 		return ClassGenerated
 	}
@@ -109,24 +141,12 @@ func (c *PackageClassifier) Classify(pkg *Package) PackageClass {
 		return ClassSTD
 	}
 
-	// Detect regexp.(*onePassInst).regexp/syntax type packages
-	tmp := strings.Split(pkg.Name, ".")[0]
-	if len(tmp) < len(pkg.Name) && IsStandardLibrary(tmp) {
-		return ClassGenerated
-	}
-
-	// Special case for no package name and path of ".".
-	if pkg.Name == "" && pkg.Filepath == "." {
-		return ClassGenerated
-	}
-
-	// Some internal stuff, classify it as Generated
-	if pkg.Filepath == "." && (pkg.Name == "__x86" || pkg.Name == "__i686") {
+	if isGeneratedPackage(pkg) {
 		return ClassGenerated
 	}
 
 	// Detect internal/golang.org/x/net/http2/hpack type/
-	tmp = strings.Split(pkg.Name, "/golang.org")[0]
+	tmp := strings.Split(pkg.Name, "/golang.org")[0]
 	if len(tmp) < len(pkg.Name) && IsStandardLibrary(tmp) {
 		return ClassSTD
 	}
@@ -202,4 +222,69 @@ func (c *PackageClassifier) Classify(pkg *Package) PackageClass {
 func IsStandardLibrary(pkg string) bool {
 	_, ok := stdPkgs[pkg]
 	return ok
+}
+
+func isGeneratedPackage(pkg *Package) bool {
+	// Detect regexp.(*onePassInst).regexp/syntax type packages
+	tmp := strings.Split(pkg.Name, ".")[0]
+	if len(tmp) < len(pkg.Name) && IsStandardLibrary(tmp) {
+		return true
+	}
+
+	// Special case for no package name and path of ".".
+	if pkg.Name == "" && pkg.Filepath == "." {
+		return true
+	}
+
+	// Some internal stuff, classify it as Generated
+	if pkg.Filepath == "." && (pkg.Name == "__x86" || pkg.Name == "__i686") {
+		return true
+	}
+
+	return false
+}
+
+// NewModPackageClassifier creates a new mod based package classifier.
+func NewModPackageClassifier(buildInfo *extern.BuildInfo) *ModPackageClassifier {
+	return &ModPackageClassifier{modInfo: buildInfo}
+}
+
+// ModPackageClassifier uses the mod info extracted from the binary to classify packages.
+type ModPackageClassifier struct {
+	modInfo *extern.BuildInfo
+}
+
+// Classify performs the classification.
+func (c *ModPackageClassifier) Classify(pkg *Package) PackageClass {
+	if IsStandardLibrary(pkg.Name) {
+		return ClassSTD
+	}
+
+	// Main package.
+	if pkg.Name == "main" {
+		return ClassMain
+	}
+
+	if strings.HasPrefix(pkg.Filepath, c.modInfo.Main.Path) || strings.HasPrefix(pkg.Name, c.modInfo.Main.Path) {
+		return ClassMain
+	}
+
+	// Check if the package is a direct dependency.
+	for _, dep := range c.modInfo.Deps {
+		if strings.HasPrefix(pkg.Filepath, dep.Path) || strings.HasPrefix(pkg.Name, dep.Path) {
+			return ClassVendor
+		}
+	}
+
+	if isGeneratedPackage(pkg) {
+		return ClassGenerated
+	}
+
+	// cgo packages.
+	if strings.HasPrefix(pkg.Name, "_cgo_") || strings.HasPrefix(pkg.Name, "x_cgo_") {
+		return ClassSTD
+	}
+
+	// Only indirect dependencies should be left.
+	return ClassVendor
 }

@@ -1,14 +1,31 @@
-// Copyright 2019 The GoRE.tk Authors. All rights reserved.
-// Use of this source code is governed by the license that
-// can be found in the LICENSE file.
+// This file is part of GoRE.
+//
+// Copyright (C) 2019-2021 GoRE Authors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 package gore
 
 import (
+	"bytes"
 	"fmt"
+	"path/filepath"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClassifyPackage(t *testing.T) {
@@ -329,7 +346,7 @@ func TestClassifyPackage(t *testing.T) {
 
 	assert := assert.New(t)
 	mainPath := "C:/Users/h/CloudStation/Projects/0/ly/lady/src/lady"
-	classifier := NewPackageClassifier(mainPath)
+	classifier := NewPathPackageClassifier(mainPath)
 
 	for _, test := range tests {
 		t.Run("classify_"+test.pkgsName, func(t *testing.T) {
@@ -344,32 +361,41 @@ func TestClassifyPackage(t *testing.T) {
 }
 
 func TestGetSourceFiles(t *testing.T) {
-	assert := assert.New(t)
-	// Setup
-	pn := "main"
-	fp1 := "main.go"
-	fp2 := "extra.go"
+	r := require.New(t)
+	const expected string = `Package main: /build
+	File: target.go
+		(*simpleStruct)String Lines: 21 to 29 (8)
+		main Lines: 29 to 33 (4)`
+	fp, err := filepath.Abs("testdata/gold/gold-linux-amd64-1.17.0")
+	r.NoError(err)
 
-	f1 := &Function{Filename: fp1, PackageName: pn, SrcLineStart: 8, Name: "main"}
-	f2 := &Function{Filename: fp1, PackageName: pn, SrcLineStart: 15, Name: "start"}
-	f3 := &Function{Filename: fp2, PackageName: pn, SrcLineStart: 5, Name: "e1"}
-	f4 := &Function{Filename: fp2, PackageName: pn, SrcLineStart: 15, Name: "e2"}
+	f, err := Open(fp)
+	r.NoError(err)
 
-	m1 := &Method{Function: &Function{Filename: fp2, PackageName: pn, SrcLineStart: 10, Name: "m1"}, Receiver: "test"}
-	m2 := &Method{Function: &Function{Filename: fp2, PackageName: pn, SrcLineStart: 25, Name: "m2"}, Receiver: "test"}
+	pkgs, err := f.GetPackages()
+	r.NoError(err)
 
-	pkg := &Package{Name: pn, Filepath: "/",
-		Functions: []*Function{f2, f1, f4, f3},
-		Methods:   []*Method{m2, m1},
+	var pkg *Package
+	for _, p := range pkgs {
+		if p.Name == "main" {
+			pkg = p
+			break
+		}
 	}
+	r.NotNil(pkg)
 
 	// Test
 
-	sf := pkg.GetSourceFiles()
+	sf := f.GetSourceFiles(pkg)
 
-	assert.Len(sf, 2, "Should return a count of 2 files")
-	assert.Equal(fp2, sf[0].Name, "extra should be sorted first")
-	assert.Equal(fp1, sf[1].Name, "main should be sorted last")
+	buf := &bytes.Buffer{}
+	buf.WriteString(fmt.Sprintf("Package %s: %s\n", pkg.Name, pkg.Filepath))
+	for _, s := range sf {
+		s.Prefix = "\t"
+		buf.WriteString(s.String())
+	}
+
+	r.Equal(expected, buf.String())
 }
 
 func TestAthenaCase(t *testing.T) {
@@ -386,7 +412,7 @@ func TestAthenaCase(t *testing.T) {
 
 	assert := assert.New(t)
 	mainPath := "/Users/ruben/Programming/Athena"
-	classifier := NewPackageClassifier(mainPath)
+	classifier := NewPathPackageClassifier(mainPath)
 
 	for _, test := range tests {
 		t.Run("classify_"+test.pkgsName, func(t *testing.T) {
@@ -413,7 +439,7 @@ func TestUseGoModVersion(t *testing.T) {
 
 	assert := assert.New(t)
 	mainPath := "/root/project/hugo"
-	classifier := NewPackageClassifier(mainPath)
+	classifier := NewPathPackageClassifier(mainPath)
 
 	for _, test := range tests {
 		t.Run("classify_"+test.pkgsName, func(t *testing.T) {
@@ -442,7 +468,7 @@ func TestCommandLineArgumentsPagkageDetection(t *testing.T) {
 
 	assert := assert.New(t)
 	mainPath := "command-line-arguments"
-	classifier := NewPackageClassifier(mainPath)
+	classifier := NewPathPackageClassifier(mainPath)
 
 	for _, test := range tests {
 		t.Run("classify_"+test.pkgsName, func(t *testing.T) {
@@ -468,7 +494,7 @@ func TestSubSubSubPackage(t *testing.T) {
 
 	assert := assert.New(t)
 	mainPath := "gopackage/cmds/gopackage"
-	classifier := NewPackageClassifier(mainPath)
+	classifier := NewPathPackageClassifier(mainPath)
 
 	for _, test := range tests {
 		t.Run("classify_"+test.pkgsName, func(t *testing.T) {
@@ -479,5 +505,135 @@ func TestSubSubSubPackage(t *testing.T) {
 			class := classifier.Classify(pkg)
 			assert.Equal(test.pkgClass, class, "Incorrect classification of: "+test.pkgsName)
 		})
+	}
+}
+
+func TestModInfoPackageClassification(t *testing.T) {
+	r := require.New(t)
+	a := require.New(t)
+
+	fp, err := getGoldTestResourcePath("dolt")
+	r.NoError(err)
+
+	f, err := Open(fp)
+	r.NoError(err)
+
+	// Check build and mod info
+	r.NotNil(f.BuildInfo)
+	r.NotNil(f.BuildInfo.ModInfo)
+
+	// Get the packages in the main module.
+	pkgs, err := f.GetPackages()
+	r.NoError(err)
+
+	// Check that the correct number of packages was found.
+	r.Len(pkgs, 96, fmt.Sprintf("Number of packages: %d", len(pkgs)))
+
+	// Check that the correct packages were found.
+	mainPackages := []string{
+		"github.com/dolthub/dolt/go/cmd/dolt/cli",
+		"github.com/dolthub/dolt/go/cmd/dolt/commands",
+		"github.com/dolthub/dolt/go/cmd/dolt/commands/cnfcmds",
+		"github.com/dolthub/dolt/go/cmd/dolt/commands/credcmds",
+		"github.com/dolthub/dolt/go/cmd/dolt/commands/cvcmds",
+		"github.com/dolthub/dolt/go/cmd/dolt/commands/indexcmds",
+		"github.com/dolthub/dolt/go/cmd/dolt/commands/schcmds",
+		"github.com/dolthub/dolt/go/cmd/dolt/commands/sqlserver",
+		"github.com/dolthub/dolt/go/cmd/dolt/commands/tblcmds",
+		"github.com/dolthub/dolt/go/cmd/dolt/errhand",
+		"github.com/dolthub/dolt/go/gen/proto/dolt/services/eventsapi/v1alpha1",
+		"github.com/dolthub/dolt/go/gen/proto/dolt/services/remotesapi/v1alpha1",
+		"github.com/dolthub/dolt/go/libraries/doltcore/creds",
+		"github.com/dolthub/dolt/go/libraries/doltcore/dbfactory",
+		"github.com/dolthub/dolt/go/libraries/doltcore/diff",
+		"github.com/dolthub/dolt/go/libraries/doltcore/doltdb",
+		"github.com/dolthub/dolt/go/libraries/doltcore/doltdocs",
+		"github.com/dolthub/dolt/go/libraries/doltcore/dtestutils",
+		"github.com/dolthub/dolt/go/libraries/doltcore/env",
+		"github.com/dolthub/dolt/go/libraries/doltcore/env/actions",
+		"github.com/dolthub/dolt/go/libraries/doltcore/env/actions/commitwalk",
+		"github.com/dolthub/dolt/go/libraries/doltcore/merge",
+		"github.com/dolthub/dolt/go/libraries/doltcore/mvdata",
+		"github.com/dolthub/dolt/go/libraries/doltcore/rebase",
+		"github.com/dolthub/dolt/go/libraries/doltcore/ref",
+		"github.com/dolthub/dolt/go/libraries/doltcore/remotestorage",
+		"github.com/dolthub/dolt/go/libraries/doltcore/row",
+		"github.com/dolthub/dolt/go/libraries/doltcore/rowconv",
+		"github.com/dolthub/dolt/go/libraries/doltcore/schema",
+		"github.com/dolthub/dolt/go/libraries/doltcore/schema/alterschema",
+		"github.com/dolthub/dolt/go/libraries/doltcore/schema/encoding",
+		"github.com/dolthub/dolt/go/libraries/doltcore/schema/typeinfo",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/dfunctions",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/dsess",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/dtables",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/expreval",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/globalstate",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/json",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/json.(*NomsJSON).github.com/dolthub/dolt/go/store/types",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/json.NomsJSON.github.com/dolthub/dolt/go/store/types",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/lookup",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/setalgebra",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/sqlfmt",
+		"github.com/dolthub/dolt/go/libraries/doltcore/sqle/sqlutil",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/editor",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/editor/creation",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/pipeline",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/typed/json",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/typed/noms",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/untyped",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/untyped/csv",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/untyped/fwt",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/untyped/nullprinter",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/untyped/sqlexport",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/untyped/tabular",
+		"github.com/dolthub/dolt/go/libraries/doltcore/table/untyped/xlsx",
+		"github.com/dolthub/dolt/go/libraries/events",
+		"github.com/dolthub/dolt/go/libraries/utils/argparser",
+		"github.com/dolthub/dolt/go/libraries/utils/async",
+		"github.com/dolthub/dolt/go/libraries/utils/config",
+		"github.com/dolthub/dolt/go/libraries/utils/earl",
+		"github.com/dolthub/dolt/go/libraries/utils/editor",
+		"github.com/dolthub/dolt/go/libraries/utils/file",
+		"github.com/dolthub/dolt/go/libraries/utils/filesys",
+		"github.com/dolthub/dolt/go/libraries/utils/funcitr",
+		"github.com/dolthub/dolt/go/libraries/utils/iohelp",
+		"github.com/dolthub/dolt/go/libraries/utils/mathutil",
+		"github.com/dolthub/dolt/go/libraries/utils/pipeline",
+		"github.com/dolthub/dolt/go/libraries/utils/set",
+		"github.com/dolthub/dolt/go/libraries/utils/strhelp",
+		"github.com/dolthub/dolt/go/libraries/utils/tracing",
+		"github.com/dolthub/dolt/go/libraries/utils/valutil",
+		"github.com/dolthub/dolt/go/store/atomicerr",
+		"github.com/dolthub/dolt/go/store/blobstore",
+		"github.com/dolthub/dolt/go/store/chunks",
+		"github.com/dolthub/dolt/go/store/constants",
+		"github.com/dolthub/dolt/go/store/d",
+		"github.com/dolthub/dolt/go/store/datas",
+		"github.com/dolthub/dolt/go/store/diff",
+		"github.com/dolthub/dolt/go/store/hash",
+		"github.com/dolthub/dolt/go/store/marshal",
+		"github.com/dolthub/dolt/go/store/metrics",
+		"github.com/dolthub/dolt/go/store/nbs",
+		"github.com/dolthub/dolt/go/store/nomdl",
+		"github.com/dolthub/dolt/go/store/sloppy",
+		"github.com/dolthub/dolt/go/store/spec",
+		"github.com/dolthub/dolt/go/store/types",
+		"github.com/dolthub/dolt/go/store/types/edits",
+		"github.com/dolthub/dolt/go/store/util/datetime",
+		"github.com/dolthub/dolt/go/store/util/random",
+		"github.com/dolthub/dolt/go/store/util/sizecache",
+		"github.com/dolthub/dolt/go/store/util/tempfiles",
+		"github.com/dolthub/dolt/go/store/util/verbose",
+		"main",
+	}
+
+	sort.Slice(pkgs, func(i, j int) bool {
+		return pkgs[i].Name < pkgs[j].Name
+	})
+
+	for i, expected := range mainPackages {
+		a.Equal(expected, pkgs[i].Name, fmt.Sprintf("Index %d is incorrect.", i))
 	}
 }

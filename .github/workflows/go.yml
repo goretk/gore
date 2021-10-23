@@ -24,7 +24,7 @@ jobs:
       run: go build -o a
 
     - name: Test
-      run: go test -timeout 1800s -v -race -coverprofile=coverage.txt -covermode=atomic
+      run: go test -timeout 1800s -v -race -coverprofile=coverage.txt -covermode=atomic -tags slow_test
 
     - name: Codecov
       # You may pin to the exact commit or the version.
