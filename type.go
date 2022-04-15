@@ -65,33 +65,19 @@ func getTypes(fileInfo *FileInfo, f fileHandler) (map[uint64]*GoType, error) {
 		return nil, fmt.Errorf("failed to parse the module data: %w", err)
 	}
 
-	tbase, types, err := f.getSectionDataFromOffset(md.typesAddr)
+	types, err := md.Types().Data()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get types data section: %w", err)
 	}
 
-	base, typelinkSection, err := f.getSectionDataFromOffset(md.typelinkAddr)
+	typeLink, err := md.TypeLink()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get type-link data section: %w", err)
-	}
-
-	r := bytes.NewReader(typelinkSection)
-	_, err = r.Seek(int64(md.typelinkAddr)-int64(base), io.SeekStart)
-	if err != nil {
-		return nil, fmt.Errorf("seek error: %w", err)
+		return nil, fmt.Errorf("failed to get type link data: %w", err)
 	}
 
 	// New parser
-	parser := newTypeParser(types[md.typesAddr-tbase:], md.typesAddr, fileInfo)
-
-	for i := uint64(0); i < md.typelinkLen; i++ {
-		// Type offsets are always int32
-		var off int32
-		err = binary.Read(r, fileInfo.ByteOrder, &off)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read type number %d: %w", i, err)
-		}
-
+	parser := newTypeParser(types, md.Types().Address, fileInfo)
+	for _, off := range typeLink {
 		typ, err := parser.parseType(uint64(off) + parser.base)
 		if err != nil || typ == nil {
 			return nil, fmt.Errorf("failed to parse type at offset 0x%x: %w", off, err)
@@ -105,18 +91,18 @@ func getLegacyTypes(fileInfo *FileInfo, f fileHandler) (map[uint64]*GoType, erro
 	if err != nil {
 		return nil, err
 	}
-	typelinkAddr, typelinkData, err := f.getSectionDataFromOffset(md.typelinkAddr)
+	typelinkAddr, typelinkData, err := f.getSectionDataFromOffset(md.TypelinkAddr)
 	if err != nil {
 		return nil, fmt.Errorf("no typelink section found: %w", err)
 	}
 	r := bytes.NewReader(typelinkData)
-	_, err = r.Seek(int64(md.typelinkAddr)-int64(typelinkAddr), io.SeekStart)
+	_, err = r.Seek(int64(md.TypelinkAddr)-int64(typelinkAddr), io.SeekStart)
 	if err != nil {
 		return nil, err
 	}
 
 	goTypes := make(map[uint64]*GoType)
-	for i := uint64(0); i < md.typelinkLen; i++ {
+	for i := uint64(0); i < md.TypelinkLen; i++ {
 		// Type offsets are always *_type
 		off, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 		if err != nil {
