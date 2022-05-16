@@ -27,8 +27,12 @@ import (
 var pclntabmagic = []byte{0xfb, 0xff, 0xff, 0xff}
 
 // pclntab116magic is the magic bytes used for binaries compiled with
-// Go 1.16 and onwards.
+// Go 1.16 and 1.17.
 var pclntab116magic = []byte{0xfa, 0xff, 0xff, 0xff}
+
+// pclntab118magic is the magic bytes used for binaries compiled with
+// Go 1.18 and onwards.
+var pclntab118magic = []byte{0xf0, 0xff, 0xff, 0xff}
 
 // searchFileForPCLNTab will search the .rdata and .text section for the
 // PCLN table. Note!! The address returned by this function needs to be
@@ -58,7 +62,7 @@ func searchFileForPCLNTab(f *pe.File) (uint32, []byte, error) {
 func searchSectionForTab(secData []byte) ([]byte, error) {
 	// First check for the current magic used. If this fails, it could be
 	// an older version. So check for the old header.
-	for _, magic := range [][]byte{pclntab116magic, pclntabmagic} {
+	for _, magic := range [][]byte{pclntab118magic, pclntab116magic, pclntabmagic} {
 		off := bytes.LastIndex(secData, magic)
 		if off == -1 {
 			continue // Try other magic.
@@ -73,7 +77,7 @@ func searchSectionForTab(secData []byte) ([]byte, error) {
 					if off-1 <= 0 {
 						return nil, ErrNoPCLNTab
 					}
-					off = bytes.LastIndex(secData[:off-1], pclntabmagic)
+					off = bytes.LastIndex(secData[:off-1], magic)
 					continue
 				}
 				// Header match
