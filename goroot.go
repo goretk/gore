@@ -297,6 +297,12 @@ pkgLoop:
 			// Probably not the right instruction, so go to next.
 			continue
 		}
+
+		// If the pointer is nil, it's not the right instruction
+		if ptr == 0 {
+			continue
+		}
+
 		l, err := readUIntTo64(r, f.FileInfo.ByteOrder, is32)
 		if err != nil {
 			// Probably not the right instruction, so go to next.
