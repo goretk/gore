@@ -249,7 +249,7 @@ func processGoVersions() {
 		Timestamp  time.Time
 		GoVersions map[string]*goversion
 	}{
-		Timestamp:  time.Now(),
+		Timestamp:  time.Now().UTC(),
 		GoVersions: knownVersions,
 	})
 }
@@ -352,7 +352,7 @@ func main() {
 		Timestamp time.Time
 		StdPkg    []string
 	}{
-		Timestamp: time.Now(),
+		Timestamp: time.Now().UTC(),
 		StdPkg:    stdPkgs,
 	})
 }
