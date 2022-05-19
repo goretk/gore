@@ -19,7 +19,9 @@ package gore
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
+	"strings"
 	"unicode/utf8"
 
 	"golang.org/x/arch/x86/x86asm"
@@ -297,6 +299,12 @@ pkgLoop:
 			// Probably not the right instruction, so go to next.
 			continue
 		}
+
+		// If the pointer is nil, it's not the right instruction
+		if ptr == 0 {
+			continue
+		}
+
 		l, err := readUIntTo64(r, f.FileInfo.ByteOrder, is32)
 		if err != nil {
 			// Probably not the right instruction, so go to next.
@@ -321,11 +329,36 @@ func findGoRootPath(f *GoFile) (string, error) {
 	// There is no GOROOT function may be inlined (after go1.16)
 	// at this time GOROOT is obtained through time_init function
 	goroot, err := tryFromGOROOT(f)
-	if err != nil {
-		if err == ErrNoGoRootFound {
-			return tryFromTimeInit(f)
-		}
+	if goroot != "" {
+		return goroot, nil
+	}
+	if err != nil && err != ErrNoGoRootFound {
 		return "", err
 	}
-	return goroot, nil
+
+	goroot, err = tryFromTimeInit(f)
+	if goroot != "" {
+		return goroot, nil
+	}
+	if err != nil && err != ErrNoGoRootFound {
+		return "", err
+	}
+
+	// Try determine from std lib package paths.
+	pkg, err := f.GetSTDLib()
+	if err != nil {
+		return "", fmt.Errorf("error when getting standard library packages: %w", err)
+	}
+	if len(pkg) == 0 {
+		return "", fmt.Errorf("no standard library packages found")
+	}
+
+	for _, v := range pkg {
+		subpath := fmt.Sprintf("/src/%s", v.Name)
+		if strings.HasSuffix(v.Filepath, subpath) {
+			return strings.TrimSuffix(v.Filepath, subpath), nil
+		}
+	}
+
+	return "", ErrNoGoRootFound
 }

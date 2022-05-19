@@ -22,20 +22,43 @@ import (
 	"debug/pe"
 	"encoding/binary"
 	"fmt"
+	"os"
 )
 
-func openPE(fp string) (*peFile, error) {
-	f, err := pe.Open(fp)
+func openPE(fp string) (peF *peFile, err error) {
+	// Parsing by the file by debug/pe can panic if the PE file is malformed.
+	// To prevent a crash, we recover the panic and return it as an error
+	// instead.
+	go func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("error when processing PE file, probably corrupt: %s", r)
+		}
+	}()
+
+	osFile, err := os.Open(fp)
 	if err != nil {
-		return nil, err
+		err = fmt.Errorf("error when opening the file: %w", err)
+		return
 	}
-	return &peFile{file: f}, nil
+
+	f, err := pe.NewFile(osFile)
+	if err != nil {
+		err = fmt.Errorf("error when parsing the PE file: %w", err)
+		return
+	}
+	peF = &peFile{file: f, osFile: osFile}
+	return
 }
 
 type peFile struct {
 	file        *pe.File
+	osFile      *os.File
 	pclntabAddr uint64
 	imageBase   uint64
+}
+
+func (p *peFile) getFile() *os.File {
+	return p.osFile
 }
 
 func (p *peFile) getPCLNTab() (*gosym.Table, error) {
@@ -49,7 +72,11 @@ func (p *peFile) getPCLNTab() (*gosym.Table, error) {
 }
 
 func (p *peFile) Close() error {
-	return p.file.Close()
+	err := p.file.Close()
+	if err != nil {
+		return err
+	}
+	return p.osFile.Close()
 }
 
 func (p *peFile) getRData() ([]byte, error) {

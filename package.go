@@ -20,10 +20,9 @@ package gore
 import (
 	"fmt"
 	"path/filepath"
+	"runtime/debug"
 	"sort"
 	"strings"
-
-	"github.com/goretk/gore/extern"
 )
 
 //go:generate go run gen.go
@@ -245,13 +244,13 @@ func isGeneratedPackage(pkg *Package) bool {
 }
 
 // NewModPackageClassifier creates a new mod based package classifier.
-func NewModPackageClassifier(buildInfo *extern.BuildInfo) *ModPackageClassifier {
+func NewModPackageClassifier(buildInfo *debug.BuildInfo) *ModPackageClassifier {
 	return &ModPackageClassifier{modInfo: buildInfo}
 }
 
 // ModPackageClassifier uses the mod info extracted from the binary to classify packages.
 type ModPackageClassifier struct {
-	modInfo *extern.BuildInfo
+	modInfo *debug.BuildInfo
 }
 
 // Classify performs the classification.

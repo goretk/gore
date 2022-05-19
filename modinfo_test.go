@@ -58,8 +58,12 @@ func TestBuildInfo(t *testing.T) {
 				r.NotNil(f.BuildInfo.Compiler)
 				if GoVersionCompare(ver.Name, "go1.16") >= 0 {
 					// The mod info is not always available in Go versions earlier than 1.16.
-					r.Equal("command-line-arguments", f.BuildInfo.ModInfo.Main.Path)
-					r.Equal("(devel)", f.BuildInfo.ModInfo.Main.Version)
+					r.Equal("command-line-arguments", f.BuildInfo.ModInfo.Path)
+					if GoVersionCompare(ver.Name, "go1.18beta1") >= 0 {
+						r.Equal("", f.BuildInfo.ModInfo.Main.Version)
+					} else {
+						r.Equal("(devel)", f.BuildInfo.ModInfo.Main.Version)
+					}
 				}
 			}
 		})

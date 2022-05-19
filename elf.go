@@ -21,18 +21,29 @@ import (
 	"debug/elf"
 	"debug/gosym"
 	"fmt"
+	"os"
 )
 
 func openELF(fp string) (*elfFile, error) {
-	f, err := elf.Open(fp)
+	osFile, err := os.Open(fp)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error when opening the ELF file: %w", err)
 	}
-	return &elfFile{file: f}, nil
+
+	f, err := elf.NewFile(osFile)
+	if err != nil {
+		return nil, fmt.Errorf("error when parsing the ELF file: %w", err)
+	}
+	return &elfFile{file: f, osFile: osFile}, nil
 }
 
 type elfFile struct {
-	file *elf.File
+	file   *elf.File
+	osFile *os.File
+}
+
+func (e *elfFile) getFile() *os.File {
+	return e.osFile
 }
 
 func (e *elfFile) getPCLNTab() (*gosym.Table, error) {
@@ -55,7 +66,11 @@ func (e *elfFile) getPCLNTab() (*gosym.Table, error) {
 }
 
 func (e *elfFile) Close() error {
-	return e.file.Close()
+	err := e.file.Close()
+	if err != nil {
+		return err
+	}
+	return e.osFile.Close()
 }
 
 func (e *elfFile) getRData() ([]byte, error) {
