@@ -78,7 +78,7 @@ MAGIC_LOOP:
 					if off-1 <= 0 {
 						continue MAGIC_LOOP
 					}
-					off = bytes.LastIndex(secData[:off-1], pclntab12magic)
+					off = bytes.LastIndex(secData[:off-1], magic)
 					continue
 				}
 				// Header match
