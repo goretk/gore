@@ -21,22 +21,37 @@ import (
 	"debug/gosym"
 	"debug/macho"
 	"fmt"
+	"os"
 )
 
 func openMachO(fp string) (*machoFile, error) {
-	f, err := macho.Open(fp)
+	osFile, err := os.Open(fp)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error when opening the file: %w", err)
 	}
-	return &machoFile{file: f}, nil
+
+	f, err := macho.NewFile(osFile)
+	if err != nil {
+		return nil, fmt.Errorf("error when parsing the Mach-O file: %w", err)
+	}
+	return &machoFile{file: f, osFile: osFile}, nil
 }
 
 type machoFile struct {
-	file *macho.File
+	file   *macho.File
+	osFile *os.File
+}
+
+func (m *machoFile) getFile() *os.File {
+	return m.osFile
 }
 
 func (m *machoFile) Close() error {
-	return m.file.Close()
+	err := m.file.Close()
+	if err != nil {
+		return err
+	}
+	return m.osFile.Close()
 }
 
 func (m *machoFile) getPCLNTab() (*gosym.Table, error) {

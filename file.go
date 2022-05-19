@@ -368,6 +368,7 @@ type fileHandler interface {
 	getPCLNTABData() (uint64, []byte, error)
 	moduledataSection() string
 	getBuildID() (string, error)
+	getFile() *os.File
 }
 
 func fileMagicMatch(buf, magic []byte) bool {
