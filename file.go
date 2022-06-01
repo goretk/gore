@@ -272,7 +272,7 @@ func (f *GoFile) enumPackages() error {
 	} else {
 		mainPkg, ok := packages["main"]
 		if !ok {
-			return fmt.Errorf("no main package found")
+			return fmt.Errorf("No main package found, or unsupported go version.")
 		}
 
 		classifier = NewPathPackageClassifier(mainPkg.Filepath)
