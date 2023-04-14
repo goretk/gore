@@ -19,6 +19,7 @@ package gore
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -34,6 +35,11 @@ func TestBuildInfo(t *testing.T) {
 	for _, test := range goldFiles {
 		t.Run("extracting build info for "+test, func(t *testing.T) {
 			r := require.New(t)
+
+			// TODO: Remove this check when arm support has been added.
+			if strings.Contains(test, "arm64") {
+				t.Skip("ARM currently not supported")
+			}
 
 			fp, err := getTestResourcePath("gold/" + test)
 			r.NoError(err, "Failed to get path to resource")

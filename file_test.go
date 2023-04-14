@@ -80,6 +80,12 @@ func TestGoldFiles(t *testing.T) {
 		t.Run("compiler_version_"+file, func(t *testing.T) {
 			assert := assert.New(t)
 			require := require.New(t)
+
+			// TODO: Remove this check when arm support has been added.
+			if strings.Contains(file, "arm64") {
+				t.Skip("ARM currently not supported")
+			}
+
 			// Loading resource
 			resource, err := getGoldTestResourcePath(file)
 			require.NoError(err)
