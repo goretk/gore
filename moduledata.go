@@ -252,7 +252,13 @@ func parseModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
 
 	// Determine what kind of struct we need to extract the module data from the file.
 
-	if GoVersionCompare("go1.18beta1", fileInfo.goversion.Name) <= 0 {
+	if GoVersionCompare("go1.20rc1", fileInfo.goversion.Name) <= 0 {
+		if is32bit {
+			buf = &moduledata2032{}
+		} else {
+			buf = &moduledata2064{}
+		}
+	} else if GoVersionCompare("go1.18beta1", fileInfo.goversion.Name) <= 0 {
 		if is32bit {
 			buf = &moduledata1832{}
 		} else {
@@ -402,7 +408,105 @@ func extractModFieldValue(md *moduledata, dst string, val reflect.Value, src str
 	Internal module structures from Go's runtime.
 */
 
-// Moduledata structure for Go 1.18 and newer
+// Moduledata structure for Go 1.20 and newer
+
+type moduledata2064 struct {
+	PcHeader                                    uint64
+	Funcnametab, Funcnametablen, Funcnametabcap uint64
+	Cutab, Cutablen, Cutabcap                   uint64
+	Filetab, Filetablen, Filetabcap             uint64
+	Pctab, Pctablen, Pctabcap                   uint64
+	Pclntable, Pclntablelen, Pclntablecap       uint64
+	Ftab, Ftablen, Ftabcap                      uint64
+	Findfunctab                                 uint64
+	Minpc, Maxpc                                uint64
+
+	Text, Etext           uint64
+	Noptrdata, Enoptrdata uint64
+	Data, Edata           uint64
+	Bss, Ebss             uint64
+	Noptrbss, Enoptrbss   uint64
+	Covctrs, Ecovctrs     uint64
+	End, Gcdata, Gcbss    uint64
+	Types, Etypes         uint64
+	RData                 uint64
+	GoFunc                uint64
+
+	Textsectmap, Textsectmaplen, Textsectmapcap uint64
+	Typelinks, Typelinkslen, Typelinkscap       uint64 // offsets from types
+	Itablinks, Itablinkslen, Itablinkscap       uint64
+
+	Ptab, Ptablen, Ptabcap uint64
+
+	Pluginpath, Pluginpathlen             uint64
+	Pkghashes, Pkghasheslen, Pkghashescap uint64
+
+	Modulename, Modulenamelen                      uint64
+	Modulehashes, Modulehasheslen, Modulehashescap uint64
+
+	/*	These fields we are not planning to use so skipping the parsing of them.
+
+		hasmain uint8 // 1 if module contains the main function, 0 otherwise
+
+		gcdatamask, gcbssmask bitvector
+
+		typemap map[typeOff]*_type // offset to *_rtype in previous module
+
+		bad bool // module failed to load and should be ignored
+
+		next *moduledata
+	*/
+}
+
+type moduledata2032 struct {
+	PcHeader                                    uint32
+	Funcnametab, Funcnametablen, Funcnametabcap uint32
+	Cutab, Cutablen, Cutabcap                   uint32
+	Filetab, Filetablen, Filetabcap             uint32
+	Pctab, Pctablen, Pctabcap                   uint32
+	Pclntable, Pclntablelen, Pclntablecap       uint32
+	Ftab, Ftablen, Ftabcap                      uint32
+	Findfunctab                                 uint32
+	Minpc, Maxpc                                uint32
+
+	Text, Etext           uint32
+	Noptrdata, Enoptrdata uint32
+	Data, Edata           uint32
+	Bss, Ebss             uint32
+	Noptrbss, Enoptrbss   uint32
+	Covctrs, Ecovctrs     uint32
+	End, Gcdata, Gcbss    uint32
+	Types, Etypes         uint32
+	RData                 uint32
+	GoFunc                uint32
+
+	Textsectmap, Textsectmaplen, Textsectmapcap uint32
+	Typelinks, Typelinkslen, Typelinkscap       uint32 // offsets from types
+	Itablinks, Itablinkslen, Itablinkscap       uint32
+
+	Ptab, Ptablen, Ptabcap uint32
+
+	Pluginpath, Pluginpathlen             uint32
+	Pkghashes, Pkghasheslen, Pkghashescap uint32
+
+	Modulename, Modulenamelen                      uint32
+	Modulehashes, Modulehasheslen, Modulehashescap uint32
+
+	/*	These fields we are not planning to use so skipping the parsing of them.
+
+		hasmain uint8 // 1 if module contains the main function, 0 otherwise
+
+		gcdatamask, gcbssmask bitvector
+
+		typemap map[typeOff]*_type // offset to *_rtype in previous module
+
+		bad bool // module failed to load and should be ignored
+
+		next *moduledata
+	*/
+}
+
+// Moduledata structure for Go 1.18 and Go 1.19
 
 type moduledata1864 struct {
 	PcHeader                                    uint64
