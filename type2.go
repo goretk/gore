@@ -1,6 +1,6 @@
 // This file is part of GoRE.
 //
-// Copyright (C) 2019-2021 GoRE Authors
+// Copyright (C) 2019-2023 GoRE Authors
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -35,6 +35,7 @@ func newTypeParser(typesData []byte, baseAddres uint64, fi *FileInfo) *typeParse
 	goversion := fi.goversion.Name
 
 	p := &typeParser{
+		goversion: goversion,
 		base:      baseAddres,
 		order:     fi.ByteOrder,
 		wordsize:  fi.WordSize,
@@ -125,6 +126,8 @@ type typeParser struct {
 	// typesData is the byte slice of the types data.
 	// located.
 	typesData []byte
+
+	goversion string
 
 	// Parse functions
 
@@ -584,7 +587,15 @@ func (p *typeParser) parseType(address uint64) (*GoType, error) {
 				if nl != 0 {
 					field.FieldTag = p.resolveTag(sf.Name - p.base)
 				}
-				field.FieldAnon = name == "" || sf.OffsetEmbed&1 != 0
+
+				// In the commit https://github.com/golang/go/commit/e1e66a03a6bb3210034b640923fa253d7def1a26 the encoding for
+				// embedded struct field was moved from the offset field to the name field. This changed was first part of the
+				// 1.19rc1 release.s
+				if GoVersionCompare(p.goversion, "go1.19rc1") >= 0 {
+					field.FieldAnon = p.typesData[sf.Name-p.base]&(1<<3) != 0
+				} else {
+					field.FieldAnon = name == "" || sf.OffsetEmbed&1 != 0
+				}
 
 				typ.Fields[i] = &field
 			}
