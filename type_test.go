@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -37,6 +38,12 @@ func TestGetTypes(t *testing.T) {
 		t.Run("get_types_"+test, func(t *testing.T) {
 			require := require.New(t)
 			assert := assert.New(t)
+
+			// TODO: Remove this check when arm support has been added.
+			if strings.Contains(test, "arm64") {
+				t.Skip("ARM currently not supported")
+			}
+
 			fp, err := getTestResourcePath("gold/" + test)
 			require.NoError(err, "Failed to get path to resource")
 			if _, err = os.Stat(fp); os.IsNotExist(err) {
