@@ -66,7 +66,7 @@ func (p *peFile) getPCLNTab() (*gosym.Table, error) {
 	if err != nil {
 		return nil, err
 	}
-	pcln := gosym.NewLineTable(pclndat, uint64(p.file.Section(".text").VirtualAddress))
+	pcln := gosym.NewLineTable(pclndat, uint64(p.file.Section(".text").VirtualAddress)+p.imageBase)
 	p.pclntabAddr = uint64(addr) + p.imageBase
 	return gosym.NewTable(make([]byte, 0), pcln)
 }
