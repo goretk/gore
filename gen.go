@@ -1,6 +1,6 @@
 // This file is part of GoRE.
 //
-// Copyright (C) 2019-2021 GoRE Authors
+// Copyright (C) 2019-2023 GoRE Authors
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -18,7 +18,7 @@
 //go:build ignore
 // +build ignore
 
-// This program generates stdpkgs_gen.go. It can be invoked by running
+// This program generates stdpkgs_gen.go and goversion_gen.go. It can be invoked by running
 // go generate
 
 package main

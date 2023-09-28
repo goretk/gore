@@ -1,6 +1,6 @@
 // This file is part of GoRE.
 //
-// Copyright (C) 2019-2022 GoRE Authors
+// Copyright (C) 2019-2023 GoRE Authors
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -17,13 +17,14 @@
 
 package gore
 
+//go:generate go run gen_moduledata.go
+
 import (
 	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
-	"reflect"
 )
 
 // Moduledata extracts the file's moduledata.
@@ -87,7 +88,7 @@ type moduledata struct {
 	fh fileHandler
 }
 
-// Text returns the text secion.
+// Text returns the text section.
 func (m moduledata) Text() ModuleDataSection {
 	return ModuleDataSection{
 		Address: m.TextAddr,
@@ -256,7 +257,7 @@ func parseModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
 	}
 
 	// buf will hold the struct type that represents the data in the file we are processing.
-	var buf interface{}
+	var buf modulable
 	is32bit := fileInfo.WordSize == intSize32
 
 	// Determine what kind of struct we need to extract the module data from the file.
@@ -301,16 +302,13 @@ func parseModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
 
 	// Read the module struct from the file.
 	r := bytes.NewReader(data)
-	err = readStruct(r, fileInfo.ByteOrder, buf)
+	err = binary.Read(r, fileInfo.ByteOrder, buf)
 	if err != nil {
 		return moduledata{}, fmt.Errorf("error when reading module data from file: %w", err)
 	}
 
 	// Convert the read struct to the type we return to the caller.
-	md, err := processModuledata(buf)
-	if err != nil {
-		return md, fmt.Errorf("error when processing module data: %w", err)
-	}
+	md := buf.toModuledata()
 
 	// Add the file handler.
 	md.fh = f
@@ -318,597 +316,17 @@ func parseModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
 	return md, nil
 }
 
-func readUIntTo64(r io.Reader, byteOrder binary.ByteOrder, is32bit bool) (uint64, error) {
+func readUIntTo64(r io.Reader, byteOrder binary.ByteOrder, is32bit bool) (addr uint64, err error) {
 	if is32bit {
-		var addr uint32
-		err := binary.Read(r, byteOrder, &addr)
-		return uint64(addr), err
+		var addr32 uint32
+		err = binary.Read(r, byteOrder, &addr32)
+		addr = uint64(addr32)
+	} else {
+		err = binary.Read(r, byteOrder, &addr)
 	}
-	var addr uint64
-	err := binary.Read(r, byteOrder, &addr)
-	return addr, err
+	return
 }
 
-// readStruct performs a binary read from the reader to the data object. Data object must
-// be a pointer to the struct.
-func readStruct(r io.Reader, byteOrder binary.ByteOrder, data interface{}) error {
-	return binary.Read(r, byteOrder, data)
-}
-
-func processModuledata(data interface{}) (moduledata, error) {
-	md := moduledata{}
-	// This will panic if the data passed in is not a pointer to
-	// a struct. But this function should not be called outside
-	// of this file, we can ensure this is always the case.
-	val := reflect.ValueOf(data).Elem()
-
-	extractModFieldValue(&md, "TextAddr", val, "Text")
-	extractModFieldValue(&md, "TextLen", val, "Etext")
-	if md.TextLen > md.TextAddr {
-		md.TextLen = md.TextLen - md.TextAddr
-	}
-
-	extractModFieldValue(&md, "NoPtrDataAddr", val, "Noptrdata")
-	extractModFieldValue(&md, "NoPtrDataLen", val, "Enoptrdata")
-	if md.NoPtrDataLen > md.NoPtrDataAddr {
-		md.NoPtrDataLen = md.NoPtrDataLen - md.NoPtrDataAddr
-	}
-
-	extractModFieldValue(&md, "DataAddr", val, "Data")
-	extractModFieldValue(&md, "DataLen", val, "Edata")
-	if md.DataLen > md.DataAddr {
-		md.DataLen = md.DataLen - md.DataAddr
-	}
-
-	extractModFieldValue(&md, "BssAddr", val, "Bss")
-	extractModFieldValue(&md, "BssLen", val, "Ebss")
-	if md.BssLen > md.BssAddr {
-		md.BssLen = md.BssLen - md.BssAddr
-	}
-
-	extractModFieldValue(&md, "NoPtrBssAddr", val, "Noptrbss")
-	extractModFieldValue(&md, "NoPtrBssLen", val, "Enoptrbss")
-	if md.NoPtrBssLen > md.NoPtrBssAddr {
-		md.NoPtrBssLen = md.NoPtrBssLen - md.NoPtrBssAddr
-	}
-
-	extractModFieldValue(&md, "TypelinkAddr", val, "Typelinks")
-	extractModFieldValue(&md, "TypelinkLen", val, "Typelinkslen")
-	extractModFieldValue(&md, "ITabLinkAddr", val, "Itablinks")
-	extractModFieldValue(&md, "ITabLinkLen", val, "Itablinkslen")
-	extractModFieldValue(&md, "FuncTabAddr", val, "Ftab")
-	extractModFieldValue(&md, "FuncTabLen", val, "Ftablen")
-	extractModFieldValue(&md, "PCLNTabAddr", val, "Pclntable")
-	extractModFieldValue(&md, "PCLNTabLen", val, "Pclntablelen")
-
-	extractModFieldValue(&md, "TypesAddr", val, "Types")
-	extractModFieldValue(&md, "TypesLen", val, "Etypes")
-	if md.TypesLen > md.TypesAddr {
-		md.TypesLen = md.TypesLen - md.TypesAddr
-	}
-
-	extractModFieldValue(&md, "GoFuncVal", val, "GoFunc")
-
-	return md, nil
-}
-
-func extractModFieldValue(md *moduledata, dst string, val reflect.Value, src string) {
-	field := val.FieldByName(src)
-	// Not all versions of the module struct has all the fields. If we don't have the
-	// field, we skip it.
-	if !field.IsValid() {
-		return
-	}
-
-	// Save 32 to 64 uint casting if needed.
-	var num uint64
-	switch field.Interface().(type) {
-	case uint64:
-		num = field.Uint()
-	case uint32:
-		t := field.Interface().(uint32)
-		num = uint64(t)
-	}
-
-	// Set the value.
-	mdField := reflect.ValueOf(md).Elem().FieldByName(dst)
-	mdField.SetUint(num)
-}
-
-/*
-	Internal module structures from Go's runtime.
-*/
-
-// Moduledata structure for Go 1.20 and newer
-
-type moduledata2064 struct {
-	PcHeader                                    uint64
-	Funcnametab, Funcnametablen, Funcnametabcap uint64
-	Cutab, Cutablen, Cutabcap                   uint64
-	Filetab, Filetablen, Filetabcap             uint64
-	Pctab, Pctablen, Pctabcap                   uint64
-	Pclntable, Pclntablelen, Pclntablecap       uint64
-	Ftab, Ftablen, Ftabcap                      uint64
-	Findfunctab                                 uint64
-	Minpc, Maxpc                                uint64
-
-	Text, Etext           uint64
-	Noptrdata, Enoptrdata uint64
-	Data, Edata           uint64
-	Bss, Ebss             uint64
-	Noptrbss, Enoptrbss   uint64
-	Covctrs, Ecovctrs     uint64
-	End, Gcdata, Gcbss    uint64
-	Types, Etypes         uint64
-	RData                 uint64
-	GoFunc                uint64
-
-	Textsectmap, Textsectmaplen, Textsectmapcap uint64
-	Typelinks, Typelinkslen, Typelinkscap       uint64 // offsets from types
-	Itablinks, Itablinkslen, Itablinkscap       uint64
-
-	Ptab, Ptablen, Ptabcap uint64
-
-	Pluginpath, Pluginpathlen             uint64
-	Pkghashes, Pkghasheslen, Pkghashescap uint64
-
-	Modulename, Modulenamelen                      uint64
-	Modulehashes, Modulehasheslen, Modulehashescap uint64
-
-	/*	These fields we are not planning to use so skipping the parsing of them.
-
-		hasmain uint8 // 1 if module contains the main function, 0 otherwise
-
-		gcdatamask, gcbssmask bitvector
-
-		typemap map[typeOff]*_type // offset to *_rtype in previous module
-
-		bad bool // module failed to load and should be ignored
-
-		next *moduledata
-	*/
-}
-
-type moduledata2032 struct {
-	PcHeader                                    uint32
-	Funcnametab, Funcnametablen, Funcnametabcap uint32
-	Cutab, Cutablen, Cutabcap                   uint32
-	Filetab, Filetablen, Filetabcap             uint32
-	Pctab, Pctablen, Pctabcap                   uint32
-	Pclntable, Pclntablelen, Pclntablecap       uint32
-	Ftab, Ftablen, Ftabcap                      uint32
-	Findfunctab                                 uint32
-	Minpc, Maxpc                                uint32
-
-	Text, Etext           uint32
-	Noptrdata, Enoptrdata uint32
-	Data, Edata           uint32
-	Bss, Ebss             uint32
-	Noptrbss, Enoptrbss   uint32
-	Covctrs, Ecovctrs     uint32
-	End, Gcdata, Gcbss    uint32
-	Types, Etypes         uint32
-	RData                 uint32
-	GoFunc                uint32
-
-	Textsectmap, Textsectmaplen, Textsectmapcap uint32
-	Typelinks, Typelinkslen, Typelinkscap       uint32 // offsets from types
-	Itablinks, Itablinkslen, Itablinkscap       uint32
-
-	Ptab, Ptablen, Ptabcap uint32
-
-	Pluginpath, Pluginpathlen             uint32
-	Pkghashes, Pkghasheslen, Pkghashescap uint32
-
-	Modulename, Modulenamelen                      uint32
-	Modulehashes, Modulehasheslen, Modulehashescap uint32
-
-	/*	These fields we are not planning to use so skipping the parsing of them.
-
-		hasmain uint8 // 1 if module contains the main function, 0 otherwise
-
-		gcdatamask, gcbssmask bitvector
-
-		typemap map[typeOff]*_type // offset to *_rtype in previous module
-
-		bad bool // module failed to load and should be ignored
-
-		next *moduledata
-	*/
-}
-
-// Moduledata structure for Go 1.18 and Go 1.19
-
-type moduledata1864 struct {
-	PcHeader                                    uint64
-	Funcnametab, Funcnametablen, Funcnametabcap uint64
-	Cutab, Cutablen, Cutabcap                   uint64
-	Filetab, Filetablen, Filetabcap             uint64
-	Pctab, Pctablen, Pctabcap                   uint64
-	Pclntable, Pclntablelen, Pclntablecap       uint64
-	Ftab, Ftablen, Ftabcap                      uint64
-	Findfunctab                                 uint64
-	Minpc, Maxpc                                uint64
-
-	Text, Etext           uint64
-	Noptrdata, Enoptrdata uint64
-	Data, Edata           uint64
-	Bss, Ebss             uint64
-	Noptrbss, Enoptrbss   uint64
-	End, Gcdata, Gcbss    uint64
-	Types, Etypes         uint64
-	RData                 uint64
-	GoFunc                uint64
-
-	Textsectmap, Textsectmaplen, Textsectmapcap uint64
-	Typelinks, Typelinkslen, Typelinkscap       uint64 // offsets from types
-	Itablinks, Itablinkslen, Itablinkscap       uint64
-
-	Ptab, Ptablen, Ptabcap uint64
-
-	Pluginpath, Pluginpathlen             uint64
-	Pkghashes, Pkghasheslen, Pkghashescap uint64
-
-	Modulename, Modulenamelen                      uint64
-	Modulehashes, Modulehasheslen, Modulehashescap uint64
-
-	/*	These fields we are not planning to use so skipping the parsing of them.
-
-		hasmain uint8 // 1 if module contains the main function, 0 otherwise
-
-		gcdatamask, gcbssmask bitvector
-
-		typemap map[typeOff]*_type // offset to *_rtype in previous module
-
-		bad bool // module failed to load and should be ignored
-
-		next *moduledata
-	*/
-}
-
-type moduledata1832 struct {
-	PcHeader                                    uint32
-	Funcnametab, Funcnametablen, Funcnametabcap uint32
-	Cutab, Cutablen, Cutabcap                   uint32
-	Filetab, Filetablen, Filetabcap             uint32
-	Pctab, Pctablen, Pctabcap                   uint32
-	Pclntable, Pclntablelen, Pclntablecap       uint32
-	Ftab, Ftablen, Ftabcap                      uint32
-	Findfunctab                                 uint32
-	Minpc, Maxpc                                uint32
-
-	Text, Etext           uint32
-	Noptrdata, Enoptrdata uint32
-	Data, Edata           uint32
-	Bss, Ebss             uint32
-	Noptrbss, Enoptrbss   uint32
-	End, Gcdata, Gcbss    uint32
-	Types, Etypes         uint32
-	RData                 uint32
-	GoFunc                uint32
-
-	Textsectmap, Textsectmaplen, Textsectmapcap uint32
-	Typelinks, Typelinkslen, Typelinkscap       uint32 // offsets from types
-	Itablinks, Itablinkslen, Itablinkscap       uint32
-
-	Ptab, Ptablen, Ptabcap uint32
-
-	Pluginpath, Pluginpathlen             uint32
-	Pkghashes, Pkghasheslen, Pkghashescap uint32
-
-	Modulename, Modulenamelen                      uint32
-	Modulehashes, Modulehasheslen, Modulehashescap uint32
-
-	/*	These fields we are not planning to use so skipping the parsing of them.
-
-		hasmain uint8 // 1 if module contains the main function, 0 otherwise
-
-		gcdatamask, gcbssmask bitvector
-
-		typemap map[typeOff]*_type // offset to *_rtype in previous module
-
-		bad bool // module failed to load and should be ignored
-
-		next *moduledata
-	*/
-}
-
-// Moduledata structure for Go 1.16 to 1.17
-
-type moduledata1664 struct {
-	PcHeader                                    uint64
-	Funcnametab, Funcnametablen, Funcnametabcap uint64
-	Cutab, Cutablen, Cutabcap                   uint64
-	Filetab, Filetablen, Filetabcap             uint64
-	Pctab, Pctablen, Pctabcap                   uint64
-	Pclntable, Pclntablelen, Pclntablecap       uint64
-	Ftab, Ftablen, Ftabcap                      uint64
-	Findfunctab                                 uint64
-	Minpc, Maxpc                                uint64
-
-	Text, Etext           uint64
-	Noptrdata, Enoptrdata uint64
-	Data, Edata           uint64
-	Bss, Ebss             uint64
-	Noptrbss, Enoptrbss   uint64
-	End, Gcdata, Gcbss    uint64
-	Types, Etypes         uint64
-
-	Textsectmap, Textsectmaplen, Textsectmapcap uint64
-	Typelinks, Typelinkslen, Typelinkscap       uint64 // offsets from types
-	Itablinks, Itablinkslen, Itablinkscap       uint64
-
-	Ptab, Ptablen, Ptabcap uint64
-
-	Pluginpath, Pluginpathlen             uint64
-	Pkghashes, Pkghasheslen, Pkghashescap uint64
-
-	Modulename, Modulenamelen                      uint64
-	Modulehashes, Modulehasheslen, Modulehashescap uint64
-
-	/*	These fields we are not planning to use so skipping the parsing of them.
-
-		hasmain uint8 // 1 if module contains the main function, 0 otherwise
-
-		gcdatamask, gcbssmask bitvector
-
-		typemap map[typeOff]*_type // offset to *_rtype in previous module
-
-		bad bool // module failed to load and should be ignored
-
-		next *moduledata
-	*/
-}
-
-type moduledata1632 struct {
-	PcHeader                                    uint32
-	Funcnametab, Funcnametablen, Funcnametabcap uint32
-	Cutab, Cutablen, Cutabcap                   uint32
-	Filetab, Filetablen, Filetabcap             uint32
-	Pctab, Pctablen, Pctabcap                   uint32
-	Pclntable, Pclntablelen, Pclntablecap       uint32
-	Ftab, Ftablen, Ftabcap                      uint32
-	Findfunctab                                 uint32
-	Minpc, Maxpc                                uint32
-
-	Text, Etext           uint32
-	Noptrdata, Enoptrdata uint32
-	Data, Edata           uint32
-	Bss, Ebss             uint32
-	Noptrbss, Enoptrbss   uint32
-	End, Gcdata, Gcbss    uint32
-	Types, Etypes         uint32
-
-	Textsectmap, Textsectmaplen, Textsectmapcap uint32
-	Typelinks, Typelinkslen, Typelinkscap       uint32 // offsets from types
-	Itablinks, Itablinkslen, Itablinkscap       uint32
-
-	Ptab, Ptablen, Ptabcap uint32
-
-	Pluginpath, Pluginpathlen             uint32
-	Pkghashes, Pkghasheslen, Pkghashescap uint32
-
-	Modulename, Modulenamelen                      uint32
-	Modulehashes, Modulehasheslen, Modulehashescap uint32
-
-	/*	These fields we are not planning to use so skipping the parsing of them.
-
-		hasmain uint8 // 1 if module contains the main function, 0 otherwise
-
-		gcdatamask, gcbssmask bitvector
-
-		typemap map[typeOff]*_type // offset to *_rtype in previous module
-
-		bad bool // module failed to load and should be ignored
-
-		next *moduledata
-	*/
-}
-
-// Moduledata structure for Go 1.8 to 1.15
-
-type moduledata864 struct {
-	Pclntable, Pclntablelen, Pclntablecap uint64
-	Ftab, Ftablen, Ftabcap                uint64
-	Filetab, Filetablen, Filetabcap       uint64
-	Findfunctab                           uint64
-	Minpc, Maxpc                          uint64
-
-	Text, Etext           uint64
-	Noptrdata, Enoptrdata uint64
-	Data, Edata           uint64
-	Bss, Ebss             uint64
-	Noptrbss, Enoptrbss   uint64
-	End, Gcdata, Gcbss    uint64
-	Types, Etypes         uint64
-
-	Textsectmap, Textsectmaplen, Textsectmapcap uint64
-	Typelinks, Typelinkslen, Typelinkscap       uint64 // offsets from types
-	Itablinks, Itablinkslen, Itablinkscap       uint64
-
-	Ptab, Ptablen, Ptabcap uint64
-
-	Pluginpath, Pluginpathlen             uint64
-	Pkghashes, Pkghasheslen, Pkghashescap uint64
-
-	Modulename, Modulenamelen                      uint64
-	Modulehashes, Modulehasheslen, Modulehashescap uint64
-
-	/*	These fields we are not planning to use so skipping the parsing of them.
-
-		hasmain uint8 // 1 if module contains the main function, 0 otherwise
-
-		gcdatamask, gcbssmask bitvector
-
-		typemap map[typeOff]*_type // offset to *_rtype in previous module
-
-		bad bool // module failed to load and should be ignored
-
-		next *moduledata
-	*/
-}
-
-type moduledata832 struct {
-	Pclntable, Pclntablelen, Pclntablecap uint32
-	Ftab, Ftablen, Ftabcap                uint32
-	Filetab, Filetablen, Filetabcap       uint32
-	Findfunctab                           uint32
-	Minpc, Maxpc                          uint32
-
-	Text, Etext           uint32
-	Noptrdata, Enoptrdata uint32
-	Data, Edata           uint32
-	Bss, Ebss             uint32
-	Noptrbss, Enoptrbss   uint32
-	End, Gcdata, Gcbss    uint32
-	Types, Etypes         uint32
-
-	Textsectmap, Textsectmaplen, Textsectmapcap uint32
-	Typelinks, Typelinkslen, Typelinkscap       uint32 // offsets from types
-	Itablinks, Itablinkslen, Itablinkscap       uint32
-
-	Ptab, Ptablen, Ptabcap uint32
-
-	Pluginpath, Pluginpathlen             uint32
-	Pkghashes, Pkghasheslen, Pkghashescap uint32
-
-	Modulename, Modulenamelen                      uint32
-	Modulehashes, Modulehasheslen, Modulehashescap uint32
-
-	/*	These fields we are not planning to use so skipping the parsing of them.
-
-		hasmain uint8 // 1 if module contains the main function, 0 otherwise
-
-		gcdatamask, gcbssmask bitvector
-
-		typemap map[typeOff]*_type // offset to *_rtype in previous module
-
-		bad bool // module failed to load and should be ignored
-
-		next *moduledata
-	*/
-}
-
-// Moduledata structure for Go 1.7
-
-type moduledata764 struct {
-	Pclntable, Pclntablelen, Pclntablecap uint64
-	Ftab, Ftablen, Ftabcap                uint64
-	Filetab, Filetablen, Filetabcap       uint64
-	Findfunctab                           uint64
-	Minpc, Maxpc                          uint64
-
-	Text, Etext           uint64
-	Noptrdata, Enoptrdata uint64
-	Data, Edata           uint64
-	Bss, Ebss             uint64
-	Noptrbss, Enoptrbss   uint64
-	End, Gcdata, Gcbss    uint64
-	Types, Etypes         uint64
-
-	Typelinks, Typelinkslen, Typelinkscap uint64 // offsets from types
-	Itablinks, Itablinkslen, Itablinkscap uint64
-
-	Modulename, Modulenamelen                      uint64
-	Modulehashes, Modulehasheslen, Modulehashescap uint64
-
-	/*	These fields we are not planning to use so skipping the parsing of them.
-
-		gcdatamask, gcbssmask bitvector
-
-		typemap map[typeOff]*_type // offset to *_rtype in previous module
-
-		next *moduledata
-	*/
-}
-
-type moduledata732 struct {
-	Pclntable, Pclntablelen, Pclntablecap uint32
-	Ftab, Ftablen, Ftabcap                uint32
-	Filetab, Filetablen, Filetabcap       uint32
-	Findfunctab                           uint32
-	Minpc, Maxpc                          uint32
-
-	Text, Etext           uint32
-	Noptrdata, Enoptrdata uint32
-	Data, Edata           uint32
-	Bss, Ebss             uint32
-	Noptrbss, Enoptrbss   uint32
-	End, Gcdata, Gcbss    uint32
-	Types, Etypes         uint32
-
-	Typelinks, Typelinkslen, Typelinkscap uint32 // offsets from types
-	Itablinks, Itablinkslen, Itablinkscap uint32
-
-	Modulename, Modulenamelen                      uint32
-	Modulehashes, Modulehasheslen, Modulehashescap uint32
-
-	/*	These fields we are not planning to use so skipping the parsing of them.
-
-		gcdatamask, gcbssmask bitvector
-
-		typemap map[typeOff]*_type // offset to *_rtype in previous module
-
-		next *moduledata
-	*/
-}
-
-// Moduledata structure for Go 1.5 to 1.6
-
-type moduledata564 struct {
-	Pclntable, Pclntablelen, Pclntablecap uint64
-	Ftab, Ftablen, Ftabcap                uint64
-	Filetab, Filetablen, Filetabcap       uint64
-	Findfunctab                           uint64
-	Minpc, Maxpc                          uint64
-
-	Text, Etext           uint64
-	Noptrdata, Enoptrdata uint64
-	Data, Edata           uint64
-	Bss, Ebss             uint64
-	Noptrbss, Enoptrbss   uint64
-	End, Gcdata, Gcbss    uint64
-
-	Typelinks, Typelinkslen, Typelinkscap uint64
-
-	Modulename, Modulenamelen                      uint64
-	Modulehashes, Modulehasheslen, Modulehashescap uint64
-
-	/*	These fields we are not planning to use so skipping the parsing of them.
-
-		gcdatamask, gcbssmask bitvector
-
-		typemap map[typeOff]*_type // offset to *_rtype in previous module
-
-		next *moduledata
-	*/
-}
-
-type moduledata532 struct {
-	Pclntable, Pclntablelen, Pclntablecap uint32
-	Ftab, Ftablen, Ftabcap                uint32
-	Filetab, Filetablen, Filetabcap       uint32
-	Findfunctab                           uint32
-	Minpc, Maxpc                          uint32
-
-	Text, Etext           uint32
-	Noptrdata, Enoptrdata uint32
-	Data, Edata           uint32
-	Bss, Ebss             uint32
-	Noptrbss, Enoptrbss   uint32
-	End, Gcdata, Gcbss    uint32
-
-	Typelinks, Typelinkslen, Typelinkscap uint32
-
-	Modulename, Modulenamelen                      uint32
-	Modulehashes, Modulehasheslen, Modulehashescap uint32
-
-	/*	These fields we are not planning to use so skipping the parsing of them.
-
-		gcdatamask, gcbssmask bitvector
-
-		typemap map[typeOff]*_type // offset to *_rtype in previous module
-
-		next *moduledata
-	*/
+type modulable interface {
+	toModuledata() moduledata
 }
