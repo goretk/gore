@@ -65,6 +65,8 @@ type Moduledata interface {
 	ITabLinks() ModuleDataSection
 	// TypeLink returns the typelink section.
 	TypeLink() ([]int32, error)
+	// GoFuncValue returns the value of the 'go:func.*' symbol.
+	GoFuncValue() uint64
 }
 
 type moduledata struct {
@@ -79,6 +81,8 @@ type moduledata struct {
 	ITabLinkAddr, ITabLinkLen uint64
 	FuncTabAddr, FuncTabLen   uint64
 	PCLNTabAddr, PCLNTabLen   uint64
+
+	GoFuncVal uint64
 
 	fh fileHandler
 }
@@ -185,6 +189,11 @@ func (m moduledata) TypeLink() ([]int32, error) {
 	}
 
 	return a, nil
+}
+
+// GoFuncValue returns the value of the "go:func.*" symbol.
+func (m moduledata) GoFuncValue() uint64 {
+	return m.GoFuncVal
 }
 
 // ModuleDataSection is a section defined in the Moduledata structure.
@@ -377,6 +386,8 @@ func processModuledata(data interface{}) (moduledata, error) {
 	if md.TypesLen > md.TypesAddr {
 		md.TypesLen = md.TypesLen - md.TypesAddr
 	}
+
+	extractModFieldValue(&md, "GoFuncVal", val, "GoFunc")
 
 	return md, nil
 }
