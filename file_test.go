@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -76,6 +77,13 @@ func TestGoldFiles(t *testing.T) {
 		t.Skip("No golden files")
 	}
 
+	mustParse := func(n int, e error) int {
+		if err != nil {
+			t.Fatalf("parsing error: %s", err)
+		}
+		return n
+	}
+
 	for _, file := range goldFiles {
 		t.Run("compiler_version_"+file, func(t *testing.T) {
 			assert := assert.New(t)
@@ -96,10 +104,12 @@ func TestGoldFiles(t *testing.T) {
 			// Get info from filename gold-os-arch-goversion
 			fileInfo := strings.Split(file, "-")
 
-			// If patch level is 0, it is dropped. For example. 10.0.0 is 10.0
+			// If patch level is 0, it is dropped. For example. 10.0.0 is 10.0.
+			// This was changed in 1.21 so if the version is 1.21 or greater, we take
+			// the whole string.
 			var actualVersion string
 			verArr := strings.Split(fileInfo[3], ".")
-			if len(verArr) == 3 && verArr[2] == "0" {
+			if len(verArr) == 3 && verArr[2] == "0" && mustParse(strconv.Atoi(verArr[1])) < 21 {
 				actualVersion = strings.Join(verArr[:2], ".")
 			} else {
 				actualVersion = fileInfo[3]
