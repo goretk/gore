@@ -391,6 +391,7 @@ type FileInfo struct {
 const (
 	ArchAMD64 = "amd64"
 	ArchARM   = "arm"
+	ArchARM64 = "arm64"
 	Arch386   = "i386"
 	ArchMIPS  = "mips"
 )

@@ -113,6 +113,9 @@ func (m *machoFile) getFileInfo() *FileInfo {
 	case macho.CpuAmd64:
 		fi.WordSize = intSize64
 		fi.Arch = ArchAMD64
+	case macho.CpuArm64:
+		fi.WordSize = intSize64
+		fi.Arch = ArchARM64
 	default:
 		panic("Unsupported architecture")
 	}
