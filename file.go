@@ -138,6 +138,22 @@ func (f *GoFile) init() error {
 	return returnVal
 }
 
+// GetFile returns the raw file opened by the library.
+func (f *GoFile) GetFile() *os.File {
+	return f.fh.GetFile()
+}
+
+// GetParsedFile returns the parsed file, should be cast based on the file type.
+// Possible types are:
+//   - *elf.File
+//   - *pe.File
+//   - *macho.File
+//
+// all from the debug package.
+func (f *GoFile) GetParsedFile() any {
+	return f.fh.GetParsedFile()
+}
+
 // GetCompilerVersion returns the Go compiler version of the compiler
 // that was used to compile the binary.
 func (f *GoFile) GetCompilerVersion() (*GoVersion, error) {
@@ -368,7 +384,8 @@ type fileHandler interface {
 	getPCLNTABData() (uint64, []byte, error)
 	moduledataSection() string
 	getBuildID() (string, error)
-	getFile() *os.File
+	GetFile() *os.File
+	GetParsedFile() any
 }
 
 func fileMagicMatch(buf, magic []byte) bool {

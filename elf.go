@@ -20,6 +20,7 @@ package gore
 import (
 	"debug/elf"
 	"debug/gosym"
+	"errors"
 	"fmt"
 	"os"
 )
@@ -37,12 +38,18 @@ func openELF(fp string) (*elfFile, error) {
 	return &elfFile{file: f, osFile: osFile}, nil
 }
 
+var _ fileHandler = (*elfFile)(nil)
+
 type elfFile struct {
 	file   *elf.File
 	osFile *os.File
 }
 
-func (e *elfFile) getFile() *os.File {
+func (e *elfFile) GetParsedFile() any {
+	return e.file
+}
+
+func (e *elfFile) GetFile() *os.File {
 	return e.osFile
 }
 
@@ -91,7 +98,7 @@ func (e *elfFile) getCodeSection() ([]byte, error) {
 
 func (e *elfFile) getPCLNTABData() (uint64, []byte, error) {
 	start, data, err := e.getSectionData(".gopclntab")
-	if err == ErrSectionDoesNotExist {
+	if errors.Is(err, ErrSectionDoesNotExist) {
 		// Try PIE location
 		return e.getSectionData(".data.rel.ro.gopclntab")
 	}
@@ -159,7 +166,7 @@ func (e *elfFile) getFileInfo() *FileInfo {
 func (e *elfFile) getBuildID() (string, error) {
 	_, data, err := e.getSectionData(".note.go.buildid")
 	// If the note section does not exist, we just ignore the build id.
-	if err == ErrSectionDoesNotExist {
+	if errors.Is(err, ErrSectionDoesNotExist) {
 		return "", nil
 	}
 	if err != nil {

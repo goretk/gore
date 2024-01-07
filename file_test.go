@@ -20,7 +20,6 @@ package gore
 import (
 	"debug/gosym"
 	"errors"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -43,13 +42,13 @@ func TestIssue11NoNoteSectionELF(t *testing.T) {
 	if err != nil {
 		panic("No go tool chain found: " + err.Error())
 	}
-	tmpdir, err := ioutil.TempDir("", "TestGORE-Issue11")
+	tmpdir, err := os.MkdirTemp("", "TestGORE-Issue11")
 	if err != nil {
 		panic(err)
 	}
 	defer os.RemoveAll(tmpdir)
 	src := filepath.Join(tmpdir, "a.go")
-	err = ioutil.WriteFile(src, []byte(testresourcesrc), 0644)
+	err = os.WriteFile(src, []byte(testresourcesrc), 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -163,7 +162,11 @@ type mockFileHandler struct {
 	mGetSectionDataFromOffset func(uint64) (uint64, []byte, error)
 }
 
-func (m *mockFileHandler) getFile() *os.File {
+func (m *mockFileHandler) GetFile() *os.File {
+	panic("not implemented")
+}
+
+func (m *mockFileHandler) GetParsedFile() any {
 	panic("not implemented")
 }
 
@@ -242,7 +245,7 @@ func getGoldenResources() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	folder, err := ioutil.ReadDir(filepath.Join(folderPath, "gold"))
+	folder, err := os.ReadDir(filepath.Join(folderPath, "gold"))
 	if err != nil {
 		return nil, err
 	}

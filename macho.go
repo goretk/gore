@@ -37,12 +37,18 @@ func openMachO(fp string) (*machoFile, error) {
 	return &machoFile{file: f, osFile: osFile}, nil
 }
 
+var _ fileHandler = (*machoFile)(nil)
+
 type machoFile struct {
 	file   *macho.File
 	osFile *os.File
 }
 
-func (m *machoFile) getFile() *os.File {
+func (m *machoFile) GetParsedFile() any {
+	return m.file
+}
+
+func (m *machoFile) GetFile() *os.File {
 	return m.osFile
 }
 
