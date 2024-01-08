@@ -18,9 +18,11 @@
 package gore
 
 import (
+	"debug/elf"
 	"debug/gosym"
+	"debug/macho"
+	"debug/pe"
 	"errors"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -43,24 +45,24 @@ func TestIssue11NoNoteSectionELF(t *testing.T) {
 	if err != nil {
 		panic("No go tool chain found: " + err.Error())
 	}
-	tmpdir, err := ioutil.TempDir("", "TestGORE-Issue11")
+	tmpdir, err := os.MkdirTemp("", "TestGORE-Issue11")
 	if err != nil {
 		panic(err)
 	}
 	defer os.RemoveAll(tmpdir)
 	src := filepath.Join(tmpdir, "a.go")
-	err = ioutil.WriteFile(src, []byte(testresourcesrc), 0644)
+	err = os.WriteFile(src, []byte(testresourcesrc), 0644)
 	if err != nil {
 		panic(err)
 	}
 	exe := filepath.Join(tmpdir, "a")
 	args := []string{"build", "-o", exe, "-ldflags", "-s -w -buildid=", src}
 	cmd := exec.Command(goBin, args...)
-	gopatch := os.Getenv("GOPATH")
-	if gopatch == "" {
-		gopatch = tmpdir
+	gopath := os.Getenv("GOPATH")
+	if gopath == "" {
+		gopath = tmpdir
 	}
-	cmd.Env = append(cmd.Env, "GOCACHE="+tmpdir, "GOOS=linux", "GOPATH="+gopatch)
+	cmd.Env = append(cmd.Env, "GOCACHE="+tmpdir, "GOOS=linux", "GOPATH="+gopath, "GOTMPDIR="+tmpdir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		panic("building test executable failed: " + string(out))
@@ -88,11 +90,6 @@ func TestGoldFiles(t *testing.T) {
 		t.Run("compiler_version_"+file, func(t *testing.T) {
 			assert := assert.New(t)
 			require := require.New(t)
-
-			// TODO: Remove this check when arm support has been added.
-			if strings.Contains(file, "arm64") {
-				t.Skip("ARM currently not supported")
-			}
 
 			// Loading resource
 			resource, err := getGoldTestResourcePath(file)
@@ -126,6 +123,21 @@ func TestGoldFiles(t *testing.T) {
 			assert.NoError(err)
 			require.NotNil(version, "Version should not be nil")
 			assert.Equal("go"+actualVersion, version.Name, "Incorrect version for "+file)
+
+			osFile := f.GetFile()
+			require.NotNil(osFile, "File should not be nil")
+			assert.IsType(&os.File{}, osFile, "File should be of type *os.File")
+
+			switch f.GetParsedFile().(type) {
+			case *elf.File:
+				require.Equal("linux", fileInfo[1], "Incorrect OS for "+file)
+			case *macho.File:
+				require.Equal("darwin", fileInfo[1], "Incorrect OS for "+file)
+			case *pe.File:
+				require.Equal("windows", fileInfo[1], "Incorrect OS for "+file)
+			default:
+				t.Fatalf("Unknown file type: %T", f.GetParsedFile())
+			}
 
 			// Clean up
 			f.Close()
@@ -163,7 +175,11 @@ type mockFileHandler struct {
 	mGetSectionDataFromOffset func(uint64) (uint64, []byte, error)
 }
 
-func (m *mockFileHandler) getFile() *os.File {
+func (m *mockFileHandler) GetFile() *os.File {
+	panic("not implemented")
+}
+
+func (m *mockFileHandler) GetParsedFile() any {
 	panic("not implemented")
 }
 
@@ -242,7 +258,7 @@ func getGoldenResources() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	folder, err := ioutil.ReadDir(filepath.Join(folderPath, "gold"))
+	folder, err := os.ReadDir(filepath.Join(folderPath, "gold"))
 	if err != nil {
 		return nil, err
 	}

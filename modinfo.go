@@ -39,7 +39,7 @@ type BuildInfo struct {
 }
 
 func (f *GoFile) extractBuildInfo() (*BuildInfo, error) {
-	info, err := buildinfo.Read(f.fh.getFile())
+	info, err := buildinfo.Read(f.fh.GetFile())
 	if err != nil {
 		return nil, fmt.Errorf("error when extracting build information: %w", err)
 	}

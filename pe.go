@@ -50,6 +50,8 @@ func openPE(fp string) (peF *peFile, err error) {
 	return
 }
 
+var _ fileHandler = (*peFile)(nil)
+
 type peFile struct {
 	file        *pe.File
 	osFile      *os.File
@@ -57,7 +59,11 @@ type peFile struct {
 	imageBase   uint64
 }
 
-func (p *peFile) getFile() *os.File {
+func (p *peFile) GetParsedFile() any {
+	return p.file
+}
+
+func (p *peFile) GetFile() *os.File {
 	return p.osFile
 }
 
