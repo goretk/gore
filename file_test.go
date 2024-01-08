@@ -58,11 +58,11 @@ func TestIssue11NoNoteSectionELF(t *testing.T) {
 	exe := filepath.Join(tmpdir, "a")
 	args := []string{"build", "-o", exe, "-ldflags", "-s -w -buildid=", src}
 	cmd := exec.Command(goBin, args...)
-	gopatch := os.Getenv("GOPATH")
-	if gopatch == "" {
-		gopatch = tmpdir
+	gopath := os.Getenv("GOPATH")
+	if gopath == "" {
+		gopath = tmpdir
 	}
-	cmd.Env = append(cmd.Env, "GOCACHE="+tmpdir, "GOOS=linux", "GOPATH="+gopatch, "GOTMPDIR="+tmpdir)
+	cmd.Env = append(cmd.Env, "GOCACHE="+tmpdir, "GOOS=linux", "GOPATH="+gopath, "GOTMPDIR="+tmpdir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		panic("building test executable failed: " + string(out))
