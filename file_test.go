@@ -18,7 +18,10 @@
 package gore
 
 import (
+	"debug/elf"
 	"debug/gosym"
+	"debug/macho"
+	"debug/pe"
 	"errors"
 	"os"
 	"os/exec"
@@ -59,7 +62,7 @@ func TestIssue11NoNoteSectionELF(t *testing.T) {
 	if gopatch == "" {
 		gopatch = tmpdir
 	}
-	cmd.Env = append(cmd.Env, "GOCACHE="+tmpdir, "GOOS=linux", "GOPATH="+gopatch)
+	cmd.Env = append(cmd.Env, "GOCACHE="+tmpdir, "GOOS=linux", "GOPATH="+gopatch, "GOTMPDIR="+tmpdir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		panic("building test executable failed: " + string(out))
@@ -87,11 +90,6 @@ func TestGoldFiles(t *testing.T) {
 		t.Run("compiler_version_"+file, func(t *testing.T) {
 			assert := assert.New(t)
 			require := require.New(t)
-
-			// TODO: Remove this check when arm support has been added.
-			if strings.Contains(file, "arm64") {
-				t.Skip("ARM currently not supported")
-			}
 
 			// Loading resource
 			resource, err := getGoldTestResourcePath(file)
@@ -125,6 +123,21 @@ func TestGoldFiles(t *testing.T) {
 			assert.NoError(err)
 			require.NotNil(version, "Version should not be nil")
 			assert.Equal("go"+actualVersion, version.Name, "Incorrect version for "+file)
+
+			osFile := f.GetFile()
+			require.NotNil(osFile, "File should not be nil")
+			assert.IsType(&os.File{}, osFile, "File should be of type *os.File")
+
+			switch f.GetParsedFile().(type) {
+			case *elf.File:
+				require.Equal("linux", fileInfo[1], "Incorrect OS for "+file)
+			case *macho.File:
+				require.Equal("darwin", fileInfo[1], "Incorrect OS for "+file)
+			case *pe.File:
+				require.Equal("windows", fileInfo[1], "Incorrect OS for "+file)
+			default:
+				t.Fatalf("Unknown file type: %T", f.GetParsedFile())
+			}
 
 			// Clean up
 			f.Close()
