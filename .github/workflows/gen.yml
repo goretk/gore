@@ -2,12 +2,12 @@ name: "Auto generate sources"
 
 on:
   schedule:
-    - cron: '42 14 * * */2'
+    - cron: '42 14 * * *'
   workflow_dispatch:
 
 jobs:
   autogen:
-    name: Analyze
+    name: Auto generate sources
     runs-on: 'ubuntu-latest'
     permissions:
       contents: write
