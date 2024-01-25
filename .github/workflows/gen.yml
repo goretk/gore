@@ -1,0 +1,38 @@
+name: "Auto generate sources"
+
+on:
+  schedule:
+    - cron: '42 14 * * */2'
+  workflow_dispatch:
+
+jobs:
+  autogen:
+    name: Analyze
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+
+      - name: Generate
+        run: |
+          go generate ./...
+      
+      - name: Commit changes if any
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          # If there are changes to the generated files, commit them
+          if [[ -n $(git status --porcelain) ]]; then
+            git add .
+            git commit -m "chore: update generated files" -m "[skip ci]"
+            git push
+          else
+            echo "::notice::Generated files are up to date."
+          fi
+
