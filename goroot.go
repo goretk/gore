@@ -19,6 +19,7 @@ package gore
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -28,7 +29,7 @@ import (
 )
 
 func tryFromGOROOT(f *GoFile) (string, error) {
-	// Check for non supported architectures.
+	// Check for non-supported architectures.
 	if f.FileInfo.Arch != Arch386 && f.FileInfo.Arch != ArchAMD64 {
 		return "", nil
 	}
@@ -59,9 +60,9 @@ pkgLoop:
 		}
 	}
 
-	// Check if the functions was found
+	// Check if the functions were found
 	if fcn == nil {
-		// If we can't find the function there is nothing to do.
+		// If we can't find the function, there is nothing to do.
 		return "", ErrNoGoRootFound
 	}
 	// Get the raw hex.
@@ -92,13 +93,13 @@ pkgLoop:
 		}
 		arg := inst.Args[1].(x86asm.Mem)
 
-		// First assume that the address is a direct addressing.
+		// First, assume that the address is a direct addressing.
 		addr := arg.Disp
 		if arg.Base == x86asm.EIP || arg.Base == x86asm.RIP {
 			// If the addressing is based on the instruction pointer, fix the address.
 			addr = addr + int64(fcn.Offset) + int64(s)
 		} else if arg.Base == 0 && arg.Disp > 0 {
-			// In order to support x32 direct addressing
+			// To support x32 direct addressing
 		} else {
 			continue
 		}
@@ -182,7 +183,7 @@ pkgLoop:
 					}
 					addr = addr + fcn.Offset + uint64(s)
 				} else if arg.Base == 0 && arg.Disp > 0 {
-					// In order to support x32 direct addressing
+					// To support x32 direct addressing
 				} else {
 					continue
 				}
@@ -208,7 +209,7 @@ pkgLoop:
 }
 
 func tryFromTimeInit(f *GoFile) (string, error) {
-	// Check for non supported architectures.
+	// Check for non-supported architectures.
 	if f.FileInfo.Arch != Arch386 && f.FileInfo.Arch != ArchAMD64 {
 		return "", nil
 	}
@@ -239,7 +240,7 @@ pkgLoop:
 		}
 	}
 
-	// Check if the functions was found
+	// Check if the functions were found
 	if fcn == nil {
 		// If we can't find the function there is nothing to do.
 		return "", ErrNoGoRootFound
@@ -276,13 +277,13 @@ pkgLoop:
 		}
 		arg := inst.Args[1].(x86asm.Mem)
 
-		// First assume that the address is a direct addressing.
+		// First, assume that the address is a direct addressing.
 		addr := arg.Disp
 		if arg.Base == x86asm.EIP || arg.Base == x86asm.RIP {
 			// If the addressing is based on the instruction pointer, fix the address.
 			addr = addr + int64(fcn.Offset) + int64(s)
 		} else if arg.Base == 0 && arg.Disp > 0 {
-			// In order to support x32 direct addressing
+			// To support x32 direct addressing
 		} else {
 			continue
 		}
@@ -332,7 +333,7 @@ func findGoRootPath(f *GoFile) (string, error) {
 	if goroot != "" {
 		return goroot, nil
 	}
-	if err != nil && err != ErrNoGoRootFound {
+	if err != nil && !errors.Is(err, ErrNoGoRootFound) {
 		return "", err
 	}
 
@@ -340,11 +341,11 @@ func findGoRootPath(f *GoFile) (string, error) {
 	if goroot != "" {
 		return goroot, nil
 	}
-	if err != nil && err != ErrNoGoRootFound {
+	if err != nil && !errors.Is(err, ErrNoGoRootFound) {
 		return "", err
 	}
 
-	// Try determine from std lib package paths.
+	// Try to determine from std lib package paths.
 	pkg, err := f.GetSTDLib()
 	if err != nil {
 		return "", fmt.Errorf("error when getting standard library packages: %w", err)
@@ -357,6 +358,10 @@ func findGoRootPath(f *GoFile) (string, error) {
 		subpath := fmt.Sprintf("/src/%s", v.Name)
 		if strings.HasSuffix(v.Filepath, subpath) {
 			return strings.TrimSuffix(v.Filepath, subpath), nil
+		}
+		subpathWin := fmt.Sprintf("\\src\\%s", v.Name)
+		if strings.HasSuffix(v.Filepath, subpathWin) {
+			return strings.TrimSuffix(v.Filepath, subpathWin), nil
 		}
 	}
 

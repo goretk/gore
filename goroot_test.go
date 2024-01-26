@@ -32,7 +32,9 @@ func TestExtractGoRoot(t *testing.T) {
 		// Golden folder does not exist
 		t.Skip("No golden files")
 	}
-	var expectGoRoot string = "/usr/local/go"
+
+	const expectGoRoot = "/usr/local/go"
+
 	for _, test := range goldFiles {
 		t.Run("get goroot form "+test, func(t *testing.T) {
 			r := require.New(t)
