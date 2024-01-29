@@ -107,7 +107,7 @@ func init() {
 	token := os.Getenv("GITHUB_TOKEN")
 	if token != "" {
 		authRequest = func(r *http.Request) {
-			r.Header.Set("Authorization", "token "+token)
+			r.Header.Set("Authorization", "Bearer "+token)
 		}
 	} else {
 		authRequest = func(r *http.Request) {}
