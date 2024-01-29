@@ -22,6 +22,8 @@ jobs:
       - name: Generate
         run: |
           go generate ./...
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Commit changes if any
         run: |
