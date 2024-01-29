@@ -25,10 +25,12 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"go/format"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -97,6 +99,21 @@ var goversions = map[string]*GoVersion{
 }
 `))
 
+var client = &http.Client{}
+
+var authRequest func(*http.Request)
+
+func init() {
+	token := os.Getenv("GITHUB_TOKEN")
+	if token != "" {
+		authRequest = func(r *http.Request) {
+			r.Header.Set("Authorization", "Bearer "+token)
+		}
+	} else {
+		authRequest = func(r *http.Request) {}
+	}
+}
+
 type ghResp struct {
 	Sha       string   `json:"sha"`
 	Url       string   `json:"url"`
@@ -154,8 +171,59 @@ type goversion struct {
 	Date string
 }
 
+// diffCode returns false if a and b have different other than the date.
+func diffCode(a, b string) bool {
+	if a == b {
+		return false
+	}
+
+	aLines := strings.Split(a, "\n")
+	bLines := strings.Split(b, "\n")
+
+	// ignore the license and the date
+	aLines = aLines[21:]
+	bLines = bLines[21:]
+
+	if len(aLines) != len(bLines) {
+		return true
+	}
+
+	for i := 0; i < len(aLines); i++ {
+		if aLines[i] != bLines[i] {
+			return true
+		}
+	}
+
+	return false
+}
+
+func writeOnDemand(new []byte, target string) {
+	old, err := os.ReadFile(target)
+	if err != nil {
+		fmt.Println("Error when reading the old file:", target, err)
+		return
+	}
+
+	old, _ = format.Source(old)
+	new, _ = format.Source(new)
+
+	// Compare the old and the new.
+	if !diffCode(string(old), string(new)) {
+		fmt.Println(target + " no changes.")
+		return
+	}
+
+	fmt.Println(target + " changes detected.")
+
+	// Write the new file.
+	err = os.WriteFile(target, new, 0664)
+	if err != nil {
+		fmt.Println("Error when writing the new file:", err)
+		return
+	}
+}
+
 func processGoVersions() {
-	client := http.DefaultClient
 	tags := make([]*tagResp, 0)
 
 	// Fetch all tags
@@ -165,7 +233,9 @@ func processGoVersions() {
 	requestURL = &tagsRequestURL
 	for *requestURL != "" {
 		fmt.Println("Fetching latests tags")
-		resp, err := client.Get(tagsRequestURL)
+		req, _ := http.NewRequest(http.MethodGet, *requestURL, nil)
+		authRequest(req)
+		resp, err := client.Do(req)
 		if err != nil {
 			fmt.Println("Error when fetching tags:", err.Error())
 			resp.Body.Close()
@@ -173,7 +243,7 @@ func processGoVersions() {
 		}
 		next := getNextPageURL(resp)
 		*requestURL = next
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
 			fmt.Println("Error when ready response body:", err)
@@ -182,7 +252,7 @@ func processGoVersions() {
 		var newTags []*tagResp
 		err = json.Unmarshal(body, &newTags)
 		if err != nil {
-			fmt.Println("Error when parsing the json:", err)
+			fmt.Println("Error when parsing the json:", string(body), err)
 			continue
 		}
 		tags = append(tags, newTags...)
@@ -217,13 +287,15 @@ func processGoVersions() {
 			continue
 		}
 
-		resp, err := client.Get(fmt.Sprintf(commitRequestURLFormatStr, tag.Commit.Sha))
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf(commitRequestURLFormatStr, tag.Commit.Sha), nil)
+		authRequest(req)
+		resp, err := client.Do(req)
 		if err != nil {
 			fmt.Println("Error when fetching commit info:", err)
 			resp.Body.Close()
 			continue
 		}
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 
 		var commit commitLong
@@ -238,20 +310,21 @@ func processGoVersions() {
 	}
 
 	// Generate the code.
-	f, err = os.Create(goversionOutputFile)
-	if err != nil {
-		fmt.Println("Failed to open the file:", err)
-		return
-	}
-	defer f.Close()
+	buf := bytes.NewBuffer(nil)
 
-	goversionTemplate.Execute(f, struct {
+	err = goversionTemplate.Execute(buf, struct {
 		Timestamp  time.Time
 		GoVersions map[string]*goversion
 	}{
 		Timestamp:  time.Now().UTC(),
 		GoVersions: knownVersions,
 	})
+	if err != nil {
+		fmt.Println("Error when generating the code:", err)
+		return
+	}
+
+	writeOnDemand(buf.Bytes(), goversionOutputFile)
 }
 
 func getStoredGoversions(f *os.File) (map[string]*goversion, error) {
@@ -307,14 +380,14 @@ func getNextPageURL(r *http.Response) string {
 
 func main() {
 	processGoVersions()
-	client := http.DefaultClient
+
 	resp, err := client.Get(fmt.Sprintf(requestURLFormatStr, "master"))
 	if err != nil {
 		fmt.Println("Error when fetching go src data:", err)
 		return
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("Error when reading response body:", err)
 		return
@@ -337,24 +410,26 @@ func main() {
 		if tree.Path == "src" {
 			continue
 		}
-		// Strip "src/" and add to list.
+		// Strip "src/" and add to the list.
 		stdPkgs = append(stdPkgs, strings.TrimPrefix(tree.Path, "src/"))
 	}
 
-	f, err := os.Create(outputFile)
-	if err != nil {
-		fmt.Println("Failed to open the file:", err)
-		return
-	}
-	defer f.Close()
+	// Generate the code.
+	buf := bytes.NewBuffer(nil)
 
-	packageTemplate.Execute(f, struct {
+	err = packageTemplate.Execute(buf, struct {
 		Timestamp time.Time
 		StdPkg    []string
 	}{
 		Timestamp: time.Now().UTC(),
 		StdPkg:    stdPkgs,
 	})
+	if err != nil {
+		fmt.Println("Error when generating the code:", err)
+		return
+	}
+
+	writeOnDemand(buf.Bytes(), outputFile)
 }
 
 func skipPath(path string) bool {
