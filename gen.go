@@ -233,7 +233,7 @@ func processGoVersions() {
 	requestURL = &tagsRequestURL
 	for *requestURL != "" {
 		fmt.Println("Fetching latests tags")
-		req, _ := http.NewRequest("GET", *requestURL, nil)
+		req, _ := http.NewRequest(http.MethodGet, *requestURL, nil)
 		authRequest(req)
 		resp, err := client.Do(req)
 		if err != nil {
@@ -287,7 +287,7 @@ func processGoVersions() {
 			continue
 		}
 
-		req, _ := http.NewRequest("GET", fmt.Sprintf(commitRequestURLFormatStr, tag.Commit.Sha), nil)
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf(commitRequestURLFormatStr, tag.Commit.Sha), nil)
 		authRequest(req)
 		resp, err := client.Do(req)
 		if err != nil {
