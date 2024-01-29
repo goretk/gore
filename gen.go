@@ -211,15 +211,15 @@ func writeOnDemand(new []byte, target string) {
 	if !diffCode(string(old), string(new)) {
 		fmt.Println(target + " no changes.")
 		return
-	} else {
-		fmt.Println(target + " changes detected.")
+	}
 
-		// Write the new file.
-		err = os.WriteFile(target, new, 0664)
-		if err != nil {
-			fmt.Println("Error when writing the new file:", err)
-			return
-		}
+	fmt.Println(target + " changes detected.")
+
+	// Write the new file.
+	err = os.WriteFile(target, new, 0664)
+	if err != nil {
+		fmt.Println("Error when writing the new file:", err)
+		return
 	}
 }
 
