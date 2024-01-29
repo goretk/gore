@@ -26,5 +26,5 @@ jobs:
     - name: Test
       run: go test -timeout 1800s -v -race -coverprofile=coverage.txt -covermode=atomic -tags slow_test
 
-    - name: Upload coverage to Codecov
+    - name: Upload coverage
       uses: codecov/codecov-action@v3
