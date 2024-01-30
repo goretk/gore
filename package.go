@@ -19,6 +19,7 @@ package gore
 
 import (
 	"fmt"
+	"path"
 	"runtime/debug"
 	"sort"
 	"strings"
@@ -49,7 +50,7 @@ func (f *GoFile) GetSourceFiles(p *Package) []*SourceFile {
 	getSourceFile := func(fileName string) *SourceFile {
 		sf, ok := tmp[fileName]
 		if !ok {
-			return &SourceFile{Name: osAwarePathBase(fileName)}
+			return &SourceFile{Name: path.Base(fileName)}
 		}
 		return sf
 	}
@@ -117,8 +118,8 @@ type PackageClassifier interface {
 func NewPathPackageClassifier(mainPkgFilepath string) *PathPackageClassifier {
 	return &PathPackageClassifier{
 		mainFilepath: mainPkgFilepath, mainFolders: []string{
-			osAwarePathDir(mainPkgFilepath),
-			osAwarePathClean(mainPkgFilepath),
+			path.Dir(mainPkgFilepath),
+			path.Clean(mainPkgFilepath),
 		},
 	}
 }
@@ -159,11 +160,11 @@ func (c *PathPackageClassifier) Classify(pkg *Package) PackageClass {
 		return ClassVendor
 	}
 
-	parentFolder := osAwarePathDir(pkg.Filepath)
+	parentFolder := path.Dir(pkg.Filepath)
 
 	if strings.HasPrefix(pkg.Filepath, c.mainFilepath+"/vendor/") ||
-		strings.HasPrefix(pkg.Filepath, osAwarePathDir(c.mainFilepath)+"/vendor/") ||
-		strings.HasPrefix(pkg.Filepath, osAwarePathDir(osAwarePathDir(c.mainFilepath))+"/vendor/") {
+		strings.HasPrefix(pkg.Filepath, path.Dir(c.mainFilepath)+"/vendor/") ||
+		strings.HasPrefix(pkg.Filepath, path.Dir(path.Dir(c.mainFilepath))+"/vendor/") {
 		return ClassVendor
 	}
 
@@ -187,11 +188,11 @@ func (c *PathPackageClassifier) Classify(pkg *Package) PackageClass {
 
 	// If the path does not contain the "vendor" in a path but has the main package folder name, assume part of main.
 	if !strings.Contains(pkg.Filepath, "vendor/") &&
-		(osAwarePathBase(osAwarePathDir(pkg.Filepath)) == osAwarePathBase(c.mainFilepath)) {
+		(path.Base(path.Dir(pkg.Filepath)) == path.Base(c.mainFilepath)) {
 		return ClassMain
 	}
 	// Special case for entry point package.
-	if pkg.Name == "" && osAwarePathBase(pkg.Filepath) == "runtime" {
+	if pkg.Name == "" && path.Base(pkg.Filepath) == "runtime" {
 		return ClassSTD
 	}
 

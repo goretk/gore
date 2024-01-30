@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"sort"
 	"sync"
 )
@@ -260,7 +261,7 @@ func (f *GoFile) enumPackages() error {
 
 			if !ok && needFilepath {
 				fp, _, _ := tab.PCToLine(m.Offset)
-				p.Filepath = osAwarePathDir(fp)
+				p.Filepath = path.Dir(fp)
 			}
 		} else {
 			f := &Function{
@@ -273,7 +274,7 @@ func (f *GoFile) enumPackages() error {
 
 			if !ok && needFilepath {
 				fp, _, _ := tab.PCToLine(f.Offset)
-				p.Filepath = osAwarePathDir(fp)
+				p.Filepath = path.Dir(fp)
 			}
 		}
 	}
