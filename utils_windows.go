@@ -13,7 +13,6 @@ func osAwarePathDir(s string) string {
 		return strings.ReplaceAll(filepath.Dir(s), "\\", "/")
 	}
 	return s
-
 }
 
 func osAwarePathBase(s string) string {
