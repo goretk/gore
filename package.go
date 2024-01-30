@@ -237,7 +237,7 @@ func isGeneratedPackage(pkg *Package) bool {
 		return true
 	}
 
-	// Special case for no package name and path of ".".
+	// Special case for no package name and path of "".
 	if pkg.Name == "" && pkg.Filepath == "" {
 		return true
 	}
