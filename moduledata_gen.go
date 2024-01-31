@@ -76,6 +76,7 @@ func (md moduledata2064) toModuledata() moduledata {
 		FuncTabLen:    md.Ftablen,
 		PCLNTabAddr:   md.Pclntable,
 		PCLNTabLen:    md.Pclntablelen,
+		GoFuncVal:     md.Gofunc,
 	}
 }
 
@@ -136,6 +137,7 @@ func (md moduledata2032) toModuledata() moduledata {
 		FuncTabLen:    uint64(md.Ftablen),
 		PCLNTabAddr:   uint64(md.Pclntable),
 		PCLNTabLen:    uint64(md.Pclntablelen),
+		GoFuncVal:     uint64(md.Gofunc),
 	}
 }
 
@@ -194,6 +196,7 @@ func (md moduledata1864) toModuledata() moduledata {
 		FuncTabLen:    md.Ftablen,
 		PCLNTabAddr:   md.Pclntable,
 		PCLNTabLen:    md.Pclntablelen,
+		GoFuncVal:     md.Gofunc,
 	}
 }
 
@@ -252,6 +255,7 @@ func (md moduledata1832) toModuledata() moduledata {
 		FuncTabLen:    uint64(md.Ftablen),
 		PCLNTabAddr:   uint64(md.Pclntable),
 		PCLNTabLen:    uint64(md.Pclntablelen),
+		GoFuncVal:     uint64(md.Gofunc),
 	}
 }
 

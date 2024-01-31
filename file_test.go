@@ -101,9 +101,8 @@ func TestGoldFiles(t *testing.T) {
 			// Get info from filename gold-os-arch-goversion
 			fileInfo := strings.Split(file, "-")
 
-			// If patch level is 0, it is dropped. For example. 10.0.0 is 10.0.
-			// This was changed in 1.21 so if the version is 1.21 or greater, we take
-			// the whole string.
+			// If the patch level is 0, it is dropped. For example. 10.0.0 is 10.0
+			// Up until 1.21.0, if patch level is 0, it is dropped. For example. 10.0.0 is 10.0
 			var actualVersion string
 			verArr := strings.Split(fileInfo[3], ".")
 			if len(verArr) == 3 && verArr[2] == "0" && mustParse(strconv.Atoi(verArr[1])) < 21 {

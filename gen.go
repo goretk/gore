@@ -470,6 +470,8 @@ func toModuledata(b *bytes.Buffer, st reflect.Type, bits int) {
 		modFieldLen(b, st, bits, names[0], names[1])
 	}
 
+	modFieldVal(b, st, bits, "GoFunc", "Gofunc")
+
 	_, _ = fmt.Fprint(b, "}\n}\n\n")
 }
 
@@ -494,6 +496,17 @@ func modFieldLen(b *bytes.Buffer, st reflect.Type, bits int, modName, parsedName
 		_, _ = fmt.Fprintf(b, "%sAddr: uint64(md.%s),\n%[1]sLen: uint64(md.%[3]s),\n", modName, parsedName, lenName)
 	} else {
 		_, _ = fmt.Fprintf(b, "%sAddr: md.%s,\n%[1]sLen: md.%[3]s,\n", modName, parsedName, lenName)
+	}
+}
+
+func modFieldVal(b *bytes.Buffer, st reflect.Type, bits int, modName, parsedName string) {
+	if _, ok := st.FieldByName(strings.ToLower(parsedName)); !ok {
+		return
+	}
+	if bits == 32 {
+		_, _ = fmt.Fprintf(b, "%sVal: uint64(md.%s),\n", modName, parsedName)
+	} else {
+		_, _ = fmt.Fprintf(b, "%sVal: md.%s,\n", modName, parsedName)
 	}
 }
 
