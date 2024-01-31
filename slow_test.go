@@ -14,7 +14,6 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
-
 //go:build slow_test
 // +build slow_test
 
@@ -22,7 +21,6 @@ package gore
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -448,13 +446,13 @@ func buildTestResource(body, goos, arch string, pie bool) (string, string) {
 		panic("No go tool chain found: " + err.Error())
 	}
 
-	tmpdir, err := ioutil.TempDir("", "TestGORE")
+	tmpdir, err := os.MkdirTemp("", "gore-test")
 	if err != nil {
 		panic(err)
 	}
 
 	src := filepath.Join(tmpdir, "a.go")
-	err = ioutil.WriteFile(src, []byte(body), 0644)
+	err = os.WriteFile(src, []byte(body), 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -475,7 +473,7 @@ func buildTestResource(body, goos, arch string, pie bool) (string, string) {
 		gopath = tmpdir
 	}
 
-	cmd.Env = append(cmd.Env, "GOCACHE="+tmpdir, "GOARCH="+arch, "GOOS="+goos, "GOPATH="+gopath, "PATH="+os.Getenv("PATH"))
+	cmd.Env = append(cmd.Env, "GOCACHE="+tmpdir, "GOARCH="+arch, "GOOS="+goos, "GOPATH="+gopath, "GOTMPDIR="+gopath, "PATH="+os.Getenv("PATH"))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		panic("building test executable failed: " + string(out))
