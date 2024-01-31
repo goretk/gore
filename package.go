@@ -25,7 +25,7 @@ import (
 	"strings"
 )
 
-//go:generate go run gen.go
+//go:generate go run gen.go stdpkgs
 
 var (
 	knownRepos = []string{"golang.org", "github.com", "gitlab.com"}

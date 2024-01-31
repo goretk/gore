@@ -17,7 +17,7 @@
 
 package gore
 
-//go:generate go run gen_moduledata.go
+//go:generate go run gen.go moduledata
 
 import (
 	"bytes"
