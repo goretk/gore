@@ -5,7 +5,6 @@ go 1.21
 require (
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/arch v0.6.0
-	golang.org/x/mod v0.14.0
 )
 
 require (

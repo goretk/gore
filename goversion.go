@@ -19,14 +19,13 @@ package gore
 
 import (
 	"bytes"
-	"regexp"
-	"strings"
-
+	"errors"
+	"go/version"
 	"golang.org/x/arch/x86/x86asm"
-	"golang.org/x/mod/semver"
+	"regexp"
 )
 
-var goVersionMatcher = regexp.MustCompile(`(go[\d+\.]*(beta|rc)?[\d*])`)
+var goVersionMatcher = regexp.MustCompile(`(go[\d+.]*(beta|rc)?[\d*])`)
 
 // GoVersion holds information about the compiler version.
 type GoVersion struct {
@@ -57,22 +56,7 @@ func GoVersionCompare(a, b string) int {
 	if a == b {
 		return 0
 	}
-	return semver.Compare(buildSemVerString(a), buildSemVerString(b))
-}
-
-func buildSemVerString(v string) string {
-	// First remove the go prefix
-	tmp := strings.TrimPrefix(v, "go")
-
-	// If it has a pre-release, we need to add a dash and patch version of 0.
-	if strings.Contains(tmp, "beta") {
-		tmp = strings.ReplaceAll(tmp, "beta", ".0-beta")
-	}
-	if strings.Contains(tmp, "rc") {
-		tmp = strings.ReplaceAll(tmp, "rc", ".0-rc")
-	}
-
-	return "v" + tmp
+	return version.Compare(a, b)
 }
 
 func findGoCompilerVersion(f *GoFile) (*GoVersion, error) {
@@ -85,24 +69,23 @@ func findGoCompilerVersion(f *GoFile) (*GoVersion, error) {
 	// version string.
 
 	data, err := f.fh.getRData()
-	// If read only data section does not exist, try text.
-	if err == ErrSectionDoesNotExist {
+	// If a read-only data section does not exist, try text.
+	if errors.Is(err, ErrSectionDoesNotExist) {
 		data, err = f.fh.getCodeSection()
 	}
 	if err != nil {
 		return nil, err
 	}
-	notfound := false
-	for !notfound {
-		version := matchGoVersionString(data)
-		if version == "" {
+	for {
+		v, ok := matchGoVersionString(data)
+		if !ok {
 			return nil, ErrNoGoVersionFound
 		}
-		ver := ResolveGoVersion(version)
-		// Go before 1.4 does not have the version string so if we have found
-		// a version string below 1.4beta1 it is a false positive.
+		ver := ResolveGoVersion(v)
+		// Go before 1.4 does not have the version string, so if we have found
+		// a version string below 1.4beta1, it is a false positive.
 		if ver == nil || GoVersionCompare(ver.Name, "go1.4beta1") < 0 {
-			off := bytes.Index(data, []byte(version))
+			off := bytes.Index(data, []byte(v))
 			// No match
 			if off == -1 {
 				break
@@ -120,7 +103,7 @@ func findGoCompilerVersion(f *GoFile) (*GoVersion, error) {
 // used to identify the version.
 // The function returns nil if no version is found.
 func tryFromSchedInit(f *GoFile) *GoVersion {
-	// Check for non supported architectures.
+	// Check for non-supported architectures.
 	if f.FileInfo.Arch != Arch386 && f.FileInfo.Arch != ArchAMD64 {
 		return nil
 	}
@@ -151,7 +134,7 @@ pkgLoop:
 		}
 	}
 
-	// Check if the functions was found
+	// Check if the functions were found
 	if fcn == nil {
 		// If we can't find the function there is nothing to do.
 		return nil
@@ -230,7 +213,7 @@ pkgLoop:
 			continue
 		}
 
-		// Likely the version string.
+		// Likely a version string.
 		ver := string(bstr)
 
 		gover := ResolveGoVersion(ver)
@@ -245,6 +228,10 @@ pkgLoop:
 	return nil
 }
 
-func matchGoVersionString(data []byte) string {
-	return string(goVersionMatcher.Find(data))
+func matchGoVersionString(data []byte) (string, bool) {
+	matched := string(goVersionMatcher.Find(data))
+	if matched == "" {
+		return "", false
+	}
+	return matched, true
 }
