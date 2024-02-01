@@ -104,6 +104,8 @@ const moduleDataHeader = `
 
 package gore
 
+import "fmt"
+
 `
 
 var (

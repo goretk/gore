@@ -24,7 +24,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"golang.org/x/mod/semver"
 	"io"
+	"strconv"
+	"strings"
 )
 
 // Moduledata extracts the file's moduledata.
@@ -256,49 +259,21 @@ func parseModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
 		return moduledata{}, err
 	}
 
-	// buf will hold the struct type that represents the data in the file we are processing.
-	var buf modulable
-	is32bit := fileInfo.WordSize == intSize32
-
-	// Determine what kind of struct we need to extract the module data from the file.
-
-	if GoVersionCompare("go1.20rc1", fileInfo.goversion.Name) <= 0 {
-		if is32bit {
-			buf = &moduledata2032{}
-		} else {
-			buf = &moduledata2064{}
-		}
-	} else if GoVersionCompare("go1.18beta1", fileInfo.goversion.Name) <= 0 {
-		if is32bit {
-			buf = &moduledata1832{}
-		} else {
-			buf = &moduledata1864{}
-		}
-	} else if GoVersionCompare("go1.16beta1", fileInfo.goversion.Name) <= 0 {
-		if is32bit {
-			buf = &moduledata1632{}
-		} else {
-			buf = &moduledata1664{}
-		}
-	} else if GoVersionCompare("go1.8beta1", fileInfo.goversion.Name) <= 0 {
-		if is32bit {
-			buf = &moduledata832{}
-		} else {
-			buf = &moduledata864{}
-		}
-	} else if GoVersionCompare("go1.7beta1", fileInfo.goversion.Name) <= 0 {
-		if is32bit {
-			buf = &moduledata732{}
-		} else {
-			buf = &moduledata764{}
-		}
+	var bits int
+	if fileInfo.WordSize == intSize32 {
+		bits = 32
 	} else {
-		if is32bit {
-			buf = &moduledata532{}
-		} else {
-			buf = &moduledata564{}
-		}
+		bits = 64
 	}
+
+	ver := buildSemVerString(fileInfo.goversion.Name)
+	m := semver.MajorMinor(ver)
+	verBit, err := strconv.Atoi(strings.Split(m, ".")[1])
+	if err != nil {
+		return moduledata{}, fmt.Errorf("error when parsing the Go version: %w", err)
+	}
+	// buf will hold the struct type that represents the data in the file we are processing.
+	buf := selectModuleData(verBit, bits)
 
 	// Read the module struct from the file.
 	r := bytes.NewReader(data)

@@ -19,127 +19,293 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"github.com/google/go-github/v58/github"
+	"go/ast"
 	"go/format"
+	"go/parser"
+	"golang.org/x/mod/semver"
 	"os"
-	"reflect"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 )
 
-func typeDef(b *bytes.Buffer, st reflect.Type, bits int) {
-	typeName := "uint64"
-	if bits == 32 {
-		typeName = "uint32"
+var moduleDataMatcher = regexp.MustCompile(`(?m:type moduledata struct {[^}]+})`)
+
+// generateModuleDataSources
+// returns a map of moduledata sources for each go version, from 1.5 to the latest we know so far.
+func getModuleDataSources() (map[int]string, error) {
+	ret := make(map[int]string)
+
+	f, err := os.OpenFile(goversionCsv, os.O_CREATE|os.O_RDWR, 0664)
+	if err != nil {
+		return nil, fmt.Errorf("error when opening goversions.csv: %w", err)
+	}
+	knownVersion, err := getCsvStoredGoversions(f)
+	if err != nil {
+		return nil, fmt.Errorf("error when getting stored go versions: %w", err)
 	}
 
-	_, _ = fmt.Fprintf(b, "type %s%d struct {\n", st.Name(), bits)
+	knownVersionSlice := make([]string, 0, len(knownVersion))
 
-	for i := 0; i < st.NumField(); i++ {
-		field := st.Field(i)
-		fieldName := strings.ToUpper(field.Name[:1]) + field.Name[1:]
-		t := field.Type.Kind()
-		switch t {
-		case reflect.Uintptr:
-			_, _ = fmt.Fprintf(b, "%s %s\n", fieldName, typeName)
-		case reflect.String:
-			_, _ = fmt.Fprintf(b, "%s, %[1]slen %s\n", fieldName, typeName)
-		case reflect.Pointer:
-			_, _ = fmt.Fprintf(b, "%s %s\n", fieldName, typeName)
-		case reflect.Slice:
-			_, _ = fmt.Fprintf(b, "%s, %[1]slen, %[1]scap %s\n", fieldName, typeName)
+	matcher := regexp.MustCompile(`[a-zA-Z]`)
+	for ver := range knownVersion {
+		// rc/beta version not in consideration
+		if matcher.MatchString(ver[2:]) {
+			continue
+		}
 
-		default:
-			panic(fmt.Sprintf("unhandled type: %+v", t))
+		knownVersionSlice = append(knownVersionSlice, semver.MajorMinor("v"+strings.TrimPrefix(ver, "go")))
+	}
+	semver.Sort(knownVersionSlice)
+
+	latest := knownVersionSlice[len(knownVersionSlice)-1]
+
+	maxMinor, err := strconv.Atoi(strings.Split(latest, ".")[1])
+	if err != nil {
+		return nil, fmt.Errorf("error when getting latest go version: %w, %s", err, latest)
+	}
+
+	for i := 5; i <= maxMinor; i++ {
+		fmt.Println("Fetching moduledata for go1." + strconv.Itoa(i) + "...")
+		branch := fmt.Sprintf("release-branch.go1.%d", i)
+		contents, _, _, err := githubClient.Repositories.GetContents(
+			context.Background(),
+			"golang", "go",
+			"src/runtime/symtab.go",
+			&github.RepositoryContentGetOptions{Ref: branch})
+		if err != nil {
+			return nil, err
+		}
+
+		content, err := contents.GetContent()
+		if err != nil {
+			return nil, err
+		}
+
+		structStr := moduleDataMatcher.FindString(content)
+		if structStr == "" {
+			return nil, fmt.Errorf("moduledata struct not found in symtab.go")
+		}
+
+		// make it an expression for further parse
+		structStr = strings.TrimPrefix(structStr, "type moduledata ")
+
+		ret[i] = structStr
+	}
+
+	return ret, nil
+}
+
+type moduleDataGenerator struct {
+	buf *bytes.Buffer
+
+	knownVersions []int
+}
+
+func (g *moduleDataGenerator) init() {
+	g.buf = &bytes.Buffer{}
+	g.buf.WriteString(moduleDataHeader)
+}
+
+func (g *moduleDataGenerator) add(versionCode int, code string) error {
+	g.knownVersions = append(g.knownVersions, versionCode)
+
+	err := g.writeVersionedModuleData(versionCode, code)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (g *moduleDataGenerator) writeSelector() {
+	g.writeln("func selectModuleData(v int, bits int) modulable {")
+	g.writeln("switch {")
+
+	for _, versionCode := range g.knownVersions {
+		for _, bits := range []int{32, 64} {
+			g.writeln("case v == %d && bits == %d:", versionCode, bits)
+			g.writeln("return &%s{}", g.generateTypeName(versionCode, bits))
 		}
 	}
+	g.writeln("default:")
+	g.writeln(`panic(fmt.Sprintf("unsupported go version %%d", v))`)
 
-	_, _ = fmt.Fprint(b, "}\n\n")
+	g.writeln("}\n}\n")
+
 }
 
-func toModuledata(b *bytes.Buffer, st reflect.Type, bits int) {
-	_, _ = fmt.Fprintf(b, "func (md %s%d) toModuledata() moduledata {\n", st.Name(), bits)
-	_, _ = fmt.Fprint(b, "return moduledata{\n")
-
-	for _, names := range [][2]string{
-		{"Text", "Text"},
-		{"NoPtrData", "Noptrdata"},
-		{"Data", "Data"},
-		{"Bss", "Bss"},
-		{"NoPtrBss", "Noptrbss"},
-		{"Types", "Types"},
-	} {
-		modFieldE(b, st, bits, names[0], names[1])
-	}
-
-	for _, names := range [][2]string{
-		{"Typelink", "Typelinks"},
-		{"ITabLink", "Itablinks"},
-		{"FuncTab", "Ftab"},
-		{"PCLNTab", "Pclntable"},
-	} {
-		modFieldLen(b, st, bits, names[0], names[1])
-	}
-
-	modFieldVal(b, st, bits, "GoFunc", "Gofunc")
-
-	_, _ = fmt.Fprint(b, "}\n}\n\n")
+func (*moduleDataGenerator) generateTypeName(versionCode int, bits int) string {
+	return fmt.Sprintf("moduledata_1_%d_%d", versionCode, bits)
 }
 
-func modFieldE(b *bytes.Buffer, st reflect.Type, bits int, modName, parsedName string) {
-	endName := "E" + strings.ToLower(parsedName)
-	if _, ok := st.FieldByName(strings.ToLower(parsedName)); !ok {
-		return
-	}
+func (*moduleDataGenerator) wrapValue(name string, bits int) string {
 	if bits == 32 {
-		_, _ = fmt.Fprintf(b, "%sAddr: uint64(md.%[3]s),\n%[1]sLen: uint64(md.%s - md.%s),\n", modName, endName, parsedName)
-	} else {
-		_, _ = fmt.Fprintf(b, "%sAddr: md.%[3]s,\n%[1]sLen: md.%s - md.%s,\n", modName, endName, parsedName)
+		return fmt.Sprintf("uint64(%s)", name)
 	}
+	return name
 }
 
-func modFieldLen(b *bytes.Buffer, st reflect.Type, bits int, modName, parsedName string) {
-	lenName := parsedName + "len"
-	if _, ok := st.FieldByName(strings.ToLower(parsedName)); !ok {
-		return
-	}
-	if bits == 32 {
-		_, _ = fmt.Fprintf(b, "%sAddr: uint64(md.%s),\n%[1]sLen: uint64(md.%[3]s),\n", modName, parsedName, lenName)
-	} else {
-		_, _ = fmt.Fprintf(b, "%sAddr: md.%s,\n%[1]sLen: md.%[3]s,\n", modName, parsedName, lenName)
-	}
+func (*moduleDataGenerator) title(s string) string {
+	return strings.ToUpper(s[:1]) + s[1:]
 }
 
-func modFieldVal(b *bytes.Buffer, st reflect.Type, bits int, modName, parsedName string) {
-	if _, ok := st.FieldByName(strings.ToLower(parsedName)); !ok {
-		return
+func (g *moduleDataGenerator) writeln(format string, a ...interface{}) {
+	_, _ = fmt.Fprintf(g.buf, format+"\n", a...)
+}
+
+func (g *moduleDataGenerator) writeVersionedModuleData(versionCode int, code string) error {
+	expr, err := parser.ParseExpr(code)
+	if err != nil {
+		return fmt.Errorf("failed to parse moduledata expression: %w", err)
 	}
-	if bits == 32 {
-		_, _ = fmt.Fprintf(b, "%sVal: uint64(md.%s),\n", modName, parsedName)
-	} else {
-		_, _ = fmt.Fprintf(b, "%sVal: md.%s,\n", modName, parsedName)
+
+	writeCode := func(bits int) {
+		g.writeln("type %s struct {\n", g.generateTypeName(versionCode, bits))
+
+		fields := make(map[string]struct{})
+		expr := expr.(*ast.StructType)
+	search:
+		for _, field := range expr.Fields.List {
+			if len(field.Names) == 0 {
+				// skip anonymous field
+				// currently only sys.NotInHeap
+				continue
+			}
+
+			for _, name := range field.Names {
+				if name.Name == "modulename" {
+					// no more data needed
+					break search
+				}
+				fields[name.Name] = struct{}{}
+
+				switch t := field.Type.(type) {
+				case *ast.StarExpr:
+					g.writeln("%s uint%d", g.title(name.Name), bits)
+				case *ast.ArrayType:
+					g.writeln("%s, %[1]slen, %[1]scap uint%d", g.title(name.Name), bits)
+				case *ast.Ident:
+					switch t.Name {
+					case "uintptr":
+						g.writeln("%s uint%d", g.title(name.Name), bits)
+					case "string":
+						g.writeln("%s, %[1]slen uint%d", g.title(name.Name), bits)
+					case "uint8":
+						g.writeln("%s uint8", g.title(name.Name))
+					default:
+						panic(fmt.Sprintf("unhandled type: %+v", t))
+					}
+				default:
+					panic(fmt.Sprintf("unhandled type: %+v", t))
+				}
+			}
+		}
+
+		g.writeln("}\n\n")
+
+		// generate toModuledata method
+		exist := func(name string) bool {
+			_, ok := fields[name]
+			return ok
+		}
+
+		g.writeln("func (md %s) toModuledata() moduledata {", g.generateTypeName(versionCode, bits))
+		g.writeln("return moduledata{")
+
+		if exist("text") && exist("etext") {
+			g.writeln("TextAddr: %s,", g.wrapValue("md.Text", bits))
+			g.writeln("TextLen: %s,", g.wrapValue("md.Etext - md.Text", bits))
+		}
+
+		if exist("noptrdata") && exist("enoptrdata") {
+			g.writeln("NoPtrDataAddr: %s,", g.wrapValue("md.Noptrdata", bits))
+			g.writeln("NoPtrDataLen: %s,", g.wrapValue("md.Enoptrdata - md.Noptrdata", bits))
+		}
+
+		if exist("data") && exist("edata") {
+			g.writeln("DataAddr: %s,", g.wrapValue("md.Data", bits))
+			g.writeln("DataLen: %s,", g.wrapValue("md.Edata - md.Data", bits))
+		}
+
+		if exist("bss") && exist("ebss") {
+			g.writeln("BssAddr: %s,", g.wrapValue("md.Bss", bits))
+			g.writeln("BssLen: %s,", g.wrapValue("md.Ebss - md.Bss", bits))
+		}
+
+		if exist("noptrbss") && exist("enoptrbss") {
+			g.writeln("NoPtrBssAddr: %s,", g.wrapValue("md.Noptrbss", bits))
+			g.writeln("NoPtrBssLen: %s,", g.wrapValue("md.Enoptrbss - md.Noptrbss", bits))
+		}
+
+		if exist("types") && exist("etypes") {
+			g.writeln("TypesAddr: %s,", g.wrapValue("md.Types", bits))
+			g.writeln("TypesLen: %s,", g.wrapValue("md.Etypes - md.Types", bits))
+		}
+
+		if exist("typelinks") {
+			g.writeln("TypelinkAddr: %s,", g.wrapValue("md.Typelinks", bits))
+			g.writeln("TypelinkLen: %s,", g.wrapValue("md.Typelinkslen", bits))
+		}
+
+		if exist("itablinks") {
+			g.writeln("ITabLinkAddr: %s,", g.wrapValue("md.Itablinks", bits))
+			g.writeln("ITabLinkLen: %s,", g.wrapValue("md.Itablinkslen", bits))
+		}
+
+		if exist("ftab") {
+			g.writeln("FuncTabAddr: %s,", g.wrapValue("md.Ftab", bits))
+			g.writeln("FuncTabLen: %s,", g.wrapValue("md.Ftablen", bits))
+		}
+
+		if exist("pclntable") {
+			g.writeln("PCLNTabAddr: %s,", g.wrapValue("md.Pclntable", bits))
+			g.writeln("PCLNTabLen: %s,", g.wrapValue("md.Pclntablelen", bits))
+		}
+
+		if exist("gofunc") {
+			g.writeln("GoFuncVal: %s,", g.wrapValue("md.Gofunc", bits))
+		}
+
+		g.writeln("}\n}\n")
 	}
+
+	writeCode(32)
+	writeCode(64)
+
+	return nil
 }
 
 func generateModuleData() {
-	b := &bytes.Buffer{}
-	b.WriteString(moduleDataHeader)
-
-	for _, iface := range []any{
-		moduledata20{},
-		moduledata18{},
-		moduledata16{},
-		moduledata8{},
-		moduledata7{},
-		moduledata5{},
-	} {
-		o := reflect.TypeOf(iface)
-		typeDef(b, o, 64)
-		toModuledata(b, o, 64)
-		typeDef(b, o, 32)
-		toModuledata(b, o, 32)
+	sources, err := getModuleDataSources()
+	if err != nil {
+		panic(err)
 	}
 
-	out, err := format.Source(b.Bytes())
+	g := moduleDataGenerator{}
+	g.init()
+
+	versionCodes := make([]int, 0, len(sources))
+	for versionCode := range sources {
+		versionCodes = append(versionCodes, versionCode)
+	}
+
+	sort.Ints(versionCodes)
+
+	for _, versionCode := range versionCodes {
+		err = g.add(versionCode, sources[versionCode])
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	g.writeSelector()
+
+	out, err := format.Source(g.buf.Bytes())
 	if err != nil {
 		panic(err)
 	}
@@ -149,163 +315,3 @@ func generateModuleData() {
 		panic(err)
 	}
 }
-
-/*
-	Internal module structures from Go's runtime.
-	TODO: auto extract from golang source runtime package.
-*/
-
-// Moduledata structure for Go 1.20 and newer (at least up to the last field covered here)
-
-type moduledata20 struct {
-	pcHeader     *pcHeader
-	funcnametab  []byte
-	cutab        []uint32
-	filetab      []byte
-	pctab        []byte
-	pclntable    []byte
-	ftab         []functab
-	findfunctab  uintptr
-	minpc, maxpc uintptr
-
-	text, etext           uintptr
-	noptrdata, enoptrdata uintptr
-	data, edata           uintptr
-	bss, ebss             uintptr
-	noptrbss, enoptrbss   uintptr
-	covctrs, ecovctrs     uintptr
-	end, gcdata, gcbss    uintptr
-	types, etypes         uintptr
-	rodata                uintptr
-	gofunc                uintptr // go.func.*
-
-	textsectmap []textsect
-	typelinks   []int32 // offsets from types
-	itablinks   []*itab
-}
-
-// Moduledata structure for Go 1.18 and Go 1.19
-
-type moduledata18 struct {
-	pcHeader     *pcHeader
-	funcnametab  []byte
-	cutab        []uint32
-	filetab      []byte
-	pctab        []byte
-	pclntable    []byte
-	ftab         []functab
-	findfunctab  uintptr
-	minpc, maxpc uintptr
-
-	text, etext           uintptr
-	noptrdata, enoptrdata uintptr
-	data, edata           uintptr
-	bss, ebss             uintptr
-	noptrbss, enoptrbss   uintptr
-	end, gcdata, gcbss    uintptr
-	types, etypes         uintptr
-	rodata                uintptr
-	gofunc                uintptr // go.func.*
-
-	textsectmap []textsect
-	typelinks   []int32 // offsets from types
-	itablinks   []*itab
-}
-
-// Moduledata structure for Go 1.16 to 1.17
-
-type moduledata16 struct {
-	pcHeader     *pcHeader
-	funcnametab  []byte
-	cutab        []uint32
-	filetab      []byte
-	pctab        []byte
-	pclntable    []byte
-	ftab         []functab
-	findfunctab  uintptr
-	minpc, maxpc uintptr
-
-	text, etext           uintptr
-	noptrdata, enoptrdata uintptr
-	data, edata           uintptr
-	bss, ebss             uintptr
-	noptrbss, enoptrbss   uintptr
-	end, gcdata, gcbss    uintptr
-	types, etypes         uintptr
-
-	textsectmap []textsect
-	typelinks   []int32 // offsets from types
-	itablinks   []*itab
-}
-
-// Moduledata structure for Go 1.8 to 1.15
-
-type moduledata8 struct {
-	pclntable    []byte
-	ftab         []functab
-	filetab      []uint32
-	findfunctab  uintptr
-	minpc, maxpc uintptr
-
-	text, etext           uintptr
-	noptrdata, enoptrdata uintptr
-	data, edata           uintptr
-	bss, ebss             uintptr
-	noptrbss, enoptrbss   uintptr
-	end, gcdata, gcbss    uintptr
-	types, etypes         uintptr
-
-	textsectmap []textsect
-	typelinks   []int32 // offsets from types
-	itablinks   []*itab
-}
-
-// Moduledata structure for Go 1.7
-
-type moduledata7 struct {
-	pclntable    []byte
-	ftab         []functab
-	filetab      []uint32
-	findfunctab  uintptr
-	minpc, maxpc uintptr
-
-	text, etext           uintptr
-	noptrdata, enoptrdata uintptr
-	data, edata           uintptr
-	bss, ebss             uintptr
-	noptrbss, enoptrbss   uintptr
-	end, gcdata, gcbss    uintptr
-	types, etypes         uintptr
-
-	typelinks []int32 // offsets from types
-	itablinks []*itab
-}
-
-// Moduledata structure for Go 1.5 to 1.6
-
-type moduledata5 struct {
-	pclntable    []byte
-	ftab         []functab
-	filetab      []uint32
-	findfunctab  uintptr
-	minpc, maxpc uintptr
-
-	text, etext           uintptr
-	noptrdata, enoptrdata uintptr
-	data, edata           uintptr
-	bss, ebss             uintptr
-	noptrbss, enoptrbss   uintptr
-	end, gcdata, gcbss    uintptr
-
-	typelinks []*_type
-}
-
-// dummy definitions
-type initTask struct{}
-type pcHeader struct{}
-type functab struct{}
-type textsect struct{}
-type itab struct{}
-type ptabEntry struct{}
-type modulehash struct{}
-type _type struct{}
