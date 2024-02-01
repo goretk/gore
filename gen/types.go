@@ -15,30 +15,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-// This program generates stdpkgs_gen.go, goversion_gen.go and moduledata_gen.go. It can be invoked by running
-// go generate
-
 package main
 
-import (
-	"fmt"
-	"os"
-)
-
-func main() {
-	if len(os.Args) != 2 {
-		fmt.Println("go run ./gen [stdpkgs|goversion|moduledata]")
-		return
-	}
-
-	switch os.Args[1] {
-	case "stdpkgs":
-		generateStdPkgs()
-	case "goversion":
-		generateGoVersions()
-	case "moduledata":
-		generateModuleData()
-	default:
-		fmt.Println("go run ./gen [stdpkgs|goversion|moduledata]")
-	}
+type goversion struct {
+	Name string
+	Sha  string
+	Date string
 }
