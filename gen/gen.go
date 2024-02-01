@@ -15,10 +15,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-//go:build gore_generate
-// +build gore_generate
-
-// This program generates stdpkgs_gen.go and goversion_gen.go. It can be invoked by running
+// This program generates stdpkgs_gen.go, goversion_gen.go and moduledata_gen.go. It can be invoked by running
 // go generate
 
 package main
@@ -36,6 +33,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
+	"sort"
 	"strings"
 	"text/template"
 	"time"
@@ -156,20 +155,27 @@ type ghTree struct {
 	Url     string `json:"url"`
 }
 
+func getSourceDir() string {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("No caller information")
+	}
+	return filepath.Dir(filename)
+}
+
 const (
 	requestURLFormatStr       = "https://api.github.com/repos/golang/go/git/trees/%s?recursive=0"
 	commitRequestURLFormatStr = "https://api.github.com/repos/golang/go/git/commits/%s"
-	outputFile                = "stdpkg_gen.go"
-	goversionOutputFile       = "goversion_gen.go"
-	moduleDataOutputFile      = "moduledata_gen.go"
 )
 
 var (
 	tagsRequestURL = "https://api.github.com/repos/golang/go/tags"
-)
+	excludedPaths  = []string{"src/cmd"}
 
-var (
-	excludedPaths = []string{"src/cmd"}
+	goversionCsv         = filepath.Join(getSourceDir(), "..", "resources", "goversions.csv")
+	outputFile           = filepath.Join(getSourceDir(), "..", "stdpkg_gen.go")
+	goversionOutputFile  = filepath.Join(getSourceDir(), "..", "goversion_gen.go")
+	moduleDataOutputFile = filepath.Join(getSourceDir(), "..", "moduledata_gen.go")
 )
 
 type tagResp struct {
@@ -287,7 +293,7 @@ func generateGoVersions() {
 
 	// Get mode commit info for new tags
 
-	f, err := os.OpenFile(filepath.Join("resources", "goversions.csv"), os.O_CREATE|os.O_RDWR, 0664)
+	f, err := os.OpenFile(goversionCsv, os.O_CREATE|os.O_RDWR, 0664)
 	if err != nil {
 		fmt.Println("Error when opening goversions.csv:", err)
 		return
@@ -295,7 +301,7 @@ func generateGoVersions() {
 	defer func(f *os.File) {
 		_ = f.Close()
 	}(f)
-	knownVersions, err := getStoredGoversions(f)
+	knownVersions, err := getCsvStoredGoversions(f)
 	if err != nil {
 		fmt.Println("Error when getting stored go versions:", err)
 		return
@@ -356,7 +362,7 @@ func generateGoVersions() {
 	writeOnDemand(buf.Bytes(), goversionOutputFile)
 }
 
-func getStoredGoversions(f *os.File) (map[string]*goversion, error) {
+func getCsvStoredGoversions(f *os.File) (map[string]*goversion, error) {
 	vers := make(map[string]*goversion)
 	r := bufio.NewScanner(f)
 	// Read header
@@ -740,7 +746,7 @@ func generateStdPkgs() {
 		return stdPkgs
 	}
 
-	f, err := os.OpenFile(filepath.Join("resources", "goversions.csv"), os.O_CREATE|os.O_RDWR, 0664)
+	f, err := os.OpenFile(goversionCsv, os.O_CREATE|os.O_RDWR, 0664)
 	if err != nil {
 		fmt.Println("Error when opening goversions.csv:", err)
 		return
@@ -748,7 +754,7 @@ func generateStdPkgs() {
 	defer func(f *os.File) {
 		_ = f.Close()
 	}(f)
-	knownVersions, err := getStoredGoversions(f)
+	knownVersions, err := getCsvStoredGoversions(f)
 
 	branchs := map[string]struct{}{}
 	for ver := range knownVersions {
@@ -770,10 +776,13 @@ func generateStdPkgs() {
 		}
 	}
 
-	stdPkgs := make([]string, 0, len(stdpkgsSet))
+	pkgs := make([]string, 0, len(stdpkgsSet))
 	for pkg := range stdpkgsSet {
-		stdPkgs = append(stdPkgs, pkg)
+		pkgs = append(pkgs, pkg)
 	}
+	sort.Slice(pkgs, func(i, j int) bool {
+		return pkgs[i] < pkgs[j]
+	})
 
 	// Generate the code.
 	buf := bytes.NewBuffer(nil)
@@ -783,7 +792,7 @@ func generateStdPkgs() {
 		StdPkg    []string
 	}{
 		Timestamp: time.Now().UTC(),
-		StdPkg:    stdPkgs,
+		StdPkg:    pkgs,
 	})
 	if err != nil {
 		fmt.Println("Error when generating the code:", err)
