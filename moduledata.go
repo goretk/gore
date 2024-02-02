@@ -39,7 +39,7 @@ func (f *GoFile) Moduledata() (Moduledata, error) {
 	}
 	f.FileInfo.goversion = ver
 
-	md, err := parseModuledata(f.FileInfo, f.fh)
+	md, err := extractModuledata(f.FileInfo, f.fh)
 	if err != nil {
 		return nil, fmt.Errorf("error when parsing the moduledata: %w", err)
 	}
@@ -202,7 +202,7 @@ func (m moduledata) GoFuncValue() uint64 {
 
 // ModuleDataSection is a section defined in the Moduledata structure.
 type ModuleDataSection struct {
-	// Address is the virtual address where the section start.
+	// Address is the virtual address where the section starts.
 	Address uint64
 	// Length is the byte length for the data in this section.
 	Length uint64
@@ -228,67 +228,102 @@ func (m ModuleDataSection) Data() ([]byte, error) {
 	return buf, nil
 }
 
-func findModuledata(f fileHandler) ([]byte, error) {
-	_, secData, err := f.getSectionData(f.moduledataSection())
-	if err != nil {
-		return nil, err
-	}
-	tabAddr, _, err := f.getPCLNTABData()
-	if err != nil {
-		return nil, err
-	}
-
-	// Search for moduledata
+func buildPclnTabAddrBinary(addr uint64) ([]byte, error) {
 	buf := new(bytes.Buffer)
-	err = binary.Write(buf, binary.LittleEndian, &tabAddr)
+	err := binary.Write(buf, binary.LittleEndian, &addr)
 	if err != nil {
 		return nil, err
 	}
-	off := bytes.Index(secData, buf.Bytes()[:intSize32])
-	if off == -1 {
-		return nil, errors.New("could not find moduledata")
-	}
-	// TODO: Verify that hit is correct.
-
-	return secData[off : off+0x300], nil
+	return buf.Bytes()[:intSize32], nil
 }
 
-func parseModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
-	data, err := findModuledata(f)
-	if err != nil {
-		return moduledata{}, err
-	}
-
+func pickVersionedModuleData(info FileInfo) (modulable, error) {
 	var bits int
-	if fileInfo.WordSize == intSize32 {
+	if info.WordSize == intSize32 {
 		bits = 32
 	} else {
 		bits = 64
 	}
 
-	ver := buildSemVerString(fileInfo.goversion.Name)
+	ver := buildSemVerString(info.goversion.Name)
 	m := semver.MajorMinor(ver)
 	verBit, err := strconv.Atoi(strings.Split(m, ".")[1])
 	if err != nil {
-		return moduledata{}, fmt.Errorf("error when parsing the Go version: %w", err)
+		return nil, fmt.Errorf("error when parsing the Go version: %w", err)
 	}
 	// buf will hold the struct type that represents the data in the file we are processing.
-	buf := selectModuleData(verBit, bits)
+	buf, err := selectModuleData(verBit, bits)
+	if err != nil {
+		return nil, fmt.Errorf("error when selecting the module data: %w", err)
+	}
+
+	return buf, nil
+}
+
+func extractModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
+	vmd, err := pickVersionedModuleData(*fileInfo)
+	if err != nil {
+		return moduledata{}, err
+	}
+
+	vmdSize := binary.Size(vmd)
+
+	_, secData, err := f.getSectionData(f.moduledataSection())
+	if err != nil {
+		return moduledata{}, err
+	}
+	tabAddr, _, err := f.getPCLNTABData()
+	if err != nil {
+		return moduledata{}, err
+	}
+
+	magic, err := buildPclnTabAddrBinary(tabAddr)
+	if err != nil {
+		return moduledata{}, err
+	}
+
+search:
+	off := bytes.Index(secData, magic)
+	if off == -1 || len(secData) < off+vmdSize {
+		return moduledata{}, errors.New("could not find moduledata")
+	}
+
+	data := secData[off : off+vmdSize]
 
 	// Read the module struct from the file.
 	r := bytes.NewReader(data)
-	err = binary.Read(r, fileInfo.ByteOrder, buf)
+	err = binary.Read(r, fileInfo.ByteOrder, vmd)
 	if err != nil {
 		return moduledata{}, fmt.Errorf("error when reading module data from file: %w", err)
 	}
 
 	// Convert the read struct to the type we return to the caller.
-	md := buf.toModuledata()
+	md := vmd.toModuledata()
+
+	// Take a simple validation step to ensure that the moduledata is valid.
+	text := md.TextAddr
+	etext := md.TextAddr + md.TextLen
+
+	textSectAddr, textSect, err := f.getCodeSection()
+	if err != nil {
+		return moduledata{}, err
+	}
+	if text > etext {
+		goto invalidMD
+	}
+
+	if !(textSectAddr <= text && text < textSectAddr+uint64(len(textSect))) {
+		goto invalidMD
+	}
 
 	// Add the file handler.
 	md.fh = f
 
 	return md, nil
+
+invalidMD:
+	secData = secData[off+1:]
+	goto search
 }
 
 func readUIntTo64(r io.Reader, byteOrder binary.ByteOrder, is32bit bool) (addr uint64, err error) {

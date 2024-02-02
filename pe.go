@@ -93,12 +93,13 @@ func (p *peFile) getRData() ([]byte, error) {
 	return section.Data()
 }
 
-func (p *peFile) getCodeSection() ([]byte, error) {
+func (p *peFile) getCodeSection() (uint64, []byte, error) {
 	section := p.file.Section(".text")
 	if section == nil {
-		return nil, ErrSectionDoesNotExist
+		return 0, nil, ErrSectionDoesNotExist
 	}
-	return section.Data()
+	data, err := section.Data()
+	return p.imageBase + uint64(section.VirtualAddress), data, err
 }
 
 func (p *peFile) moduledataSection() string {
@@ -151,7 +152,7 @@ func (p *peFile) getFileInfo() *FileInfo {
 }
 
 func (p *peFile) getBuildID() (string, error) {
-	data, err := p.getCodeSection()
+	_, data, err := p.getCodeSection()
 	if err != nil {
 		return "", fmt.Errorf("failed to get code section: %w", err)
 	}

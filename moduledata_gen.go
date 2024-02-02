@@ -1921,77 +1921,77 @@ func (md moduledata_1_21_64) toModuledata() moduledata {
 	}
 }
 
-func selectModuleData(v int, bits int) modulable {
+func selectModuleData(v int, bits int) (modulable, error) {
 	switch {
 	case v == 5 && bits == 32:
-		return &moduledata_1_5_32{}
+		return &moduledata_1_5_32{}, nil
 	case v == 5 && bits == 64:
-		return &moduledata_1_5_64{}
+		return &moduledata_1_5_64{}, nil
 	case v == 6 && bits == 32:
-		return &moduledata_1_6_32{}
+		return &moduledata_1_6_32{}, nil
 	case v == 6 && bits == 64:
-		return &moduledata_1_6_64{}
+		return &moduledata_1_6_64{}, nil
 	case v == 7 && bits == 32:
-		return &moduledata_1_7_32{}
+		return &moduledata_1_7_32{}, nil
 	case v == 7 && bits == 64:
-		return &moduledata_1_7_64{}
+		return &moduledata_1_7_64{}, nil
 	case v == 8 && bits == 32:
-		return &moduledata_1_8_32{}
+		return &moduledata_1_8_32{}, nil
 	case v == 8 && bits == 64:
-		return &moduledata_1_8_64{}
+		return &moduledata_1_8_64{}, nil
 	case v == 9 && bits == 32:
-		return &moduledata_1_9_32{}
+		return &moduledata_1_9_32{}, nil
 	case v == 9 && bits == 64:
-		return &moduledata_1_9_64{}
+		return &moduledata_1_9_64{}, nil
 	case v == 10 && bits == 32:
-		return &moduledata_1_10_32{}
+		return &moduledata_1_10_32{}, nil
 	case v == 10 && bits == 64:
-		return &moduledata_1_10_64{}
+		return &moduledata_1_10_64{}, nil
 	case v == 11 && bits == 32:
-		return &moduledata_1_11_32{}
+		return &moduledata_1_11_32{}, nil
 	case v == 11 && bits == 64:
-		return &moduledata_1_11_64{}
+		return &moduledata_1_11_64{}, nil
 	case v == 12 && bits == 32:
-		return &moduledata_1_12_32{}
+		return &moduledata_1_12_32{}, nil
 	case v == 12 && bits == 64:
-		return &moduledata_1_12_64{}
+		return &moduledata_1_12_64{}, nil
 	case v == 13 && bits == 32:
-		return &moduledata_1_13_32{}
+		return &moduledata_1_13_32{}, nil
 	case v == 13 && bits == 64:
-		return &moduledata_1_13_64{}
+		return &moduledata_1_13_64{}, nil
 	case v == 14 && bits == 32:
-		return &moduledata_1_14_32{}
+		return &moduledata_1_14_32{}, nil
 	case v == 14 && bits == 64:
-		return &moduledata_1_14_64{}
+		return &moduledata_1_14_64{}, nil
 	case v == 15 && bits == 32:
-		return &moduledata_1_15_32{}
+		return &moduledata_1_15_32{}, nil
 	case v == 15 && bits == 64:
-		return &moduledata_1_15_64{}
+		return &moduledata_1_15_64{}, nil
 	case v == 16 && bits == 32:
-		return &moduledata_1_16_32{}
+		return &moduledata_1_16_32{}, nil
 	case v == 16 && bits == 64:
-		return &moduledata_1_16_64{}
+		return &moduledata_1_16_64{}, nil
 	case v == 17 && bits == 32:
-		return &moduledata_1_17_32{}
+		return &moduledata_1_17_32{}, nil
 	case v == 17 && bits == 64:
-		return &moduledata_1_17_64{}
+		return &moduledata_1_17_64{}, nil
 	case v == 18 && bits == 32:
-		return &moduledata_1_18_32{}
+		return &moduledata_1_18_32{}, nil
 	case v == 18 && bits == 64:
-		return &moduledata_1_18_64{}
+		return &moduledata_1_18_64{}, nil
 	case v == 19 && bits == 32:
-		return &moduledata_1_19_32{}
+		return &moduledata_1_19_32{}, nil
 	case v == 19 && bits == 64:
-		return &moduledata_1_19_64{}
+		return &moduledata_1_19_64{}, nil
 	case v == 20 && bits == 32:
-		return &moduledata_1_20_32{}
+		return &moduledata_1_20_32{}, nil
 	case v == 20 && bits == 64:
-		return &moduledata_1_20_64{}
+		return &moduledata_1_20_64{}, nil
 	case v == 21 && bits == 32:
-		return &moduledata_1_21_32{}
+		return &moduledata_1_21_32{}, nil
 	case v == 21 && bits == 64:
-		return &moduledata_1_21_64{}
+		return &moduledata_1_21_64{}, nil
 	default:
-		panic(fmt.Sprintf("unsupported go version %d", v))
+		return nil, fmt.Errorf("unsupported version %d and bits %d", v, bits)
 	}
 }

@@ -123,17 +123,17 @@ func (g *moduleDataGenerator) add(versionCode int, code string) error {
 }
 
 func (g *moduleDataGenerator) writeSelector() {
-	g.writeln("func selectModuleData(v int, bits int) modulable {")
+	g.writeln("func selectModuleData(v int, bits int) (modulable,error) {")
 	g.writeln("switch {")
 
 	for _, versionCode := range g.knownVersions {
 		for _, bits := range []int{32, 64} {
 			g.writeln("case v == %d && bits == %d:", versionCode, bits)
-			g.writeln("return &%s{}", g.generateTypeName(versionCode, bits))
+			g.writeln("return &%s{}, nil", g.generateTypeName(versionCode, bits))
 		}
 	}
 	g.writeln("default:")
-	g.writeln(`panic(fmt.Sprintf("unsupported go version %%d", v))`)
+	g.writeln(`return nil, fmt.Errorf("unsupported version %%d and bits %%d", v, bits)`)
 
 	g.writeln("}\n}\n")
 
@@ -163,14 +163,17 @@ func (g *moduleDataGenerator) writeVersionedModuleData(versionCode int, code str
 	if err != nil {
 		return fmt.Errorf("failed to parse moduledata expression: %w", err)
 	}
+	structExpr, ok := expr.(*ast.StructType)
+	if !ok {
+		return fmt.Errorf("failed to parse moduledata expression")
+	}
 
 	writeCode := func(bits int) {
 		g.writeln("type %s struct {\n", g.generateTypeName(versionCode, bits))
 
-		fields := make(map[string]struct{})
-		expr := expr.(*ast.StructType)
+		knownFields := make(map[string]struct{})
 	search:
-		for _, field := range expr.Fields.List {
+		for _, field := range structExpr.Fields.List {
 			if len(field.Names) == 0 {
 				// skip anonymous field
 				// currently only sys.NotInHeap
@@ -182,7 +185,7 @@ func (g *moduleDataGenerator) writeVersionedModuleData(versionCode int, code str
 					// no more data needed
 					break search
 				}
-				fields[name.Name] = struct{}{}
+				knownFields[name.Name] = struct{}{}
 
 				switch t := field.Type.(type) {
 				case *ast.StarExpr:
@@ -211,7 +214,7 @@ func (g *moduleDataGenerator) writeVersionedModuleData(versionCode int, code str
 		// generate toModuledata method
 		exist := func(name ...string) bool {
 			for _, n := range name {
-				if _, ok := fields[n]; !ok {
+				if _, ok := knownFields[n]; !ok {
 					return false
 				}
 			}

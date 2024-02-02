@@ -60,7 +60,7 @@ func getTypes(fileInfo *FileInfo, f fileHandler) (map[uint64]*GoType, error) {
 		return getLegacyTypes(fileInfo, f)
 	}
 
-	md, err := parseModuledata(fileInfo, f)
+	md, err := extractModuledata(fileInfo, f)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse the module data: %w", err)
 	}
@@ -87,7 +87,7 @@ func getTypes(fileInfo *FileInfo, f fileHandler) (map[uint64]*GoType, error) {
 }
 
 func getLegacyTypes(fileInfo *FileInfo, f fileHandler) (map[uint64]*GoType, error) {
-	md, err := parseModuledata(fileInfo, f)
+	md, err := extractModuledata(fileInfo, f)
 	if err != nil {
 		return nil, err
 	}

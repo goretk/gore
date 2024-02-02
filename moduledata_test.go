@@ -48,7 +48,9 @@ func TestModuledata(t *testing.T) {
 		t.Run("moduledata-"+test.file, func(t *testing.T) {
 			f, err := Open(filepath.Join("testdata", "gold", test.file))
 			r.NoError(err)
-			defer f.Close()
+			defer func(f *GoFile) {
+				_ = f.Close()
+			}(f)
 
 			md, err := f.Moduledata()
 			r.NoError(err)
