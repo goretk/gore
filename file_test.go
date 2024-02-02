@@ -174,11 +174,11 @@ type mockFileHandler struct {
 	mGetSectionDataFromOffset func(uint64) (uint64, []byte, error)
 }
 
-func (m *mockFileHandler) GetFile() *os.File {
+func (m *mockFileHandler) getFile() *os.File {
 	panic("not implemented")
 }
 
-func (m *mockFileHandler) GetParsedFile() any {
+func (m *mockFileHandler) getParsedFile() any {
 	panic("not implemented")
 }
 

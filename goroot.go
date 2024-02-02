@@ -219,7 +219,7 @@ func tryFromTimeInit(f *GoFile) (string, error) {
 		is32 = true
 	}
 
-	// Find time.init function.
+	// Find time.initPackages function.
 	var fcn *Function
 	std, err := f.GetSTDLib()
 	if err != nil {
@@ -232,7 +232,7 @@ pkgLoop:
 			continue
 		}
 		for _, vv := range v.Functions {
-			if vv.Name != "init" {
+			if vv.Name != "initPackages" {
 				continue
 			}
 			fcn = vv

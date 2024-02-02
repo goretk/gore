@@ -30,23 +30,6 @@ import (
 	"strings"
 )
 
-// Moduledata extracts the file's moduledata.
-func (f *GoFile) Moduledata() (Moduledata, error) {
-	// We need the Go version to be defined to find the module data.
-	ver, err := f.GetCompilerVersion()
-	if err != nil {
-		return nil, fmt.Errorf("could not get the Go version for the moduledata extraction: %w", err)
-	}
-	f.FileInfo.goversion = ver
-
-	md, err := extractModuledata(f.FileInfo, f.fh)
-	if err != nil {
-		return nil, fmt.Errorf("error when parsing the moduledata: %w", err)
-	}
-
-	return md, nil
-}
-
 // Moduledata holds information about the layout of the executable image in memory.
 type Moduledata interface {
 	// Text returns the text secion.

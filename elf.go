@@ -45,11 +45,11 @@ type elfFile struct {
 	osFile *os.File
 }
 
-func (e *elfFile) GetParsedFile() any {
+func (e *elfFile) getParsedFile() any {
 	return e.file
 }
 
-func (e *elfFile) GetFile() *os.File {
+func (e *elfFile) getFile() *os.File {
 	return e.osFile
 }
 

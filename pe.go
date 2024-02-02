@@ -59,11 +59,11 @@ type peFile struct {
 	imageBase   uint64
 }
 
-func (p *peFile) GetParsedFile() any {
+func (p *peFile) getParsedFile() any {
 	return p.file
 }
 
-func (p *peFile) GetFile() *os.File {
+func (p *peFile) getFile() *os.File {
 	return p.osFile
 }
 

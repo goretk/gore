@@ -44,11 +44,11 @@ type machoFile struct {
 	osFile *os.File
 }
 
-func (m *machoFile) GetParsedFile() any {
+func (m *machoFile) getParsedFile() any {
 	return m.file
 }
 
-func (m *machoFile) GetFile() *os.File {
+func (m *machoFile) getFile() *os.File {
 	return m.osFile
 }
 
