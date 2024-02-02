@@ -209,40 +209,44 @@ func (g *moduleDataGenerator) writeVersionedModuleData(versionCode int, code str
 		g.writeln("}\n\n")
 
 		// generate toModuledata method
-		exist := func(name string) bool {
-			_, ok := fields[name]
-			return ok
+		exist := func(name ...string) bool {
+			for _, n := range name {
+				if _, ok := fields[n]; !ok {
+					return false
+				}
+			}
+			return true
 		}
 
 		g.writeln("func (md %s) toModuledata() moduledata {", g.generateTypeName(versionCode, bits))
 		g.writeln("return moduledata{")
 
-		if exist("text") && exist("etext") {
+		if exist("text", "etext") {
 			g.writeln("TextAddr: %s,", g.wrapValue("md.Text", bits))
 			g.writeln("TextLen: %s,", g.wrapValue("md.Etext - md.Text", bits))
 		}
 
-		if exist("noptrdata") && exist("enoptrdata") {
+		if exist("noptrdata", "enoptrdata") {
 			g.writeln("NoPtrDataAddr: %s,", g.wrapValue("md.Noptrdata", bits))
 			g.writeln("NoPtrDataLen: %s,", g.wrapValue("md.Enoptrdata - md.Noptrdata", bits))
 		}
 
-		if exist("data") && exist("edata") {
+		if exist("data", "edata") {
 			g.writeln("DataAddr: %s,", g.wrapValue("md.Data", bits))
 			g.writeln("DataLen: %s,", g.wrapValue("md.Edata - md.Data", bits))
 		}
 
-		if exist("bss") && exist("ebss") {
+		if exist("bss", "ebss") {
 			g.writeln("BssAddr: %s,", g.wrapValue("md.Bss", bits))
 			g.writeln("BssLen: %s,", g.wrapValue("md.Ebss - md.Bss", bits))
 		}
 
-		if exist("noptrbss") && exist("enoptrbss") {
+		if exist("noptrbss", "enoptrbss") {
 			g.writeln("NoPtrBssAddr: %s,", g.wrapValue("md.Noptrbss", bits))
 			g.writeln("NoPtrBssLen: %s,", g.wrapValue("md.Enoptrbss - md.Noptrbss", bits))
 		}
 
-		if exist("types") && exist("etypes") {
+		if exist("types", "etypes") {
 			g.writeln("TypesAddr: %s,", g.wrapValue("md.Types", bits))
 			g.writeln("TypesLen: %s,", g.wrapValue("md.Etypes - md.Types", bits))
 		}
