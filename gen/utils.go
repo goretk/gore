@@ -18,8 +18,7 @@
 package main
 
 import (
-	"bufio"
-	"errors"
+	"encoding/csv"
 	"fmt"
 	"go/format"
 	"os"
@@ -90,28 +89,13 @@ func getSourceDir() string {
 
 func getCsvStoredGoversions(f *os.File) (map[string]*goversion, error) {
 	vers := make(map[string]*goversion)
-	r := bufio.NewScanner(f)
-	// Read header
-	if !r.Scan() {
-		return nil, errors.New("empty file")
+	c, err := csv.NewReader(f).ReadAll()
+	if err != nil {
+		return nil, err
 	}
-	r.Text()
+	for _, line := range c {
+		vers[line[0]] = &goversion{Name: line[0], Sha: line[1], Date: line[2]}
+	}
 
-	for r.Scan() {
-		row := r.Text()
-		if row == "" {
-			continue
-		}
-		data := strings.Split(row, ",")
-		if data[0] == "" {
-			// No version
-			continue
-		}
-		version := strings.TrimSpace(data[0])
-		sha := strings.TrimSpace(data[1])
-		date := strings.TrimSpace(data[2])
-		vers[version] = &goversion{Name: version, Sha: sha, Date: date}
-	}
-	_, err := f.Seek(0, 0)
 	return vers, err
 }

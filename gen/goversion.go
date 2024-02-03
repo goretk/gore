@@ -20,9 +20,12 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/csv"
 	"fmt"
 	"github.com/google/go-github/v58/github"
+	"io"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -45,8 +48,6 @@ func generateGoVersions() {
 		opts.Page = resp.NextPage
 	}
 
-	// Get mode commit info for new tags
-
 	f, err := os.OpenFile(goversionCsv, os.O_CREATE|os.O_RDWR, 0664)
 	if err != nil {
 		fmt.Println("Error when opening goversions.csv:", err)
@@ -55,15 +56,10 @@ func generateGoVersions() {
 	defer func(f *os.File) {
 		_ = f.Close()
 	}(f)
+
 	knownVersions, err := getCsvStoredGoversions(f)
 	if err != nil {
 		fmt.Println("Error when getting stored go versions:", err)
-		return
-	}
-
-	_, err = fmt.Fprintln(f, "version,sha,date")
-	if err != nil {
-		fmt.Println("Error when writing csv header:", err)
 		return
 	}
 
@@ -71,8 +67,7 @@ func generateGoVersions() {
 		if strings.HasPrefix(tag.GetName(), "weekly") || strings.HasPrefix(tag.GetName(), "release") {
 			continue
 		}
-		if v, known := knownVersions[tag.GetName()]; known {
-			_, _ = fmt.Fprintf(f, "%s,%s,%s\n", v.Name, v.Sha, v.Date)
+		if _, known := knownVersions[tag.GetName()]; known {
 			continue
 		}
 
@@ -81,20 +76,52 @@ func generateGoVersions() {
 			fmt.Println("Error when getting commit info:", err)
 			return
 		}
-		_, _ = fmt.Fprintf(f, "%s,%s,%s\n", tag.GetName(), commit.GetSHA(), commit.GetCommitter().GetCreatedAt().String())
-		fmt.Println("New tag found:", tag.Name)
-		knownVersions[tag.GetName()] = &goversion{Name: tag.GetName(), Sha: commit.GetSHA(), Date: commit.GetCommitter().GetCreatedAt().String()}
+
+		fmt.Println("New tag found:", tag.GetName())
+		knownVersions[tag.GetName()] = &goversion{Name: tag.GetName(), Sha: commit.GetSHA(), Date: commit.GetCommit().GetCommitter().GetDate().Format(time.RFC3339)}
 	}
 
-	// Generate the code.
-	buf := bytes.NewBuffer(nil)
+	sortedVersion := make([]*goversion, 0, len(knownVersions))
+	for _, ver := range knownVersions {
+		sortedVersion = append(sortedVersion, ver)
+	}
 
+	sort.Slice(sortedVersion, func(i, j int) bool {
+		time1, err := time.Parse(time.RFC3339, sortedVersion[i].Date)
+		if err != nil {
+			fmt.Println("Error when parsing time:", err)
+			return false
+		}
+		time2, err := time.Parse(time.RFC3339, sortedVersion[j].Date)
+		if err != nil {
+			fmt.Println("Error when parsing time:", err)
+			return false
+		}
+		return time1.Before(time2)
+	})
+
+	// Generate the code.
+
+	err = f.Truncate(0)
+	if err != nil {
+		fmt.Println("Error when truncating the file:", err)
+		return
+	}
+	_, _ = f.Seek(0, io.SeekStart)
+
+	cw := csv.NewWriter(f)
+	for _, ver := range sortedVersion {
+		_ = cw.Write([]string{ver.Name, ver.Sha, ver.Date})
+	}
+	cw.Flush()
+
+	buf := bytes.NewBuffer(nil)
 	err = goversionTemplate.Execute(buf, struct {
 		Timestamp  time.Time
-		GoVersions map[string]*goversion
+		GoVersions []*goversion
 	}{
 		Timestamp:  time.Now().UTC(),
-		GoVersions: knownVersions,
+		GoVersions: sortedVersion,
 	})
 	if err != nil {
 		fmt.Println("Error when generating the code:", err)
