@@ -21,22 +21,30 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"golang.org/x/mod/semver"
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
 func generateStdPkgs() {
-	collect := func(ver string) ([]string, error) {
-		ctx := context.Background()
-		tree, _, err := githubClient.Git.GetTree(ctx, "golang", "go", ver, true)
+	wg := &sync.WaitGroup{}
+	collect := func(ctx context.Context, cause context.CancelCauseFunc, tag string, result chan []string) {
+		tree, _, err := githubClient.Git.GetTree(ctx, "golang", "go", tag, true)
 		if err != nil {
-			return nil, err
+			cause(fmt.Errorf("error when getting tree for tag %s: %w", tag, err))
+			return
+		}
+
+		fmt.Println("Fetched std pkgs for tag:", tag)
+
+		if len(tree.Entries) == 100000 {
+			fmt.Printf("Warning: tree %s has 100000 entries, this may be limited by api, some might be missing", tag)
 		}
 
 		var stdPkgs []string
+
 		for _, entry := range tree.Entries {
 			if *entry.Type != "tree" {
 				continue
@@ -51,7 +59,8 @@ func generateStdPkgs() {
 
 			stdPkgs = append(stdPkgs, strings.TrimPrefix(entry.GetPath(), "src/"))
 		}
-		return stdPkgs, nil
+		result <- stdPkgs
+		wg.Done()
 	}
 
 	f, err := os.OpenFile(goversionCsv, os.O_CREATE|os.O_RDWR, 0664)
@@ -63,30 +72,23 @@ func generateStdPkgs() {
 		_ = f.Close()
 	}(f)
 	knownVersions, err := getCsvStoredGoversions(f)
-
-	branchs := map[string]struct{}{}
-	for ver := range knownVersions {
-		rawver := "v" + strings.TrimPrefix(ver, "go")
-		sver := semver.MajorMinor(rawver)
-		if sver != "" {
-			sver = "go" + strings.TrimPrefix(sver, "v")
-			if sver == "go1.0" {
-				sver = "go1"
-			}
-
-			branchs["release-branch."+sver] = struct{}{}
-		}
-	}
+	wg.Add(len(knownVersions))
 
 	stdpkgsSet := map[string]struct{}{}
 
-	for branch := range branchs {
-		fmt.Println("Fetching std pkgs for branch:", branch)
-		pkgs, err := collect(branch)
-		if err != nil {
-			fmt.Println("Error when fetching std pkgs:", err)
-			return
-		}
+	ctx, cause := context.WithCancelCause(context.Background())
+	pkgsChan := make(chan []string)
+
+	for tag := range knownVersions {
+		go collect(ctx, cause, tag, pkgsChan)
+	}
+
+	go func() {
+		wg.Wait()
+		close(pkgsChan)
+	}()
+
+	for pkgs := range pkgsChan {
 		for _, pkg := range pkgs {
 			stdpkgsSet[pkg] = struct{}{}
 		}
