@@ -44,11 +44,11 @@ type machoFile struct {
 	osFile *os.File
 }
 
-func (m *machoFile) GetParsedFile() any {
+func (m *machoFile) getParsedFile() any {
 	return m.file
 }
 
-func (m *machoFile) GetFile() *os.File {
+func (m *machoFile) getFile() *os.File {
 	return m.osFile
 }
 
@@ -78,9 +78,8 @@ func (m *machoFile) getRData() ([]byte, error) {
 	return data, err
 }
 
-func (m *machoFile) getCodeSection() ([]byte, error) {
-	_, data, err := m.getSectionData("__text")
-	return data, err
+func (m *machoFile) getCodeSection() (uint64, []byte, error) {
+	return m.getSectionData("__text")
 }
 
 func (m *machoFile) getSectionDataFromOffset(off uint64) (uint64, []byte, error) {
@@ -137,7 +136,7 @@ func (m *machoFile) moduledataSection() string {
 }
 
 func (m *machoFile) getBuildID() (string, error) {
-	data, err := m.getCodeSection()
+	_, data, err := m.getCodeSection()
 	if err != nil {
 		return "", fmt.Errorf("failed to get code section: %w", err)
 	}

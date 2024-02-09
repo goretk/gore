@@ -15,10 +15,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+//go:generate go run ./gen goversion
+
 package gore
 
 import (
 	"bytes"
+	"errors"
 	"regexp"
 	"strings"
 
@@ -26,7 +29,7 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-var goVersionMatcher = regexp.MustCompile(`(go[\d+\.]*(beta|rc)?[\d*])`)
+var goVersionMatcher = regexp.MustCompile(`(go[\d+.]*(beta|rc)?[\d*])`)
 
 // GoVersion holds information about the compiler version.
 type GoVersion struct {
@@ -85,21 +88,21 @@ func findGoCompilerVersion(f *GoFile) (*GoVersion, error) {
 	// version string.
 
 	data, err := f.fh.getRData()
-	// If read only data section does not exist, try text.
-	if err == ErrSectionDoesNotExist {
-		data, err = f.fh.getCodeSection()
+	// If a read-only data section does not exist, try text.
+	if errors.Is(err, ErrSectionDoesNotExist) {
+		_, data, err = f.fh.getCodeSection()
 	}
 	if err != nil {
 		return nil, err
 	}
-	notfound := false
-	for !notfound {
+
+	for {
 		version := matchGoVersionString(data)
 		if version == "" {
 			return nil, ErrNoGoVersionFound
 		}
 		ver := ResolveGoVersion(version)
-		// Go before 1.4 does not have the version string so if we have found
+		// Go before 1.4 does not have the version string, so if we have found
 		// a version string below 1.4beta1 it is a false positive.
 		if ver == nil || GoVersionCompare(ver.Name, "go1.4beta1") < 0 {
 			off := bytes.Index(data, []byte(version))
@@ -120,7 +123,7 @@ func findGoCompilerVersion(f *GoFile) (*GoVersion, error) {
 // used to identify the version.
 // The function returns nil if no version is found.
 func tryFromSchedInit(f *GoFile) *GoVersion {
-	// Check for non supported architectures.
+	// Check for non-supported architectures.
 	if f.FileInfo.Arch != Arch386 && f.FileInfo.Arch != ArchAMD64 {
 		return nil
 	}

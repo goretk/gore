@@ -45,11 +45,11 @@ type elfFile struct {
 	osFile *os.File
 }
 
-func (e *elfFile) GetParsedFile() any {
+func (e *elfFile) getParsedFile() any {
 	return e.file
 }
 
-func (e *elfFile) GetFile() *os.File {
+func (e *elfFile) getFile() *os.File {
 	return e.osFile
 }
 
@@ -88,12 +88,16 @@ func (e *elfFile) getRData() ([]byte, error) {
 	return section.Data()
 }
 
-func (e *elfFile) getCodeSection() ([]byte, error) {
+func (e *elfFile) getCodeSection() (uint64, []byte, error) {
 	section := e.file.Section(".text")
 	if section == nil {
-		return nil, ErrSectionDoesNotExist
+		return 0, nil, ErrSectionDoesNotExist
 	}
-	return section.Data()
+	data, err := section.Data()
+	if err != nil {
+		return 0, nil, fmt.Errorf("error when getting the code section: %w", err)
+	}
+	return section.Addr, data, nil
 }
 
 func (e *elfFile) getPCLNTABData() (uint64, []byte, error) {

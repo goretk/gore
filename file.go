@@ -54,7 +54,7 @@ func Open(filePath string) (*GoFile, error) {
 
 	buf := make([]byte, maxMagicBufLen)
 	n, err := f.Read(buf)
-	f.Close()
+	_ = f.Close()
 	if err != nil {
 		return nil, err
 	}
@@ -94,8 +94,9 @@ func Open(filePath string) (*GoFile, error) {
 
 	// Try to extract build information.
 	if bi, err := gofile.extractBuildInfo(); err == nil {
-		// This error is a minor failure, it just means we don't have
-		// this information. So if fails we just ignores it.
+		// This error is a minor failure; it just means we don't have
+		// this information.
+		// So if fails, we just ignore it.
 		gofile.BuildInfo = bi
 		if bi.Compiler != nil {
 			gofile.FileInfo.goversion = bi.Compiler
@@ -107,40 +108,72 @@ func Open(filePath string) (*GoFile, error) {
 
 // GoFile is a structure representing a go binary file.
 type GoFile struct {
-	// BuildInfo holds the data from the buildinf structure. This can be nil
-	// because it's not always available.
+	// BuildInfo holds the data from the buildinfo structure.
+	// This can be a nil because it's not always available.
 	BuildInfo *BuildInfo
 	// FileInfo holds information about the file.
 	FileInfo *FileInfo
 	// BuildID is the Go build ID hash extracted from the binary.
-	BuildID      string
-	fh           fileHandler
-	stdPkgs      []*Package
-	generated    []*Package
-	pkgs         []*Package
-	vendors      []*Package
-	unknown      []*Package
-	pclntab      *gosym.Table
-	initPackages sync.Once
+	BuildID string
+
+	fh fileHandler
+
+	stdPkgs   []*Package
+	generated []*Package
+	pkgs      []*Package
+	vendors   []*Package
+	unknown   []*Package
+
+	pclntab *gosym.Table
+
+	initPackagesOnce  sync.Once
+	initPackagesError error
+
+	moduledata moduledata
+
+	versionError error
+
+	initModuleDataOnce  sync.Once
+	initModuleDataError error
 }
 
-func (f *GoFile) init() error {
-	var returnVal error
-	f.initPackages.Do(func() {
+func (f *GoFile) initModuleData() error {
+	f.initModuleDataOnce.Do(func() {
+		err := f.ensureCompilerVersion()
+		if err != nil {
+			f.initModuleDataError = err
+			return
+		}
+		f.moduledata, f.initModuleDataError = extractModuledata(f.FileInfo, f.fh)
+	})
+	return f.initModuleDataError
+}
+
+// Moduledata extracts the file's moduledata.
+func (f *GoFile) Moduledata() (Moduledata, error) {
+	err := f.initModuleData()
+	if err != nil {
+		return moduledata{}, err
+	}
+	return f.moduledata, nil
+}
+
+func (f *GoFile) initPackages() error {
+	f.initPackagesOnce.Do(func() {
 		tab, err := f.PCLNTab()
 		if err != nil {
-			returnVal = err
+			f.initPackagesError = err
 			return
 		}
 		f.pclntab = tab
-		returnVal = f.enumPackages()
+		f.initPackagesError = f.enumPackages()
 	})
-	return returnVal
+	return f.initPackagesError
 }
 
 // GetFile returns the raw file opened by the library.
 func (f *GoFile) GetFile() *os.File {
-	return f.fh.GetFile()
+	return f.fh.getFile()
 }
 
 // GetParsedFile returns the parsed file, should be cast based on the file type.
@@ -151,13 +184,38 @@ func (f *GoFile) GetFile() *os.File {
 //
 // all from the debug package.
 func (f *GoFile) GetParsedFile() any {
-	return f.fh.GetParsedFile()
+	return f.fh.getParsedFile()
 }
 
 // GetCompilerVersion returns the Go compiler version of the compiler
 // that was used to compile the binary.
 func (f *GoFile) GetCompilerVersion() (*GoVersion, error) {
-	return findGoCompilerVersion(f)
+	err := f.ensureCompilerVersion()
+	if err != nil {
+		return nil, err
+	}
+	return f.FileInfo.goversion, nil
+}
+
+func (f *GoFile) ensureCompilerVersion() error {
+	if f.FileInfo.goversion == nil {
+		f.tryExtractCompilerVersion()
+	}
+	return f.versionError
+}
+
+// tryExtractCompilerVersion tries to extract the compiler version from the binary.
+// should only be called if FileInfo.goversion is nil.
+func (f *GoFile) tryExtractCompilerVersion() {
+	if f.FileInfo.goversion != nil {
+		return
+	}
+	v, err := findGoCompilerVersion(f)
+	if err != nil {
+		f.versionError = err
+	} else {
+		f.FileInfo.goversion = v
+	}
 }
 
 // SourceInfo returns the source code filename, starting line number
@@ -168,10 +226,9 @@ func (f *GoFile) SourceInfo(fn *Function) (string, int, int) {
 	return srcFile, start, end
 }
 
-// GetGoRoot returns the Go Root path
-// that was used to compile the binary.
+// GetGoRoot returns the Go Root path used to compile the binary.
 func (f *GoFile) GetGoRoot() (string, error) {
-	err := f.init()
+	err := f.initPackages()
 	if err != nil {
 		return "", err
 	}
@@ -181,7 +238,7 @@ func (f *GoFile) GetGoRoot() (string, error) {
 // SetGoVersion sets the assumed compiler version that was used. This
 // can be used to force a version if gore is not able to determine the
 // compiler version used. The version string must match one of the strings
-// normally extracted from the binary. For example to set the version to
+// normally extracted from the binary. For example, to set the version to
 // go 1.12.0, use "go1.12". For 1.7.2, use "go1.7.2".
 // If an incorrect version string or version not known to the library,
 // ErrInvalidGoVersion is returned.
@@ -194,35 +251,35 @@ func (f *GoFile) SetGoVersion(version string) error {
 	return nil
 }
 
-// GetPackages returns the go packages that has been classified as part of the main
+// GetPackages returns the go packages that have been classified as part of the main
 // project.
 func (f *GoFile) GetPackages() ([]*Package, error) {
-	err := f.init()
+	err := f.initPackages()
 	return f.pkgs, err
 }
 
-// GetVendors returns the 3rd party packages used by the binary.
+// GetVendors returns the third party packages used by the binary.
 func (f *GoFile) GetVendors() ([]*Package, error) {
-	err := f.init()
+	err := f.initPackages()
 	return f.vendors, err
 }
 
 // GetSTDLib returns the standard library packages used by the binary.
 func (f *GoFile) GetSTDLib() ([]*Package, error) {
-	err := f.init()
+	err := f.initPackages()
 	return f.stdPkgs, err
 }
 
 // GetGeneratedPackages returns the compiler generated packages used by the binary.
 func (f *GoFile) GetGeneratedPackages() ([]*Package, error) {
-	err := f.init()
+	err := f.initPackages()
 	return f.generated, err
 }
 
-// GetUnknown returns unclassified packages used by the binary. This is a catch all
-// category when the classification could not be determined.
+// GetUnknown returns unclassified packages used by the binary.
+// This is a catch-all category when the classification could not be determined.
 func (f *GoFile) GetUnknown() ([]*Package, error) {
-	err := f.init()
+	err := f.initPackages()
 	return f.unknown, err
 }
 
@@ -325,24 +382,21 @@ func (f *GoFile) PCLNTab() (*gosym.Table, error) {
 
 // GetTypes returns a map of all types found in the binary file.
 func (f *GoFile) GetTypes() ([]*GoType, error) {
-	if f.FileInfo.goversion == nil {
-		ver, err := f.GetCompilerVersion()
-		if err != nil {
-			return nil, err
-		}
-		f.FileInfo.goversion = ver
+	err := f.ensureCompilerVersion()
+	if err != nil {
+		return nil, err
 	}
 	t, err := getTypes(f.FileInfo, f.fh)
 	if err != nil {
 		return nil, err
 	}
-	if err = f.init(); err != nil {
+	if err = f.initPackages(); err != nil {
 		return nil, err
 	}
 	return sortTypes(t), nil
 }
 
-// Bytes returns a slice of raw bytes with the length in the file from the address.
+// Bytes return a slice of raw bytes with the length in the file from the address.
 func (f *GoFile) Bytes(address uint64, length uint64) ([]byte, error) {
 	base, section, err := f.fh.getSectionDataFromOffset(address)
 	if err != nil {
@@ -377,15 +431,15 @@ type fileHandler interface {
 	io.Closer
 	getPCLNTab() (*gosym.Table, error)
 	getRData() ([]byte, error)
-	getCodeSection() ([]byte, error)
+	getCodeSection() (uint64, []byte, error)
 	getSectionDataFromOffset(uint64) (uint64, []byte, error)
 	getSectionData(string) (uint64, []byte, error)
 	getFileInfo() *FileInfo
 	getPCLNTABData() (uint64, []byte, error)
 	moduledataSection() string
 	getBuildID() (string, error)
-	GetFile() *os.File
-	GetParsedFile() any
+	getFile() *os.File
+	getParsedFile() any
 }
 
 func fileMagicMatch(buf, magic []byte) bool {
