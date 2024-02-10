@@ -11,7 +11,7 @@
 2. Import it into your project.
 3. Write a new cool tool.
 
-For an example use case, please checkout [redress](https://github.com/goretk/redress).
+For an example use case, please check out [redress](https://github.com/goretk/redress).
 
 ### Sample code
 

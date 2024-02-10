@@ -24,10 +24,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"golang.org/x/mod/semver"
+	"github.com/goretk/gore/extern/gover"
 	"io"
 	"strconv"
-	"strings"
 )
 
 // Moduledata holds information about the layout of the executable image in memory.
@@ -228,13 +227,11 @@ func pickVersionedModuleData(info FileInfo) (modulable, error) {
 		bits = 64
 	}
 
-	ver := buildSemVerString(info.goversion.Name)
-	m := semver.MajorMinor(ver)
-	verBit, err := strconv.Atoi(strings.Split(m, ".")[1])
+	ver := gover.Parse(info.goversion.Name)
+	verBit, err := strconv.Atoi(ver.Minor)
 	if err != nil {
-		return nil, fmt.Errorf("error when parsing the Go version: %w", err)
+		return nil, err
 	}
-	// buf will hold the struct type that represents the data in the file we are processing.
 	buf, err := selectModuleData(verBit, bits)
 	if err != nil {
 		return nil, fmt.Errorf("error when selecting the module data: %w", err)

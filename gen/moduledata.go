@@ -22,10 +22,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/go-github/v58/github"
+	"github.com/goretk/gore/extern"
+	"github.com/goretk/gore/extern/gover"
 	"go/ast"
 	"go/format"
 	"go/parser"
-	"golang.org/x/mod/semver"
 	"os"
 	"regexp"
 	"sort"
@@ -58,9 +59,11 @@ func getModuleDataSources() (map[int]string, error) {
 			continue
 		}
 
-		knownVersionSlice = append(knownVersionSlice, semver.MajorMinor("v"+strings.TrimPrefix(ver, "go")))
+		knownVersionSlice = append(knownVersionSlice, extern.StripGo(ver))
 	}
-	semver.Sort(knownVersionSlice)
+	sort.Slice(knownVersionSlice, func(i, j int) bool {
+		return gover.Compare(knownVersionSlice[i], knownVersionSlice[j]) < 0
+	})
 
 	latest := knownVersionSlice[len(knownVersionSlice)-1]
 
