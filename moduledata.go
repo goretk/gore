@@ -24,6 +24,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/goretk/gore/extern"
 	"github.com/goretk/gore/extern/gover"
 	"io"
 	"strconv"
@@ -227,7 +228,12 @@ func pickVersionedModuleData(info FileInfo) (modulable, error) {
 		bits = 64
 	}
 
-	ver := gover.Parse(info.goversion.Name)
+	ver := gover.Parse(extern.StripGo(info.goversion.Name))
+	zero := gover.Version{}
+	if ver == zero {
+		return nil, errors.New("could not parse the go version " + info.goversion.Name)
+	}
+
 	verBit, err := strconv.Atoi(ver.Minor)
 	if err != nil {
 		return nil, err
