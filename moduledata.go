@@ -51,7 +51,9 @@ type Moduledata interface {
 	// ITabLinks returns the itablinks section.
 	ITabLinks() ModuleDataSection
 	// TypeLink returns the typelink section.
-	TypeLink() ([]int32, error)
+	TypeLink() ModuleDataSection
+	// TypeLinkData returns the typelink section data.
+	TypeLinkData() ([]int32, error)
 	// GoFuncValue returns the value of the 'go:func.*' symbol.
 	GoFuncValue() uint64
 }
@@ -156,7 +158,16 @@ func (m moduledata) ITabLinks() ModuleDataSection {
 }
 
 // TypeLink returns the typelink section.
-func (m moduledata) TypeLink() ([]int32, error) {
+func (m moduledata) TypeLink() ModuleDataSection {
+	return ModuleDataSection{
+		Address: m.TypelinkAddr,
+		Length:  m.TypelinkLen,
+		fh:      m.fh,
+	}
+}
+
+// TypeLinkData returns the typelink section.
+func (m moduledata) TypeLinkData() ([]int32, error) {
 	base, data, err := m.fh.getSectionDataFromOffset(m.TypelinkAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the typelink data section: %w", err)
@@ -212,7 +223,7 @@ func (m ModuleDataSection) Data() ([]byte, error) {
 }
 
 func buildPclnTabAddrBinary(order binary.ByteOrder, addr uint64) ([]byte, error) {
-	buf := make([]byte, intSize64)
+	buf := make([]byte, intSize32)
 	order.PutUint32(buf, uint32(addr))
 	return buf, nil
 }

@@ -55,14 +55,9 @@ const (
 	ChanBoth = ChanRecv | ChanSend
 )
 
-func getTypes(fileInfo *FileInfo, f fileHandler) (map[uint64]*GoType, error) {
+func getTypes(fileInfo *FileInfo, f fileHandler, md moduledata) (map[uint64]*GoType, error) {
 	if GoVersionCompare(fileInfo.goversion.Name, "go1.7beta1") < 0 {
-		return getLegacyTypes(fileInfo, f)
-	}
-
-	md, err := extractModuledata(fileInfo, f)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse the module data: %w", err)
+		return getLegacyTypes(fileInfo, f, md)
 	}
 
 	types, err := md.Types().Data()
@@ -70,7 +65,7 @@ func getTypes(fileInfo *FileInfo, f fileHandler) (map[uint64]*GoType, error) {
 		return nil, fmt.Errorf("failed to get types data section: %w", err)
 	}
 
-	typeLink, err := md.TypeLink()
+	typeLink, err := md.TypeLinkData()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get type link data: %w", err)
 	}
@@ -86,11 +81,7 @@ func getTypes(fileInfo *FileInfo, f fileHandler) (map[uint64]*GoType, error) {
 	return parser.parsedTypes(), nil
 }
 
-func getLegacyTypes(fileInfo *FileInfo, f fileHandler) (map[uint64]*GoType, error) {
-	md, err := extractModuledata(fileInfo, f)
-	if err != nil {
-		return nil, err
-	}
+func getLegacyTypes(fileInfo *FileInfo, f fileHandler, md moduledata) (map[uint64]*GoType, error) {
 	typelinkAddr, typelinkData, err := f.getSectionDataFromOffset(md.TypelinkAddr)
 	if err != nil {
 		return nil, fmt.Errorf("no typelink section found: %w", err)
