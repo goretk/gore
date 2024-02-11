@@ -220,7 +220,7 @@ func buildPclnTabAddrBinary(addr uint64) ([]byte, error) {
 	return buf.Bytes()[:intSize32], nil
 }
 
-func pickVersionedModuleData(info FileInfo) (modulable, error) {
+func pickVersionedModuleData(info *FileInfo) (modulable, error) {
 	var bits int
 	if info.WordSize == intSize32 {
 		bits = 32
@@ -244,7 +244,7 @@ func pickVersionedModuleData(info FileInfo) (modulable, error) {
 }
 
 func extractModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
-	vmd, err := pickVersionedModuleData(*fileInfo)
+	vmd, err := pickVersionedModuleData(fileInfo)
 	if err != nil {
 		return moduledata{}, err
 	}
