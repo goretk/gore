@@ -211,13 +211,10 @@ func (m ModuleDataSection) Data() ([]byte, error) {
 	return buf, nil
 }
 
-func buildPclnTabAddrBinary(addr uint64) ([]byte, error) {
-	buf := new(bytes.Buffer)
-	err := binary.Write(buf, binary.LittleEndian, &addr)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes()[:intSize32], nil
+func buildPclnTabAddrBinary(order binary.ByteOrder, addr uint64) ([]byte, error) {
+	buf := make([]byte, intSize64)
+	order.PutUint32(buf, uint32(addr))
+	return buf, nil
 }
 
 func pickVersionedModuleData(info *FileInfo) (modulable, error) {
@@ -260,7 +257,7 @@ func extractModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
 		return moduledata{}, err
 	}
 
-	magic, err := buildPclnTabAddrBinary(tabAddr)
+	magic, err := buildPclnTabAddrBinary(fileInfo.ByteOrder, tabAddr)
 	if err != nil {
 		return moduledata{}, err
 	}
