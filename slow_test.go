@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -50,32 +51,42 @@ type testFiles struct {
 	filesMu sync.RWMutex
 }
 
-func (f *testFiles) get(os, arch string, pie bool) string {
+func (f *testFiles) get(os, arch string, pie, stripped bool) string {
 	f.filesMu.Lock()
 	defer f.filesMu.Unlock()
 	if pie {
 		return f.files[os+arch+"-pie"]
+	}
+	if !stripped {
+		return f.files[os+arch+"-nostrip"]
 	}
 	return f.files[os+arch]
 }
 
 func TestMain(m *testing.M) {
 	fmt.Println("Creating test resources, this can take some time...")
-	tmpDirs := make([]string, len(dynResources))
+	var tmpDirs []string
 	fs := make(map[string]string)
-	for i, r := range dynResources {
+	for _, r := range dynResources {
 		fmt.Printf("Building resource file for %s_%s\n", r.os, r.arch)
-		exe, dir := buildTestResource(testresourcesrc, r.os, r.arch, false)
-		tmpDirs[i] = dir
+		exe, dir := buildTestResource(testresourcesrc, r.os, r.arch, false, true)
+		tmpDirs = append(tmpDirs, dir)
 		fs[r.os+r.arch] = exe
 
 		// Build PIE version of the file. Not all host systems, particular macOS, appears to be able
 		// to compile a PIE build of linux-386. In this case, we skip this combination.
 		if !(r.arch == "386" && r.os == "linux") {
-			exe, dir = buildTestResource(testresourcesrc, r.os, r.arch, true)
-			tmpDirs[i] = dir
+			exe, dir = buildTestResource(testresourcesrc, r.os, r.arch, true, true)
+			tmpDirs = append(tmpDirs, dir)
 			fs[r.os+r.arch+"-pie"] = exe
 		}
+
+		// build unstripped binary; needs separate source file with reference to GOROOT
+		// for test trying to access it to pass
+		exe, dir = buildTestResource(nostripSrc, r.os, r.arch, false, false)
+		tmpDirs = append(tmpDirs, dir)
+		fs[r.os+r.arch+"-nostrip"] = exe
+
 	}
 	dynResourceFiles = &testFiles{files: fs}
 
@@ -93,7 +104,7 @@ func TestOpenAndCloseFile(t *testing.T) {
 	for _, test := range dynResources {
 		t.Run("open_"+test.os+"-"+test.arch, func(t *testing.T) {
 			assert := assert.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, false)
+			exe := dynResourceFiles.get(test.os, test.arch, false, true)
 
 			f, err := Open(exe)
 			assert.NoError(err)
@@ -103,7 +114,7 @@ func TestOpenAndCloseFile(t *testing.T) {
 
 		t.Run("open_"+test.os+"-"+test.arch+"-pie", func(t *testing.T) {
 			assert := assert.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, true)
+			exe := dynResourceFiles.get(test.os, test.arch, true, true)
 			if exe == "" {
 				t.Skip("no PIE available")
 			}
@@ -121,7 +132,7 @@ func TestGetPackages(t *testing.T) {
 		t.Run("open_"+test.os+"-"+test.arch, func(t *testing.T) {
 			assert := assert.New(t)
 			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, false)
+			exe := dynResourceFiles.get(test.os, test.arch, false, true)
 			if exe == "" {
 				t.Skip("no PIE available")
 			}
@@ -179,7 +190,7 @@ func TestGetPackages(t *testing.T) {
 		t.Run("open_"+test.os+"-"+test.arch+"-pie", func(t *testing.T) {
 			assert := assert.New(t)
 			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, false)
+			exe := dynResourceFiles.get(test.os, test.arch, false, true)
 			f, err := Open(exe)
 			require.NoError(err)
 			require.NotNil(f)
@@ -237,7 +248,7 @@ func TestGetTypesFromDynamicBuiltResources(t *testing.T) {
 		t.Run("open_"+test.os+"-"+test.arch, func(t *testing.T) {
 			assert := assert.New(t)
 			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, false)
+			exe := dynResourceFiles.get(test.os, test.arch, false, true)
 			f, err := Open(exe)
 			require.NoError(err)
 			require.NotNil(f)
@@ -260,7 +271,7 @@ func TestGetTypesFromDynamicBuiltResources(t *testing.T) {
 		t.Run("open_"+test.os+"-"+test.arch+"-pie", func(t *testing.T) {
 			assert := assert.New(t)
 			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, true)
+			exe := dynResourceFiles.get(test.os, test.arch, true, true)
 			if exe == "" {
 				t.Skip(("PIE file not available"))
 			}
@@ -301,7 +312,7 @@ func TestGetCompilerVersion(t *testing.T) {
 		t.Run("parsing_"+test.os+"-"+test.arch, func(t *testing.T) {
 			assert := assert.New(t)
 			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, false)
+			exe := dynResourceFiles.get(test.os, test.arch, false, true)
 			f, err := Open(exe)
 			require.NoError(err)
 			require.NotNil(f)
@@ -316,7 +327,7 @@ func TestGetCompilerVersion(t *testing.T) {
 		t.Run("parsing_"+test.os+"-"+test.arch+"-pie", func(t *testing.T) {
 			assert := assert.New(t)
 			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, true)
+			exe := dynResourceFiles.get(test.os, test.arch, true, true)
 			if exe == "" {
 				t.Skip("no PIE available")
 			}
@@ -339,7 +350,7 @@ func TestGetBuildID(t *testing.T) {
 		t.Run("buildID_"+test.os+"-"+test.arch, func(t *testing.T) {
 			assert := assert.New(t)
 			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, false)
+			exe := dynResourceFiles.get(test.os, test.arch, false, true)
 			f, err := Open(exe)
 			require.NoError(err)
 			require.NotNil(f)
@@ -351,7 +362,7 @@ func TestGetBuildID(t *testing.T) {
 		t.Run("buildID_"+test.os+"-"+test.arch+"-pie", func(t *testing.T) {
 			assert := assert.New(t)
 			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, true)
+			exe := dynResourceFiles.get(test.os, test.arch, true, true)
 			if exe == "" {
 				t.Skip("no PIE available")
 			}
@@ -371,7 +382,7 @@ func TestSourceInfo(t *testing.T) {
 		t.Run("buildID_"+test.os+"-"+test.arch, func(t *testing.T) {
 			assert := assert.New(t)
 			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, false)
+			exe := dynResourceFiles.get(test.os, test.arch, false, true)
 			f, err := Open(exe)
 			require.NoError(err)
 			require.NotNil(f)
@@ -404,7 +415,7 @@ func TestSourceInfo(t *testing.T) {
 		t.Run("buildID_"+test.os+"-"+test.arch+"-pie", func(t *testing.T) {
 			assert := assert.New(t)
 			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, true)
+			exe := dynResourceFiles.get(test.os, test.arch, true, true)
 			if exe == "" {
 				t.Skip("no PIE available")
 			}
@@ -440,7 +451,29 @@ func TestSourceInfo(t *testing.T) {
 	}
 }
 
-func buildTestResource(body, goos, arch string, pie bool) (string, string) {
+func TestDwarfString(t *testing.T) {
+	for _, test := range dynResources {
+		t.Run("dwarfString_"+test.os+"-"+test.arch, func(t *testing.T) {
+			require := require.New(t)
+
+			exe := dynResourceFiles.get(test.os, test.arch, false, false)
+			f, err := Open(exe)
+			require.NoError(err)
+			require.NotNil(f)
+			defer f.Close()
+
+			gover, ok := getBuildVersionFromDwarf(f.fh)
+			require.True(ok)
+			require.Equal(gover, runtime.Version())
+
+			goroot, ok := getGoRootFromDwarf(f.fh)
+			require.True(ok)
+			require.Equal(goroot, runtime.GOROOT())
+		})
+	}
+}
+
+func buildTestResource(body, goos, arch string, pie, stripped bool) (string, string) {
 	goBin, err := exec.LookPath("go")
 	if err != nil {
 		panic("No go tool chain found: " + err.Error())
@@ -461,7 +494,13 @@ func buildTestResource(body, goos, arch string, pie bool) (string, string) {
 	if pie {
 		exe = exe + "-pie"
 	}
-	args := []string{"build", "-o", exe, "-ldflags", "-s -w -buildid=" + fixedBuildID}
+
+	var ldFlags string
+	if stripped {
+		ldFlags = "-s -w "
+	}
+	ldFlags += "-buildid=" + fixedBuildID
+	args := []string{"build", "-o", exe, "-ldflags", ldFlags}
 	if pie {
 		args = append(args, "-buildmode=pie")
 	}

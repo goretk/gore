@@ -289,3 +289,16 @@ func main() {
 	data += " | Test"
 }
 `
+
+const nostripSrc = `
+package main
+
+import (
+	"fmt"
+	"runtime"
+)
+
+func main() {
+	fmt.Println(runtime.GOROOT())
+}
+`
