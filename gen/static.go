@@ -110,7 +110,7 @@ import "fmt"
 
 var (
 	goversionCsv         = filepath.Join(getSourceDir(), "resources", "goversions.csv")
-	outputFile           = filepath.Join(getSourceDir(), "stdpkg_gen.go")
+	stdpkgOutputFile     = filepath.Join(getSourceDir(), "stdpkg_gen.go")
 	goversionOutputFile  = filepath.Join(getSourceDir(), "goversion_gen.go")
 	moduleDataOutputFile = filepath.Join(getSourceDir(), "moduledata_gen.go")
 )

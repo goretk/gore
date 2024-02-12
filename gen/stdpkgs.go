@@ -29,6 +29,15 @@ import (
 )
 
 func generateStdPkgs() {
+	fmt.Println("Generating " + stdpkgOutputFile)
+
+	logChan := make(chan string)
+	go func() {
+		for log := range logChan {
+			fmt.Println(log)
+		}
+	}()
+
 	wg := &sync.WaitGroup{}
 	collect := func(ctx context.Context, cause context.CancelCauseFunc, tag string, result chan []string) {
 		tree, _, err := githubClient.Git.GetTree(ctx, "golang", "go", tag, true)
@@ -37,7 +46,7 @@ func generateStdPkgs() {
 			return
 		}
 
-		fmt.Println("Fetched std pkgs for tag:", tag)
+		logChan <- "Fetched std pkgs for tag: " + tag
 
 		if len(tree.Entries) == 100000 {
 			fmt.Printf("Warning: tree %s has 100000 entries, this may be limited by api, some might be missing", tag)
@@ -86,6 +95,7 @@ func generateStdPkgs() {
 	go func() {
 		wg.Wait()
 		close(pkgsChan)
+		close(logChan)
 	}()
 
 	for pkgs := range pkgsChan {
@@ -117,5 +127,7 @@ func generateStdPkgs() {
 		return
 	}
 
-	writeOnDemand(buf.Bytes(), outputFile)
+	writeOnDemand(buf.Bytes(), stdpkgOutputFile)
+
+	fmt.Println("Generated " + stdpkgOutputFile)
 }

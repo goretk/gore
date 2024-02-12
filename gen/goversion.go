@@ -31,6 +31,8 @@ import (
 )
 
 func generateGoVersions() {
+	fmt.Println("Generating " + goversionOutputFile + "&" + goversionCsv)
+
 	ctx := context.Background()
 
 	opts := &github.ListOptions{PerPage: 100}
@@ -129,4 +131,6 @@ func generateGoVersions() {
 	}
 
 	writeOnDemand(buf.Bytes(), goversionOutputFile)
+
+	fmt.Println("Generated " + goversionOutputFile + "&" + goversionCsv)
 }

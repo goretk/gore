@@ -291,6 +291,8 @@ func (g *moduleDataGenerator) writeVersionedModuleData(versionCode int, code str
 }
 
 func generateModuleData() {
+	fmt.Printf("Generating %s...", moduleDataOutputFile)
+
 	sources, err := getModuleDataSources()
 	if err != nil {
 		panic(err)
