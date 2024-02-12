@@ -27,6 +27,7 @@ import (
 	"go/ast"
 	"go/format"
 	"go/parser"
+	"go/token"
 	"os"
 	"regexp"
 	"sort"
@@ -34,20 +35,14 @@ import (
 	"strings"
 )
 
-var moduleDataMatcher = regexp.MustCompile(`(?m:type moduledata struct {[^}]+})`)
-
-// generateModuleDataSources
-// returns a map of moduledata sources for each go version, from 1.5 to the latest we know so far.
-func getModuleDataSources() (map[int]string, error) {
-	ret := make(map[int]string)
-
+func getMaxVersionBit() (int, error) {
 	f, err := os.OpenFile(goversionCsv, os.O_CREATE|os.O_RDWR, 0664)
 	if err != nil {
-		return nil, fmt.Errorf("error when opening goversions.csv: %w", err)
+		return 0, fmt.Errorf("error when opening goversions.csv: %w", err)
 	}
 	knownVersion, err := getCsvStoredGoversions(f)
 	if err != nil {
-		return nil, fmt.Errorf("error when getting stored go versions: %w", err)
+		return 0, fmt.Errorf("error when getting stored go versions: %w", err)
 	}
 
 	knownVersionSlice := make([]string, 0, len(knownVersion))
@@ -69,10 +64,77 @@ func getModuleDataSources() (map[int]string, error) {
 
 	maxMinor, err := strconv.Atoi(strings.Split(latest, ".")[1])
 	if err != nil {
-		return nil, fmt.Errorf("error when getting latest go version: %w, %s", err, latest)
+		return 0, fmt.Errorf("error when getting latest go version: %w, %s", err, latest)
+	}
+	return maxMinor, nil
+}
+
+var moduleNameMatcher = regexp.MustCompile(`moduledata_1_(\d+)_(?:32|64)`)
+
+func getCurrentMaxGoBit() (int, error) {
+	contents, err := os.ReadFile(moduleDataOutputFile)
+	if err != nil {
+		return 0, fmt.Errorf("error when reading moduledata.go: %w", err)
 	}
 
-	for i := 5; i <= maxMinor; i++ {
+	file, err := parser.ParseFile(token.NewFileSet(), "", contents, 0)
+	if err != nil {
+		return 0, err
+	}
+
+	currentVersion := 5 // ignore version <= 1.5
+
+	// get all struct type names
+	for _, decl := range file.Decls {
+		if genDecl, ok := decl.(*ast.GenDecl); ok {
+			for _, spec := range genDecl.Specs {
+				if typeSpec, ok := spec.(*ast.TypeSpec); ok {
+					if _, ok := typeSpec.Type.(*ast.StructType); ok {
+						name := typeSpec.Name.Name
+
+						if moduleNameMatcher.MatchString(name) {
+							matches := moduleNameMatcher.FindStringSubmatch(name)
+							if len(matches) != 2 {
+								return 0, fmt.Errorf("error when parsing moduledata.go, matches: %v", matches)
+							}
+
+							version, err := strconv.Atoi(matches[1])
+							if err != nil {
+								return 0, fmt.Errorf("error when parsing moduledata.go, version: %v", matches[1])
+							}
+
+							currentVersion = max(currentVersion, version)
+						}
+					}
+				}
+			}
+		}
+	}
+	return currentVersion, nil
+}
+
+var moduleDataMatcher = regexp.MustCompile(`(?m:type moduledata struct {[^}]+})`)
+
+// generateModuleDataSources
+// returns a map of moduledata sources for each go version, from 1.5 to the latest we know so far.
+func getModuleDataSources() (map[int]string, error) {
+	ret := make(map[int]string)
+
+	maxMinor, err := getMaxVersionBit()
+	if err != nil {
+		return nil, err
+	}
+
+	currentMaxMinor, err := getCurrentMaxGoBit()
+	if err != nil {
+		return nil, err
+	}
+
+	if currentMaxMinor == maxMinor {
+		return nil, nil
+	}
+
+	for i := currentMaxMinor; i <= maxMinor; i++ {
 		fmt.Println("Fetching moduledata for go1." + strconv.Itoa(i) + "...")
 		branch := fmt.Sprintf("release-branch.go1.%d", i)
 		contents, _, _, err := githubClient.Repositories.GetContents(
@@ -291,11 +353,15 @@ func (g *moduleDataGenerator) writeVersionedModuleData(versionCode int, code str
 }
 
 func generateModuleData() {
-	fmt.Printf("Generating %s...", moduleDataOutputFile)
+	fmt.Println("Generating " + moduleDataOutputFile)
 
 	sources, err := getModuleDataSources()
 	if err != nil {
 		panic(err)
+	}
+	if sources == nil {
+		fmt.Println("No need to update " + moduleDataOutputFile)
+		return
 	}
 
 	g := moduleDataGenerator{}

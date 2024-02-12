@@ -31,7 +31,7 @@ import (
 )
 
 func generateGoVersions() {
-	fmt.Println("Generating " + goversionOutputFile + "&" + goversionCsv)
+	fmt.Println("Generating " + goversionOutputFile + " & " + goversionCsv)
 
 	ctx := context.Background()
 
@@ -132,5 +132,5 @@ func generateGoVersions() {
 
 	writeOnDemand(buf.Bytes(), goversionOutputFile)
 
-	fmt.Println("Generated " + goversionOutputFile + "&" + goversionCsv)
+	fmt.Println("Generated " + goversionOutputFile + " & " + goversionCsv)
 }

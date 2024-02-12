@@ -21,12 +21,40 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 )
+
+// Generate with version hash: {{ .Hash }}
+var pkgHashMatcher = regexp.MustCompile(`^// Generate with version hash: ([a-f0-9]+)$`)
+
+func getCurrentStdPkgHash() (string, error) {
+	f, err := os.Open(stdpkgOutputFile)
+	if err != nil {
+		return "", err
+	}
+	defer func(f *os.File) {
+		_ = f.Close()
+	}(f)
+
+	buf := bytes.NewBuffer(nil)
+	_, err = io.Copy(buf, f)
+	if err != nil {
+		return "", err
+	}
+
+	matches := pkgHashMatcher.FindStringSubmatch(buf.String())
+	if len(matches) != 2 {
+		return "", nil
+	}
+
+	return matches[1], nil
+}
 
 func generateStdPkgs() {
 	fmt.Println("Generating " + stdpkgOutputFile)
@@ -80,6 +108,22 @@ func generateStdPkgs() {
 	defer func(f *os.File) {
 		_ = f.Close()
 	}(f)
+	hash, err := getFileHash(f)
+	if err != nil {
+		fmt.Println("Error when getting file hash:", err)
+		return
+	}
+	currentHash, err := getCurrentStdPkgHash()
+	if err != nil {
+		fmt.Println("Error when getting current hash:", err)
+		return
+	}
+
+	if hash == currentHash {
+		fmt.Println("No need to update " + stdpkgOutputFile)
+		return
+	}
+
 	knownVersions, err := getCsvStoredGoversions(f)
 	wg.Add(len(knownVersions))
 
@@ -118,9 +162,11 @@ func generateStdPkgs() {
 	err = packageTemplate.Execute(buf, struct {
 		Timestamp time.Time
 		StdPkg    []string
+		Hash      string
 	}{
 		Timestamp: time.Now().UTC(),
 		StdPkg:    pkgs,
+		Hash:      hash,
 	})
 	if err != nil {
 		fmt.Println("Error when generating the code:", err)
