@@ -19,6 +19,7 @@ package gore
 
 import (
 	"bytes"
+	"debug/dwarf"
 	"debug/gosym"
 	"encoding/binary"
 	"errors"
@@ -446,6 +447,7 @@ type fileHandler interface {
 	getBuildID() (string, error)
 	getFile() *os.File
 	getParsedFile() any
+	getDwarf() (*dwarf.Data, error)
 }
 
 func fileMagicMatch(buf, magic []byte) bool {

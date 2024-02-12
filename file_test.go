@@ -18,6 +18,7 @@
 package gore
 
 import (
+	"debug/dwarf"
 	"debug/elf"
 	"debug/gosym"
 	"debug/macho"
@@ -219,6 +220,10 @@ func (m *mockFileHandler) moduledataSection() string {
 }
 
 func (m *mockFileHandler) getBuildID() (string, error) {
+	panic("not implemented")
+}
+
+func (m *mockFileHandler) getDwarf() (*dwarf.Data, error) {
 	panic("not implemented")
 }
 

@@ -18,6 +18,7 @@
 package gore
 
 import (
+	"debug/dwarf"
 	"debug/gosym"
 	"debug/macho"
 	"fmt"
@@ -141,4 +142,8 @@ func (m *machoFile) getBuildID() (string, error) {
 		return "", fmt.Errorf("failed to get code section: %w", err)
 	}
 	return parseBuildIDFromRaw(data)
+}
+
+func (m *machoFile) getDwarf() (*dwarf.Data, error) {
+	return m.file.DWARF()
 }

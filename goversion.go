@@ -66,6 +66,13 @@ func GoVersionCompare(a, b string) int {
 }
 
 func findGoCompilerVersion(f *GoFile) (*GoVersion, error) {
+	// if DWARF debug info exists, then this can simply be obtained from there
+	if gover, ok := getBuildVersionFromDwarf(f.fh); ok {
+		if ver := ResolveGoVersion(gover); ver != nil {
+			return ver, nil
+		}
+	}
+
 	// Try to determine the version based on the schedinit function.
 	if v := tryFromSchedInit(f); v != nil {
 		return v, nil

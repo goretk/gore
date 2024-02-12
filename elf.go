@@ -18,6 +18,7 @@
 package gore
 
 import (
+	"debug/dwarf"
 	"debug/elf"
 	"debug/gosym"
 	"errors"
@@ -177,4 +178,8 @@ func (e *elfFile) getBuildID() (string, error) {
 		return "", fmt.Errorf("error when getting note section: %w", err)
 	}
 	return parseBuildIDFromElf(data, e.file.ByteOrder)
+}
+
+func (e *elfFile) getDwarf() (*dwarf.Data, error) {
+	return e.file.DWARF()
 }
