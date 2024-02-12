@@ -22,10 +22,11 @@ package gore
 import (
 	"bytes"
 	"errors"
+	"regexp"
+
 	"github.com/goretk/gore/extern"
 	"github.com/goretk/gore/extern/gover"
 	"golang.org/x/arch/x86/x86asm"
-	"regexp"
 )
 
 var goVersionMatcher = regexp.MustCompile(`(go[\d+.]*(beta|rc)?[\d*])`)
@@ -119,7 +120,7 @@ func tryFromSchedInit(f *GoFile) *GoVersion {
 		is32 = true
 	}
 
-	// Find shedinit function.
+	// Find schedinit function.
 	var fcn *Function
 	std, err := f.GetSTDLib()
 	if err != nil {
@@ -140,7 +141,7 @@ pkgLoop:
 		}
 	}
 
-	// Check if the functions was found
+	// Check if the function was found
 	if fcn == nil {
 		// If we can't find the function there is nothing to do.
 		return nil

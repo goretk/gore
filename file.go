@@ -47,7 +47,7 @@ func Open(filePath string) (*GoFile, error) {
 		return nil, err
 	}
 
-	_, err = f.Seek(0, 0)
+	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
 		return nil, err
 	}
@@ -404,7 +404,7 @@ func (f *GoFile) GetTypes() ([]*GoType, error) {
 
 // Bytes return a slice of raw bytes with the length in the file from the address.
 func (f *GoFile) Bytes(address uint64, length uint64) ([]byte, error) {
-	base, section, err := f.fh.getSectionDataFromOffset(address)
+	base, section, err := f.fh.getSectionDataFromAddress(address)
 	if err != nil {
 		return nil, err
 	}
@@ -438,7 +438,7 @@ type fileHandler interface {
 	getPCLNTab() (*gosym.Table, error)
 	getRData() ([]byte, error)
 	getCodeSection() (uint64, []byte, error)
-	getSectionDataFromOffset(uint64) (uint64, []byte, error)
+	getSectionDataFromAddress(uint64) (uint64, []byte, error)
 	getSectionData(string) (uint64, []byte, error)
 	getFileInfo() *FileInfo
 	getPCLNTABData() (uint64, []byte, error)

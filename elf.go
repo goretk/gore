@@ -113,14 +113,14 @@ func (e *elfFile) moduledataSection() string {
 	return ".noptrdata"
 }
 
-func (e *elfFile) getSectionDataFromOffset(off uint64) (uint64, []byte, error) {
+func (e *elfFile) getSectionDataFromAddress(address uint64) (uint64, []byte, error) {
 	for _, section := range e.file.Sections {
 		if section.Offset == 0 {
 			// Only exist in memory
 			continue
 		}
 
-		if section.Addr <= off && off < (section.Addr+section.Size) {
+		if section.Addr <= address && address < (section.Addr+section.Size) {
 			data, err := section.Data()
 			return section.Addr, data, err
 		}

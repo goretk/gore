@@ -82,7 +82,7 @@ func getTypes(fileInfo *FileInfo, f fileHandler, md moduledata) (map[uint64]*GoT
 }
 
 func getLegacyTypes(fileInfo *FileInfo, f fileHandler, md moduledata) (map[uint64]*GoType, error) {
-	typelinkAddr, typelinkData, err := f.getSectionDataFromOffset(md.TypelinkAddr)
+	typelinkAddr, typelinkData, err := f.getSectionDataFromAddress(md.TypelinkAddr)
 	if err != nil {
 		return nil, fmt.Errorf("no typelink section found: %w", err)
 	}
@@ -95,15 +95,15 @@ func getLegacyTypes(fileInfo *FileInfo, f fileHandler, md moduledata) (map[uint6
 	goTypes := make(map[uint64]*GoType)
 	for i := uint64(0); i < md.TypelinkLen; i++ {
 		// Type offsets are always *_type
-		off, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
+		address, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 		if err != nil {
 			return nil, err
 		}
-		baseAddr, baseData, err := f.getSectionDataFromOffset(off)
+		baseAddr, baseData, err := f.getSectionDataFromAddress(address)
 		if err != nil {
 			continue
 		}
-		typ := typeParse(goTypes, fileInfo, off-baseAddr, baseData, baseAddr)
+		typ := typeParse(goTypes, fileInfo, address-baseAddr, baseData, baseAddr)
 		if typ == nil {
 			continue
 		}

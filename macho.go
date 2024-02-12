@@ -82,14 +82,14 @@ func (m *machoFile) getCodeSection() (uint64, []byte, error) {
 	return m.getSectionData("__text")
 }
 
-func (m *machoFile) getSectionDataFromOffset(off uint64) (uint64, []byte, error) {
+func (m *machoFile) getSectionDataFromAddress(address uint64) (uint64, []byte, error) {
 	for _, section := range m.file.Sections {
 		if section.Offset == 0 {
 			// Only exist in memory
 			continue
 		}
 
-		if section.Addr <= off && off < (section.Addr+section.Size) {
+		if section.Addr <= address && address < (section.Addr+section.Size) {
 			data, err := section.Data()
 			return section.Addr, data, err
 		}
