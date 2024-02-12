@@ -17,7 +17,7 @@
 
 package gore
 
-//go:generate go run ./gen moduledata
+// FIX: This timeout in CI after 6 hours "go:generate go run ./gen moduledata"
 
 import (
 	"bytes"
