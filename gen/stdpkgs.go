@@ -26,12 +26,11 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 )
 
 // Generate with version hash: {{ .Hash }}
-var pkgHashMatcher = regexp.MustCompile(`^// Generate with version hash: ([a-f0-9]+)$`)
+var pkgHashMatcher = regexp.MustCompile(`// Generate with version hash: (\b[A-Fa-f0-9]{64}\b)`)
 
 func getCurrentStdPkgHash() (string, error) {
 	f, err := os.Open(stdpkgOutputFile)
@@ -59,22 +58,14 @@ func getCurrentStdPkgHash() (string, error) {
 func generateStdPkgs() {
 	fmt.Println("Generating " + stdpkgOutputFile)
 
-	logChan := make(chan string)
-	go func() {
-		for log := range logChan {
-			fmt.Println(log)
-		}
-	}()
-
-	wg := &sync.WaitGroup{}
-	collect := func(ctx context.Context, cause context.CancelCauseFunc, tag string, result chan []string) {
+	collect := func(ctx context.Context, tag string, result chan []string, errChan chan error) {
 		tree, _, err := githubClient.Git.GetTree(ctx, "golang", "go", tag, true)
 		if err != nil {
-			cause(fmt.Errorf("error when getting tree for tag %s: %w", tag, err))
+			errChan <- fmt.Errorf("error when getting tree for tag %s: %w", tag, err)
 			return
 		}
 
-		logChan <- "Fetched std pkgs for tag: " + tag
+		fmt.Println("Fetched std pkgs for tag: " + tag)
 
 		if len(tree.Entries) == 100000 {
 			fmt.Printf("Warning: tree %s has 100000 entries, this may be limited by api, some might be missing", tag)
@@ -97,7 +88,6 @@ func generateStdPkgs() {
 			stdPkgs = append(stdPkgs, strings.TrimPrefix(entry.GetPath(), "src/"))
 		}
 		result <- stdPkgs
-		wg.Done()
 	}
 
 	f, err := os.OpenFile(goversionCsv, os.O_CREATE|os.O_RDWR, 0664)
@@ -125,29 +115,41 @@ func generateStdPkgs() {
 	}
 
 	knownVersions, err := getCsvStoredGoversions(f)
-	wg.Add(len(knownVersions))
 
 	stdpkgsSet := map[string]struct{}{}
 
-	ctx, cause := context.WithCancelCause(context.Background())
 	pkgsChan := make(chan []string)
+	errChan := make(chan error)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
 
 	for tag := range knownVersions {
-		go collect(ctx, cause, tag, pkgsChan)
+		go collect(ctx, tag, pkgsChan, errChan)
 	}
 
-	go func() {
-		wg.Wait()
-		close(pkgsChan)
-		close(logChan)
-	}()
+	pkgCount := 0
 
-	for pkgs := range pkgsChan {
-		for _, pkg := range pkgs {
-			stdpkgsSet[pkg] = struct{}{}
+	for {
+		select {
+		case pkgs := <-pkgsChan:
+			for _, pkg := range pkgs {
+				stdpkgsSet[pkg] = struct{}{}
+			}
+			pkgCount++
+			if pkgCount == len(knownVersions) {
+				goto done
+			}
+		case err := <-errChan:
+			fmt.Println("Error when collecting std pkgs:", err)
+			return
+		case <-ctx.Done():
+			fmt.Println("Timeout when collecting std pkgs:", ctx.Err())
+			return
 		}
 	}
 
+done:
 	pkgs := make([]string, 0, len(stdpkgsSet))
 	for pkg := range stdpkgsSet {
 		pkgs = append(pkgs, pkg)
