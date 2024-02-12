@@ -51,7 +51,9 @@ type Moduledata interface {
 	// ITabLinks returns the itablinks section.
 	ITabLinks() ModuleDataSection
 	// TypeLink returns the typelink section.
-	TypeLink() ([]int32, error)
+	TypeLink() ModuleDataSection
+	// TypeLinkData returns the typelink section data.
+	TypeLinkData() ([]int32, error)
 	// GoFuncValue returns the value of the 'go:func.*' symbol.
 	GoFuncValue() uint64
 }
@@ -156,7 +158,16 @@ func (m moduledata) ITabLinks() ModuleDataSection {
 }
 
 // TypeLink returns the typelink section.
-func (m moduledata) TypeLink() ([]int32, error) {
+func (m moduledata) TypeLink() ModuleDataSection {
+	return ModuleDataSection{
+		Address: m.TypelinkAddr,
+		Length:  m.TypelinkLen,
+		fh:      m.fh,
+	}
+}
+
+// TypeLinkData returns the typelink section.
+func (m moduledata) TypeLinkData() ([]int32, error) {
 	base, data, err := m.fh.getSectionDataFromOffset(m.TypelinkAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the typelink data section: %w", err)
@@ -211,16 +222,13 @@ func (m ModuleDataSection) Data() ([]byte, error) {
 	return buf, nil
 }
 
-func buildPclnTabAddrBinary(addr uint64) ([]byte, error) {
-	buf := new(bytes.Buffer)
-	err := binary.Write(buf, binary.LittleEndian, &addr)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes()[:intSize32], nil
+func buildPclnTabAddrBinary(order binary.ByteOrder, addr uint64) ([]byte, error) {
+	buf := make([]byte, intSize32)
+	order.PutUint32(buf, uint32(addr))
+	return buf, nil
 }
 
-func pickVersionedModuleData(info FileInfo) (modulable, error) {
+func pickVersionedModuleData(info *FileInfo) (modulable, error) {
 	var bits int
 	if info.WordSize == intSize32 {
 		bits = 32
@@ -244,7 +252,7 @@ func pickVersionedModuleData(info FileInfo) (modulable, error) {
 }
 
 func extractModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
-	vmd, err := pickVersionedModuleData(*fileInfo)
+	vmd, err := pickVersionedModuleData(fileInfo)
 	if err != nil {
 		return moduledata{}, err
 	}
@@ -260,7 +268,7 @@ func extractModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
 		return moduledata{}, err
 	}
 
-	magic, err := buildPclnTabAddrBinary(tabAddr)
+	magic, err := buildPclnTabAddrBinary(fileInfo.ByteOrder, tabAddr)
 	if err != nil {
 		return moduledata{}, err
 	}

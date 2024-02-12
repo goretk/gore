@@ -36,11 +36,6 @@ func TestBuildInfo(t *testing.T) {
 		t.Run("extracting build info for "+test, func(t *testing.T) {
 			r := require.New(t)
 
-			// TODO: Remove this check when arm support has been added.
-			if strings.Contains(test, "arm64") {
-				t.Skip("ARM currently not supported")
-			}
-
 			fp, err := getTestResourcePath("gold/" + test)
 			r.NoError(err, "Failed to get path to resource")
 
@@ -62,23 +57,31 @@ func TestBuildInfo(t *testing.T) {
 				// Version with build info.
 				r.NotNil(f.BuildInfo)
 				r.NotNil(f.BuildInfo.Compiler)
-				if GoVersionCompare(ver.Name, "go1.16") >= 0 {
-					// The mod info is not always available in Go versions earlier than 1.16.
 
-					if GoVersionCompare(ver.Name, "go1.19beta1") >= 0 {
-						r.Equal("github.com/goretk/gore/gold", f.BuildInfo.ModInfo.Path)
-					} else {
-						r.Equal("command-line-arguments", f.BuildInfo.ModInfo.Path)
-					}
-
-					if GoVersionCompare(ver.Name, "go1.19beta1") >= 0 {
-						r.Equal("(devel)", f.BuildInfo.ModInfo.Main.Version)
-					} else if GoVersionCompare(ver.Name, "go1.18beta1") >= 0 {
-						r.Equal("", f.BuildInfo.ModInfo.Main.Version)
-					} else {
-						r.Equal("(devel)", f.BuildInfo.ModInfo.Main.Version)
-					}
+				if GoVersionCompare(ver.Name, "go1.16") < 0 {
+					t.Skip("No mod info available for Go versions earlier than 1.16")
 				}
+
+				switch {
+				case GoVersionCompare(ver.Name, "go1.19beta1") >= 0:
+					r.Equal("github.com/goretk/gore/gold", f.BuildInfo.ModInfo.Path)
+				case GoVersionCompare(ver.Name, "go1.16.0") >= 0 && strings.Contains(test, "darwin-arm64"):
+					r.Equal("github.com/goretk/gore/gold", f.BuildInfo.ModInfo.Path)
+				default:
+					r.Equal("command-line-arguments", f.BuildInfo.ModInfo.Path)
+				}
+
+				switch {
+				case GoVersionCompare(ver.Name, "go1.19beta1") >= 0:
+					r.Equal("(devel)", f.BuildInfo.ModInfo.Main.Version)
+				case GoVersionCompare(ver.Name, "go1.18beta1") >= 0 && strings.Contains(test, "darwin-arm64"):
+					r.Equal("(devel)", f.BuildInfo.ModInfo.Main.Version)
+				case GoVersionCompare(ver.Name, "go1.18beta1") >= 0:
+					r.Equal("", f.BuildInfo.ModInfo.Main.Version)
+				default:
+					r.Equal("(devel)", f.BuildInfo.ModInfo.Main.Version)
+				}
+
 			}
 		})
 	}

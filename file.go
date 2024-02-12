@@ -386,7 +386,13 @@ func (f *GoFile) GetTypes() ([]*GoType, error) {
 	if err != nil {
 		return nil, err
 	}
-	t, err := getTypes(f.FileInfo, f.fh)
+	err = f.initModuleData()
+	if err != nil {
+		return nil, err
+	}
+	md := f.moduledata
+
+	t, err := getTypes(f.FileInfo, f.fh, md)
 	if err != nil {
 		return nil, err
 	}
