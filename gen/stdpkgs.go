@@ -19,10 +19,13 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"fmt"
+	"github.com/go-git/go-git/v5/plumbing/filemode"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"io"
+	"log"
 	"os"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -58,36 +61,77 @@ func getCurrentStdPkgHash() (string, error) {
 func generateStdPkgs() {
 	fmt.Println("Generating " + stdpkgOutputFile)
 
-	collect := func(ctx context.Context, tag string, result chan []string, errChan chan error) {
-		tree, _, err := githubClient.Git.GetTree(ctx, "golang", "go", tag, true)
+	collect := func(tag string) ([]string, error) {
+		reference, err := goRepo.Tag(tag)
 		if err != nil {
-			errChan <- fmt.Errorf("error when getting tree for tag %s: %w", tag, err)
-			return
+			return nil, err
 		}
 
-		fmt.Println("Fetched std pkgs for tag: " + tag)
+		commit, err := goRepo.CommitObject(reference.Hash())
+		if err != nil {
+			return nil, err
+		}
 
-		if len(tree.Entries) == 100000 {
-			fmt.Printf("Warning: tree %s has 100000 entries, this may be limited by api, some might be missing", tag)
+		tree, err := commit.Tree()
+		if err != nil {
+			return nil, err
 		}
 
 		var stdPkgs []string
 
-		for _, entry := range tree.Entries {
-			if *entry.Type != "tree" {
-				continue
+		addPkg := func(s string) {
+			if strings.HasSuffix(s, "_asm") ||
+				strings.Contains(s, "testdata") {
+				return
 			}
-
-			if !strings.HasPrefix(entry.GetPath(), "src/") ||
-				strings.HasPrefix(entry.GetPath(), "src/cmd") ||
-				strings.HasSuffix(entry.GetPath(), "_asm") ||
-				strings.Contains(entry.GetPath(), "/testdata") {
-				continue
-			}
-
-			stdPkgs = append(stdPkgs, strings.TrimPrefix(entry.GetPath(), "src/"))
+			stdPkgs = append(stdPkgs, s)
 		}
-		result <- stdPkgs
+
+		var dive func(prefix string, tree *object.Tree) error
+		dive = func(prefix string, tree *object.Tree) error {
+			for _, entry := range tree.Entries {
+				if entry.Mode == filemode.Dir {
+					subTree, err := tree.Tree(entry.Name)
+					if err != nil {
+						return fmt.Errorf("error when getting tree for %s: %w", entry.Name, err)
+					}
+					p := path.Join(prefix, entry.Name)
+					addPkg(p)
+					err = dive(p, subTree)
+					if err != nil {
+						return fmt.Errorf("error when diving into %s: %w", p, err)
+					}
+				}
+			}
+			return nil
+		}
+
+		srcTree, err := tree.Tree("src")
+		if err != nil {
+			return nil, err
+		}
+
+		for _, entry := range srcTree.Entries {
+			if entry.Name == "cmd" {
+				continue
+			}
+
+			if entry.Mode == filemode.Dir {
+				subTree, err := srcTree.Tree(entry.Name)
+				if err != nil {
+					log.Println("Error when getting tree for", entry.Name, ":", err)
+					return nil, err
+				}
+				addPkg(entry.Name)
+				err = dive(entry.Name, subTree)
+				if err != nil {
+					log.Println("Error when diving into", entry.Name, ":", err)
+					return nil, err
+				}
+			}
+		}
+
+		return stdPkgs, nil
 	}
 
 	f, err := os.OpenFile(goversionCsv, os.O_CREATE|os.O_RDWR, 0664)
@@ -118,38 +162,17 @@ func generateStdPkgs() {
 
 	stdpkgsSet := map[string]struct{}{}
 
-	pkgsChan := make(chan []string)
-	errChan := make(chan error)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
 	for tag := range knownVersions {
-		go collect(ctx, tag, pkgsChan, errChan)
-	}
-
-	pkgCount := 0
-
-	for {
-		select {
-		case pkgs := <-pkgsChan:
-			for _, pkg := range pkgs {
-				stdpkgsSet[pkg] = struct{}{}
-			}
-			pkgCount++
-			if pkgCount == len(knownVersions) {
-				goto done
-			}
-		case err := <-errChan:
-			fmt.Println("Error when collecting std pkgs:", err)
+		ps, err := collect(tag)
+		if err != nil {
+			fmt.Println("Error when collecting std pkgs for tag "+tag+":", err)
 			return
-		case <-ctx.Done():
-			fmt.Println("Timeout when collecting std pkgs:", ctx.Err())
-			return
+		}
+		for _, p := range ps {
+			stdpkgsSet[p] = struct{}{}
 		}
 	}
 
-done:
 	pkgs := make([]string, 0, len(stdpkgsSet))
 	for pkg := range stdpkgsSet {
 		pkgs = append(pkgs, pkg)

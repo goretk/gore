@@ -19,9 +19,8 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"fmt"
-	"github.com/google/go-github/v58/github"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/goretk/gore/extern"
 	"github.com/goretk/gore/extern/gover"
 	"go/ast"
@@ -134,19 +133,32 @@ func getModuleDataSources() (map[int]string, error) {
 		return nil, nil
 	}
 
-	for i := currentMaxMinor; i <= maxMinor; i++ {
-		fmt.Println("Fetching moduledata for go1." + strconv.Itoa(i) + "...")
+	for i := 5; i <= maxMinor; i++ {
+		fmt.Println("Process moduledata for go1." + strconv.Itoa(i) + "...")
 		branch := fmt.Sprintf("release-branch.go1.%d", i)
-		contents, _, _, err := githubClient.Repositories.GetContents(
-			context.Background(),
-			"golang", "go",
-			"src/runtime/symtab.go",
-			&github.RepositoryContentGetOptions{Ref: branch})
+
+		// find the tree blob
+		reference, err := goRepo.Reference(plumbing.NewBranchReferenceName(branch), false)
 		if err != nil {
 			return nil, err
 		}
 
-		content, err := contents.GetContent()
+		commit, err := goRepo.CommitObject(reference.Hash())
+		if err != nil {
+			return nil, err
+		}
+
+		tree, err := commit.Tree()
+		if err != nil {
+			return nil, err
+		}
+
+		symtab, err := tree.File("src/runtime/symtab.go")
+		if err != nil {
+			return nil, err
+		}
+
+		content, err := symtab.Contents()
 		if err != nil {
 			return nil, err
 		}

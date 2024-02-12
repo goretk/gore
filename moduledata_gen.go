@@ -1921,6 +1921,136 @@ func (md moduledata_1_21_64) toModuledata() moduledata {
 	}
 }
 
+type moduledata_1_22_32 struct {
+	PcHeader                                    uint32
+	Funcnametab, Funcnametablen, Funcnametabcap uint32
+	Cutab, Cutablen, Cutabcap                   uint32
+	Filetab, Filetablen, Filetabcap             uint32
+	Pctab, Pctablen, Pctabcap                   uint32
+	Pclntable, Pclntablelen, Pclntablecap       uint32
+	Ftab, Ftablen, Ftabcap                      uint32
+	Findfunctab                                 uint32
+	Minpc                                       uint32
+	Maxpc                                       uint32
+	Text                                        uint32
+	Etext                                       uint32
+	Noptrdata                                   uint32
+	Enoptrdata                                  uint32
+	Data                                        uint32
+	Edata                                       uint32
+	Bss                                         uint32
+	Ebss                                        uint32
+	Noptrbss                                    uint32
+	Enoptrbss                                   uint32
+	Covctrs                                     uint32
+	Ecovctrs                                    uint32
+	End                                         uint32
+	Gcdata                                      uint32
+	Gcbss                                       uint32
+	Types                                       uint32
+	Etypes                                      uint32
+	Rodata                                      uint32
+	Gofunc                                      uint32
+	Textsectmap, Textsectmaplen, Textsectmapcap uint32
+	Typelinks, Typelinkslen, Typelinkscap       uint32
+	Itablinks, Itablinkslen, Itablinkscap       uint32
+	Ptab, Ptablen, Ptabcap                      uint32
+	Pluginpath, Pluginpathlen                   uint32
+	Pkghashes, Pkghasheslen, Pkghashescap       uint32
+	Inittasks, Inittaskslen, Inittaskscap       uint32
+}
+
+func (md moduledata_1_22_32) toModuledata() moduledata {
+	return moduledata{
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypesAddr:     uint64(md.Types),
+		TypesLen:      uint64(md.Etypes - md.Types),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		ITabLinkAddr:  uint64(md.Itablinks),
+		ITabLinkLen:   uint64(md.Itablinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
+		GoFuncVal:     uint64(md.Gofunc),
+	}
+}
+
+type moduledata_1_22_64 struct {
+	PcHeader                                    uint64
+	Funcnametab, Funcnametablen, Funcnametabcap uint64
+	Cutab, Cutablen, Cutabcap                   uint64
+	Filetab, Filetablen, Filetabcap             uint64
+	Pctab, Pctablen, Pctabcap                   uint64
+	Pclntable, Pclntablelen, Pclntablecap       uint64
+	Ftab, Ftablen, Ftabcap                      uint64
+	Findfunctab                                 uint64
+	Minpc                                       uint64
+	Maxpc                                       uint64
+	Text                                        uint64
+	Etext                                       uint64
+	Noptrdata                                   uint64
+	Enoptrdata                                  uint64
+	Data                                        uint64
+	Edata                                       uint64
+	Bss                                         uint64
+	Ebss                                        uint64
+	Noptrbss                                    uint64
+	Enoptrbss                                   uint64
+	Covctrs                                     uint64
+	Ecovctrs                                    uint64
+	End                                         uint64
+	Gcdata                                      uint64
+	Gcbss                                       uint64
+	Types                                       uint64
+	Etypes                                      uint64
+	Rodata                                      uint64
+	Gofunc                                      uint64
+	Textsectmap, Textsectmaplen, Textsectmapcap uint64
+	Typelinks, Typelinkslen, Typelinkscap       uint64
+	Itablinks, Itablinkslen, Itablinkscap       uint64
+	Ptab, Ptablen, Ptabcap                      uint64
+	Pluginpath, Pluginpathlen                   uint64
+	Pkghashes, Pkghasheslen, Pkghashescap       uint64
+	Inittasks, Inittaskslen, Inittaskscap       uint64
+}
+
+func (md moduledata_1_22_64) toModuledata() moduledata {
+	return moduledata{
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypesAddr:     md.Types,
+		TypesLen:      md.Etypes - md.Types,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		ITabLinkAddr:  md.Itablinks,
+		ITabLinkLen:   md.Itablinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
+		GoFuncVal:     md.Gofunc,
+	}
+}
+
 func selectModuleData(v int, bits int) (modulable, error) {
 	switch {
 	case v == 5 && bits == 32:
@@ -1991,6 +2121,10 @@ func selectModuleData(v int, bits int) (modulable, error) {
 		return &moduledata_1_21_32{}, nil
 	case v == 21 && bits == 64:
 		return &moduledata_1_21_64{}, nil
+	case v == 22 && bits == 32:
+		return &moduledata_1_22_32{}, nil
+	case v == 22 && bits == 64:
+		return &moduledata_1_22_64{}, nil
 	default:
 		return nil, fmt.Errorf("unsupported version %d and bits %d", v, bits)
 	}
