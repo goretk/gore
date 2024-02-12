@@ -22,11 +22,10 @@ package gore
 import (
 	"bytes"
 	"errors"
-	"regexp"
-	"strings"
-
+	"github.com/goretk/gore/extern"
+	"github.com/goretk/gore/extern/gover"
 	"golang.org/x/arch/x86/x86asm"
-	"golang.org/x/mod/semver"
+	"regexp"
 )
 
 var goVersionMatcher = regexp.MustCompile(`(go[\d+.]*(beta|rc)?[\d*])`)
@@ -60,22 +59,9 @@ func GoVersionCompare(a, b string) int {
 	if a == b {
 		return 0
 	}
-	return semver.Compare(buildSemVerString(a), buildSemVerString(b))
-}
-
-func buildSemVerString(v string) string {
-	// First remove the go prefix
-	tmp := strings.TrimPrefix(v, "go")
-
-	// If it has a pre-release, we need to add a dash and patch version of 0.
-	if strings.Contains(tmp, "beta") {
-		tmp = strings.ReplaceAll(tmp, "beta", ".0-beta")
-	}
-	if strings.Contains(tmp, "rc") {
-		tmp = strings.ReplaceAll(tmp, "rc", ".0-rc")
-	}
-
-	return "v" + tmp
+	a = extern.StripGo(a)
+	b = extern.StripGo(b)
+	return gover.Compare(a, b)
 }
 
 func findGoCompilerVersion(f *GoFile) (*GoVersion, error) {
@@ -236,9 +222,9 @@ pkgLoop:
 		// Likely the version string.
 		ver := string(bstr)
 
-		gover := ResolveGoVersion(ver)
-		if gover != nil {
-			return gover
+		resolvedVer := ResolveGoVersion(ver)
+		if resolvedVer != nil {
+			return resolvedVer
 		}
 
 		// An unknown version.
