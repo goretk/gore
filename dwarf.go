@@ -20,11 +20,7 @@ func getGoRootFromDwarf(fh fileHandler) (string, bool) {
 }
 
 func getBuildVersionFromDwarf(fh fileHandler) (string, bool) {
-	s, ok := getDwarfString(fh, getDwarfStringCheck("runtime.buildVersion"))
-	if ok {
-		panic(s)
-	}
-	return s, ok
+	return getDwarfString(fh, getDwarfStringCheck("runtime.buildVersion"))
 }
 
 // DWARF entry plus any associated children
@@ -91,13 +87,11 @@ func commonStringCheck(fh fileHandler, entry *dwarf.Entry) (string, dwarfwalkSta
 	locationField := entry.AttrField(dwarf.AttrLocation)
 	if locationField == nil {
 		// unexpected failure
-		panic(entry)
 		return "", dwStop
 	}
 	location := locationField.Val.([]byte)
 	// DWARF address operation followed by the machine byte order encoded address
 	if location[0] != dwOpAddr {
-		panic(location[0])
 		return "", dwStop
 	}
 	var addr uint64
@@ -109,7 +103,6 @@ func commonStringCheck(fh fileHandler, entry *dwarf.Entry) (string, dwarfwalkSta
 
 	sectionBase, data, err := fh.getSectionDataFromAddress(addr)
 	if err != nil {
-		panic(err)
 		return "", dwStop
 	}
 	off := addr - sectionBase
@@ -119,7 +112,6 @@ func commonStringCheck(fh fileHandler, entry *dwarf.Entry) (string, dwarfwalkSta
 		var stringData32 [2]uint32
 		err = binary.Read(r, fh.getFileInfo().ByteOrder, &stringData32)
 		if err != nil {
-			panic(err)
 			return "", dwStop
 		}
 		stringData[0] = uint64(stringData32[0])
@@ -127,7 +119,6 @@ func commonStringCheck(fh fileHandler, entry *dwarf.Entry) (string, dwarfwalkSta
 	} else {
 		err = binary.Read(r, fh.getFileInfo().ByteOrder, &stringData)
 		if err != nil {
-			panic(err)
 			return "", dwStop
 		}
 	}
@@ -135,7 +126,6 @@ func commonStringCheck(fh fileHandler, entry *dwarf.Entry) (string, dwarfwalkSta
 	stringLen := stringData[1]
 	sectionBase, data, err = fh.getSectionDataFromAddress(addr)
 	if err != nil {
-		panic(err)
 		return "", dwStop
 	}
 	off = addr - sectionBase
