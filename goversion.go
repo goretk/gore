@@ -74,9 +74,17 @@ func findGoCompilerVersion(f *GoFile) (*GoVersion, error) {
 	}
 
 	// Try to determine the version based on the schedinit function.
-	if v := tryFromSchedInit(f); v != nil {
-		return v, nil
-	}
+	// FIXME: find a way to resolve cycle dependency
+	// As for now, tryFromSchedInit has following dependencies:
+	// tryFromSchedInit -> GetSTDLib -> ensureCompilerVersion -> findGoCompilerVersion
+	// -> ensureCompilerVersion
+	// so the cycle is created.
+	// The problem is that we need to resolve moduledata for pclntab to get the correct textStart
+	// and the moduledata relies on the compiler version.
+
+	//if v := tryFromSchedInit(f); v != nil {
+	//	return v, nil
+	//}
 
 	// If no version was found, search the sections for the
 	// version string.
