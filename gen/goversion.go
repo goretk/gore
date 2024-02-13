@@ -19,10 +19,9 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/csv"
 	"fmt"
-	"github.com/google/go-github/v58/github"
+	"github.com/go-git/go-git/v5/plumbing"
 	"io"
 	"os"
 	"sort"
@@ -31,21 +30,12 @@ import (
 )
 
 func generateGoVersions() {
-	ctx := context.Background()
+	fmt.Println("Generating " + goversionOutputFile + " & " + goversionCsv)
 
-	opts := &github.ListOptions{PerPage: 100}
-	var allTags []*github.RepositoryTag
-	for {
-		tags, resp, err := githubClient.Repositories.ListTags(ctx, "golang", "go", opts)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		allTags = append(allTags, tags...)
-		if resp.NextPage == 0 {
-			break
-		}
-		opts.Page = resp.NextPage
+	tags, err := goRepo.Tags()
+	if err != nil {
+		fmt.Println("Error when getting tags:", err)
+		return
 	}
 
 	f, err := os.OpenFile(goversionCsv, os.O_CREATE|os.O_RDWR, 0664)
@@ -63,22 +53,30 @@ func generateGoVersions() {
 		return
 	}
 
-	for _, tag := range allTags {
-		if strings.HasPrefix(tag.GetName(), "weekly") || strings.HasPrefix(tag.GetName(), "release") {
-			continue
-		}
-		if _, known := knownVersions[tag.GetName()]; known {
-			continue
+	err = tags.ForEach(func(tag *plumbing.Reference) error {
+		name := tag.Name().Short()
+		if strings.HasPrefix(name, "weekly") || strings.HasPrefix(name, "release") {
+			return nil
 		}
 
-		commit, _, err := githubClient.Repositories.GetCommit(ctx, "golang", "go", tag.GetCommit().GetSHA(), nil)
+		if _, known := knownVersions[name]; known {
+			return nil
+		}
+
+		commit, err := goRepo.CommitObject(tag.Hash())
 		if err != nil {
-			fmt.Println("Error when getting commit info:", err)
-			return
+			return err
 		}
 
-		fmt.Println("New tag found:", tag.GetName())
-		knownVersions[tag.GetName()] = &goversion{Name: tag.GetName(), Sha: commit.GetSHA(), Date: commit.GetCommit().GetCommitter().GetDate().Format(time.RFC3339)}
+		fmt.Println("New tag found:", name)
+
+		knownVersions[name] = &goversion{Name: name, Sha: commit.Hash.String(), Date: commit.Committer.When.Format(time.RFC3339)}
+
+		return nil
+	})
+	if err != nil {
+		fmt.Println("Error when getting tags:", err)
+		return
 	}
 
 	sortedVersion := make([]*goversion, 0, len(knownVersions))
@@ -100,8 +98,7 @@ func generateGoVersions() {
 		return time1.Before(time2)
 	})
 
-	// Generate the code.
-
+	// Generate the csv
 	err = f.Truncate(0)
 	if err != nil {
 		fmt.Println("Error when truncating the file:", err)
@@ -115,6 +112,7 @@ func generateGoVersions() {
 	}
 	cw.Flush()
 
+	// Generate the code
 	buf := bytes.NewBuffer(nil)
 	err = goversionTemplate.Execute(buf, struct {
 		Timestamp  time.Time
@@ -129,4 +127,6 @@ func generateGoVersions() {
 	}
 
 	writeOnDemand(buf.Bytes(), goversionOutputFile)
+
+	fmt.Println("Generated " + goversionOutputFile + " & " + goversionCsv)
 }

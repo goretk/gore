@@ -13,3 +13,5 @@
 *.swp
 
 .vscode/*
+
+/gen/.go-repo-cache

@@ -16,6 +16,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Checkout GoLang repository
+        run: |
+          git clone --progress --no-checkout https://github.com/golang/go.git ${{ runner.temp }}/go
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -25,7 +29,7 @@ jobs:
         run: |
           go generate ./...
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORE_GO_REPO: ${{ runner.temp }}/go
       
       - name: Commit changes if any
         run: |

@@ -18,9 +18,11 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/csv"
 	"fmt"
 	"go/format"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -88,6 +90,10 @@ func getSourceDir() string {
 }
 
 func getCsvStoredGoversions(f *os.File) (map[string]*goversion, error) {
+	_, err := f.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
 	vers := make(map[string]*goversion)
 	c, err := csv.NewReader(f).ReadAll()
 	if err != nil {
@@ -98,4 +104,13 @@ func getCsvStoredGoversions(f *os.File) (map[string]*goversion, error) {
 	}
 
 	return vers, err
+}
+
+func getFileHash(f *os.File) (string, error) {
+	h := sha256.New()
+	_, err := io.Copy(h, f)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }

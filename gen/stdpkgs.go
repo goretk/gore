@@ -19,48 +19,119 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"fmt"
+	"github.com/go-git/go-git/v5/plumbing/filemode"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"io"
+	"log"
 	"os"
+	"path"
+	"regexp"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 )
 
+// Generate with version hash: {{ .Hash }}
+var pkgHashMatcher = regexp.MustCompile(`// Generate with version hash: (\b[A-Fa-f0-9]{64}\b)`)
+
+func getCurrentStdPkgHash() (string, error) {
+	f, err := os.Open(stdpkgOutputFile)
+	if err != nil {
+		return "", err
+	}
+	defer func(f *os.File) {
+		_ = f.Close()
+	}(f)
+
+	buf := bytes.NewBuffer(nil)
+	_, err = io.Copy(buf, f)
+	if err != nil {
+		return "", err
+	}
+
+	matches := pkgHashMatcher.FindStringSubmatch(buf.String())
+	if len(matches) != 2 {
+		return "", nil
+	}
+
+	return matches[1], nil
+}
+
 func generateStdPkgs() {
-	wg := &sync.WaitGroup{}
-	collect := func(ctx context.Context, cause context.CancelCauseFunc, tag string, result chan []string) {
-		tree, _, err := githubClient.Git.GetTree(ctx, "golang", "go", tag, true)
+	fmt.Println("Generating " + stdpkgOutputFile)
+
+	collect := func(tag string) ([]string, error) {
+		reference, err := goRepo.Tag(tag)
 		if err != nil {
-			cause(fmt.Errorf("error when getting tree for tag %s: %w", tag, err))
-			return
+			return nil, err
 		}
 
-		fmt.Println("Fetched std pkgs for tag:", tag)
+		commit, err := goRepo.CommitObject(reference.Hash())
+		if err != nil {
+			return nil, err
+		}
 
-		if len(tree.Entries) == 100000 {
-			fmt.Printf("Warning: tree %s has 100000 entries, this may be limited by api, some might be missing", tag)
+		tree, err := commit.Tree()
+		if err != nil {
+			return nil, err
 		}
 
 		var stdPkgs []string
 
-		for _, entry := range tree.Entries {
-			if *entry.Type != "tree" {
-				continue
+		addPkg := func(s string) {
+			if strings.HasSuffix(s, "_asm") ||
+				strings.Contains(s, "testdata") {
+				return
 			}
-
-			if !strings.HasPrefix(entry.GetPath(), "src/") ||
-				strings.HasPrefix(entry.GetPath(), "src/cmd") ||
-				strings.HasSuffix(entry.GetPath(), "_asm") ||
-				strings.Contains(entry.GetPath(), "/testdata") {
-				continue
-			}
-
-			stdPkgs = append(stdPkgs, strings.TrimPrefix(entry.GetPath(), "src/"))
+			stdPkgs = append(stdPkgs, s)
 		}
-		result <- stdPkgs
-		wg.Done()
+
+		var dive func(prefix string, tree *object.Tree) error
+		dive = func(prefix string, tree *object.Tree) error {
+			for _, entry := range tree.Entries {
+				if entry.Mode == filemode.Dir {
+					subTree, err := tree.Tree(entry.Name)
+					if err != nil {
+						return fmt.Errorf("error when getting tree for %s: %w", entry.Name, err)
+					}
+					p := path.Join(prefix, entry.Name)
+					addPkg(p)
+					err = dive(p, subTree)
+					if err != nil {
+						return fmt.Errorf("error when diving into %s: %w", p, err)
+					}
+				}
+			}
+			return nil
+		}
+
+		srcTree, err := tree.Tree("src")
+		if err != nil {
+			return nil, err
+		}
+
+		for _, entry := range srcTree.Entries {
+			if entry.Name == "cmd" {
+				continue
+			}
+
+			if entry.Mode == filemode.Dir {
+				subTree, err := srcTree.Tree(entry.Name)
+				if err != nil {
+					log.Println("Error when getting tree for", entry.Name, ":", err)
+					return nil, err
+				}
+				addPkg(entry.Name)
+				err = dive(entry.Name, subTree)
+				if err != nil {
+					log.Println("Error when diving into", entry.Name, ":", err)
+					return nil, err
+				}
+			}
+		}
+
+		return stdPkgs, nil
 	}
 
 	f, err := os.OpenFile(goversionCsv, os.O_CREATE|os.O_RDWR, 0664)
@@ -71,26 +142,34 @@ func generateStdPkgs() {
 	defer func(f *os.File) {
 		_ = f.Close()
 	}(f)
+	hash, err := getFileHash(f)
+	if err != nil {
+		fmt.Println("Error when getting file hash:", err)
+		return
+	}
+	currentHash, err := getCurrentStdPkgHash()
+	if err != nil {
+		fmt.Println("Error when getting current hash:", err)
+		return
+	}
+
+	if hash == currentHash {
+		fmt.Println("No need to update " + stdpkgOutputFile)
+		return
+	}
+
 	knownVersions, err := getCsvStoredGoversions(f)
-	wg.Add(len(knownVersions))
 
 	stdpkgsSet := map[string]struct{}{}
 
-	ctx, cause := context.WithCancelCause(context.Background())
-	pkgsChan := make(chan []string)
-
 	for tag := range knownVersions {
-		go collect(ctx, cause, tag, pkgsChan)
-	}
-
-	go func() {
-		wg.Wait()
-		close(pkgsChan)
-	}()
-
-	for pkgs := range pkgsChan {
-		for _, pkg := range pkgs {
-			stdpkgsSet[pkg] = struct{}{}
+		ps, err := collect(tag)
+		if err != nil {
+			fmt.Println("Error when collecting std pkgs for tag "+tag+":", err)
+			return
+		}
+		for _, p := range ps {
+			stdpkgsSet[p] = struct{}{}
 		}
 	}
 
@@ -108,14 +187,18 @@ func generateStdPkgs() {
 	err = packageTemplate.Execute(buf, struct {
 		Timestamp time.Time
 		StdPkg    []string
+		Hash      string
 	}{
 		Timestamp: time.Now().UTC(),
 		StdPkg:    pkgs,
+		Hash:      hash,
 	})
 	if err != nil {
 		fmt.Println("Error when generating the code:", err)
 		return
 	}
 
-	writeOnDemand(buf.Bytes(), outputFile)
+	writeOnDemand(buf.Bytes(), stdpkgOutputFile)
+
+	fmt.Println("Generated " + stdpkgOutputFile)
 }
