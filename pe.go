@@ -90,22 +90,25 @@ func (p *peFile) getPCLNTab(textStart uint64) (*gosym.Table, error) {
 // searchFileForPCLNTab will search the .rdata section for the
 // PCLN table.
 func (p *peFile) searchForPCLNTab() (uint32, []byte, error) {
-	sec := p.file.Section(".rdata")
-	if sec == nil {
-		return 0, nil, ErrNoPCLNTab
-	}
-	secData, err := sec.Data()
-	if err != nil {
-		return 0, nil, err
-	}
+	for _, s := range []string{".rdata", ".text"} {
+		sec := p.file.Section(s)
+		if sec == nil {
+			continue
+		}
+		secData, err := sec.Data()
+		if err != nil {
+			return 0, nil, err
+		}
 
-	tab, err := searchSectionForTab(secData, p.getFileInfo().ByteOrder)
-	if err != nil {
-		return 0, nil, err
-	}
+		tab, err := searchSectionForTab(secData, p.getFileInfo().ByteOrder)
+		if err != nil {
+			continue
+		}
 
-	addr := sec.VirtualAddress + uint32(len(secData)-len(tab))
-	return addr, tab, err
+		addr := sec.VirtualAddress + uint32(len(secData)-len(tab))
+		return addr, tab, err
+	}
+	return 0, nil, ErrNoPCLNTab
 }
 
 func (p *peFile) Close() error {
