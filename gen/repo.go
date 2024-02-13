@@ -40,7 +40,7 @@ func syncRepo(goRepoDir string) error {
 		return cloneRepo(goRepoDir)
 	}
 
-	cmd := exec.Command("git", "-C", goRepoDir, "fetch", "--update-head-ok", "origin", "refs/*:refs/*")
+	cmd := exec.Command("git", "-C", goRepoDir, "fetch", "--update-head-ok", "origin", "+refs/*:refs/*")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
@@ -81,7 +81,24 @@ func cloneRepo(goRepoDir string) error {
 	return nil
 }
 
+const GoRepoEnv = "GORE_GO_REPO"
+
+// for CI cases
+func tryLoadFromEnv() error {
+	goRepoDir, ok := os.LookupEnv(GoRepoEnv)
+	if ok {
+		return syncRepo(goRepoDir)
+	}
+	return errors.New("no env")
+}
+
 func init() {
+	err := tryLoadFromEnv()
+	if err == nil {
+		// if we have the repo, we don't need to do anything
+		return
+	}
+
 	cached, err := os.ReadFile(repoCacheFile)
 	if err == nil {
 		err := syncRepo(string(cached))

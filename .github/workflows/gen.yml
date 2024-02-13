@@ -16,6 +16,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Checkout GoLang repository
+        uses: actions/checkout@v4
+        with:
+          repository: golang/go
+          path: ${{ runner.temp }}/go
+          fetch-depth: 0
+          fetch-tags: true
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -24,6 +32,8 @@ jobs:
       - name: Generate
         run: |
           go generate ./...
+        env:
+          GORE_GO_REPO: ${{ runner.temp }}/go
       
       - name: Commit changes if any
         run: |
