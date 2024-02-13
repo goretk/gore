@@ -349,10 +349,16 @@ func extractModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
 
 	md, err := readModuledataFromSymbol(vmd, fileInfo, f)
 	if err == nil {
+		md.fh = f
 		return md, nil
 	}
 
-	return searchModuledata(vmd, fileInfo, f)
+	md, err = searchModuledata(vmd, fileInfo, f)
+	if err != nil {
+		return moduledata{}, err
+	}
+	md.fh = f
+	return md, nil
 }
 
 func readUIntTo64(r io.Reader, byteOrder binary.ByteOrder, is32bit bool) (addr uint64, err error) {
