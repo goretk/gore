@@ -46,6 +46,19 @@ type elfFile struct {
 	osFile *os.File
 }
 
+func (e *elfFile) getSymbolValue(s string) (uint64, error) {
+	syms, err := e.file.Symbols()
+	if err != nil {
+		return 0, fmt.Errorf("error when getting the symbols: %w", err)
+	}
+	for _, sym := range syms {
+		if sym.Name == s {
+			return sym.Value, nil
+		}
+	}
+	return 0, fmt.Errorf("symbol %s not found", s)
+}
+
 func (e *elfFile) getParsedFile() any {
 	return e.file
 }
@@ -54,23 +67,89 @@ func (e *elfFile) getFile() *os.File {
 	return e.osFile
 }
 
-func (e *elfFile) getPCLNTab() (*gosym.Table, error) {
+func (e *elfFile) getPCLNTab(textStart uint64) (table *gosym.Table, err error) {
+	var data []byte
 	pclnSection := e.file.Section(".gopclntab")
 	if pclnSection == nil {
-		// No section found. Check if the PIE section exist instead.
+		// No section found. Check if the PIE section exists instead.
 		pclnSection = e.file.Section(".data.rel.ro.gopclntab")
 	}
-	if pclnSection == nil {
-		return nil, fmt.Errorf("no gopclntab section found")
+	if pclnSection != nil {
+		data, err = pclnSection.Data()
+		if err != nil {
+			return nil, fmt.Errorf("could not get the data for the pclntab: %w", err)
+		}
+		goto ret
 	}
 
-	pclndat, err := pclnSection.Data()
+	// try to get data from symbol
+	data = e.symbolData("runtime.pclntab", "runtime.epclntab")
+	if data != nil {
+		goto ret
+	}
+
+	// try brute force searching for the pclntab
+	_, data, err = e.searchForPclnTab()
 	if err != nil {
-		return nil, fmt.Errorf("could not get the data for the pclntab: %w", err)
+		return nil, fmt.Errorf("could not find the pclntab: %w", err)
 	}
 
-	pcln := gosym.NewLineTable(pclndat, e.file.Section(".text").Addr)
+ret:
+	pcln := gosym.NewLineTable(data, textStart)
 	return gosym.NewTable(make([]byte, 0), pcln)
+}
+
+func (e *elfFile) searchForPclnTab() (uint64, []byte, error) {
+	// Only use linkmode=external and buildmode=pie will lead to this
+	// Since the external linker merged all .data.rel.ro.* sections into .data.rel.ro
+	// So we have to find .data.rel.ro.gopclntab manually
+	sec := e.file.Section(".data.rel.ro")
+	if sec == nil {
+		return 0, nil, ErrNoPCLNTab
+	}
+	data, err := sec.Data()
+	if err != nil {
+		return 0, nil, fmt.Errorf("could not get the data for the pclntab: %w", err)
+	}
+
+	tab, err := searchSectionForTab(data, e.getFileInfo().ByteOrder)
+	if err != nil {
+		return 0, nil, fmt.Errorf("could not find the pclntab: %w", err)
+	}
+	addr := sec.Addr + sec.FileSize - uint64(len(tab))
+	return addr, tab, nil
+}
+
+func (e *elfFile) symbolData(start, end string) []byte {
+	elfSyms, err := e.file.Symbols()
+	if err != nil {
+		return nil
+	}
+	var addr, eaddr uint64
+	for _, s := range elfSyms {
+		if s.Name == start {
+			addr = s.Value
+		} else if s.Name == end {
+			eaddr = s.Value
+		}
+		if addr != 0 && eaddr != 0 {
+			break
+		}
+	}
+	if addr == 0 || eaddr < addr {
+		return nil
+	}
+	size := eaddr - addr
+	data := make([]byte, size)
+	for _, prog := range e.file.Progs {
+		if prog.Vaddr <= addr && addr+size-1 <= prog.Vaddr+prog.Filesz-1 {
+			if _, err := prog.ReadAt(data, int64(addr-prog.Vaddr)); err != nil {
+				return nil
+			}
+			return data
+		}
+	}
+	return nil
 }
 
 func (e *elfFile) Close() error {

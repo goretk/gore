@@ -256,12 +256,7 @@ func pickVersionedModuleData(info *FileInfo) (modulable, error) {
 	return buf, nil
 }
 
-func extractModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
-	vmd, err := pickVersionedModuleData(fileInfo)
-	if err != nil {
-		return moduledata{}, err
-	}
-
+func searchModuledata(vmd modulable, fileInfo *FileInfo, f fileHandler) (moduledata, error) {
 	vmdSize := binary.Size(vmd)
 
 	_, secData, err := f.getSectionData(f.moduledataSection())
@@ -312,14 +307,52 @@ search:
 		goto invalidMD
 	}
 
-	// Add the file handler.
-	md.fh = f
-
 	return md, nil
 
 invalidMD:
 	secData = secData[off+1:]
 	goto search
+}
+
+func readModuledataFromSymbol(vmd modulable, fileInfo *FileInfo, f fileHandler) (moduledata, error) {
+	vmdSize := binary.Size(vmd)
+
+	addr, err := f.getSymbolValue("runtime.firstmoduledata")
+	if err != nil {
+		return moduledata{}, err
+	}
+
+	base, data, err := f.getSectionDataFromOffset(addr)
+	if err != nil {
+		return moduledata{}, err
+	}
+
+	if addr-base+uint64(vmdSize) > uint64(len(data)) {
+		return moduledata{}, errors.New("moduledata is too big")
+	}
+
+	r := bytes.NewReader(data[addr-base : addr-base+uint64(vmdSize)])
+	err = binary.Read(r, fileInfo.ByteOrder, vmd)
+	if err != nil {
+		return moduledata{}, fmt.Errorf("error when reading module data from file: %w", err)
+	}
+
+	// Believe the symbol is correct, so no validation is needed.
+	return vmd.toModuledata(), nil
+}
+
+func extractModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
+	vmd, err := pickVersionedModuleData(fileInfo)
+	if err != nil {
+		return moduledata{}, err
+	}
+
+	md, err := readModuledataFromSymbol(vmd, fileInfo, f)
+	if err == nil {
+		return md, nil
+	}
+
+	return searchModuledata(vmd, fileInfo, f)
 }
 
 func readUIntTo64(r io.Reader, byteOrder binary.ByteOrder, is32bit bool) (addr uint64, err error) {

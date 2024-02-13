@@ -175,6 +175,10 @@ type mockFileHandler struct {
 	mGetSectionDataFromAddress func(uint64) (uint64, []byte, error)
 }
 
+func (m *mockFileHandler) getSymbolValue(s string) (uint64, error) {
+	panic("implement me")
+}
+
 func (m *mockFileHandler) getFile() *os.File {
 	panic("not implemented")
 }
@@ -187,7 +191,7 @@ func (m *mockFileHandler) Close() error {
 	panic("not implemented")
 }
 
-func (m *mockFileHandler) getPCLNTab() (*gosym.Table, error) {
+func (m *mockFileHandler) getPCLNTab(uint64) (*gosym.Table, error) {
 	panic("not implemented")
 }
 

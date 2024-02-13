@@ -45,6 +45,15 @@ type machoFile struct {
 	osFile *os.File
 }
 
+func (m *machoFile) getSymbolValue(s string) (uint64, error) {
+	for _, sym := range m.file.Symtab.Syms {
+		if sym.Name == s {
+			return sym.Value, nil
+		}
+	}
+	return 0, fmt.Errorf("symbol %s not found", s)
+}
+
 func (m *machoFile) getParsedFile() any {
 	return m.file
 }
@@ -61,7 +70,7 @@ func (m *machoFile) Close() error {
 	return m.osFile.Close()
 }
 
-func (m *machoFile) getPCLNTab() (*gosym.Table, error) {
+func (m *machoFile) getPCLNTab(textStart uint64) (*gosym.Table, error) {
 	section := m.file.Section("__gopclntab")
 	if section == nil {
 		return nil, ErrNoPCLNTab
@@ -70,7 +79,7 @@ func (m *machoFile) getPCLNTab() (*gosym.Table, error) {
 	if data == nil {
 		return nil, err
 	}
-	pcln := gosym.NewLineTable(data, m.file.Section("__text").Addr)
+	pcln := gosym.NewLineTable(data, textStart)
 	return gosym.NewTable(nil, pcln)
 }
 

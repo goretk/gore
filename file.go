@@ -159,6 +159,10 @@ func (f *GoFile) Moduledata() (Moduledata, error) {
 	return f.moduledata, nil
 }
 
+// initPackages initializes the packages in the binary.
+// Note: this init depends on the moduledata initialization internal since PCLNTab() is called.
+// any further modifications to moduledata initialization should consider this
+// or a cycle dependency will be created.
 func (f *GoFile) initPackages() error {
 	f.initPackagesOnce.Do(func() {
 		tab, err := f.PCLNTab()
@@ -378,7 +382,11 @@ func (f *GoFile) Close() error {
 
 // PCLNTab returns the PCLN table.
 func (f *GoFile) PCLNTab() (*gosym.Table, error) {
-	return f.fh.getPCLNTab()
+	err := f.initModuleData()
+	if err != nil {
+		return nil, err
+	}
+	return f.fh.getPCLNTab(f.moduledata.TextAddr)
 }
 
 // GetTypes returns a map of all types found in the binary file.
@@ -436,7 +444,8 @@ func sortTypes(types map[uint64]*GoType) []*GoType {
 
 type fileHandler interface {
 	io.Closer
-	getPCLNTab() (*gosym.Table, error)
+	getSymbolValue(string) (uint64, error)
+	getPCLNTab(uint64) (*gosym.Table, error)
 	getRData() ([]byte, error)
 	getCodeSection() (uint64, []byte, error)
 	getSectionDataFromAddress(uint64) (uint64, []byte, error)

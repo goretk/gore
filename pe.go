@@ -60,6 +60,15 @@ type peFile struct {
 	imageBase   uint64
 }
 
+func (p *peFile) getSymbolValue(s string) (uint64, error) {
+	for _, sym := range p.file.Symbols {
+		if sym.Name == s {
+			return uint64(sym.Value), nil
+		}
+	}
+	return 0, fmt.Errorf("symbol %s not found", s)
+}
+
 func (p *peFile) getParsedFile() any {
 	return p.file
 }
@@ -68,14 +77,35 @@ func (p *peFile) getFile() *os.File {
 	return p.osFile
 }
 
-func (p *peFile) getPCLNTab() (*gosym.Table, error) {
-	addr, pclndat, err := searchFileForPCLNTab(p.file)
+func (p *peFile) getPCLNTab(textStart uint64) (*gosym.Table, error) {
+	addr, pclndat, err := p.searchForPCLNTab()
 	if err != nil {
 		return nil, err
 	}
-	pcln := gosym.NewLineTable(pclndat, uint64(p.file.Section(".text").VirtualAddress)+p.imageBase)
+	pcln := gosym.NewLineTable(pclndat, textStart)
 	p.pclntabAddr = uint64(addr) + p.imageBase
 	return gosym.NewTable(make([]byte, 0), pcln)
+}
+
+// searchFileForPCLNTab will search the .rdata section for the
+// PCLN table.
+func (p *peFile) searchForPCLNTab() (uint32, []byte, error) {
+	sec := p.file.Section(".rdata")
+	if sec == nil {
+		return 0, nil, ErrNoPCLNTab
+	}
+	secData, err := sec.Data()
+	if err != nil {
+		return 0, nil, err
+	}
+
+	tab, err := searchSectionForTab(secData, p.getFileInfo().ByteOrder)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	addr := sec.VirtualAddress + uint32(len(secData)-len(tab))
+	return addr, tab, err
 }
 
 func (p *peFile) Close() error {
@@ -108,7 +138,7 @@ func (p *peFile) moduledataSection() string {
 }
 
 func (p *peFile) getPCLNTABData() (uint64, []byte, error) {
-	b, d, e := searchFileForPCLNTab(p.file)
+	b, d, e := p.searchForPCLNTab()
 	return p.imageBase + uint64(b), d, e
 }
 
