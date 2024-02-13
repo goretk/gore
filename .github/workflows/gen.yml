@@ -17,12 +17,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Checkout GoLang repository
-        uses: actions/checkout@v4
-        with:
-          repository: golang/go
-          path: ${{ runner.temp }}/go
-          fetch-depth: 0
-          fetch-tags: true
+        run: |
+          git clone --progress --no-checkout https://github.com/golang/go.git ${{ runner.temp }}/go
 
       - name: Setup Go
         uses: actions/setup-go@v5
