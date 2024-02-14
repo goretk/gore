@@ -322,7 +322,7 @@ func readModuledataFromSymbol(vmd modulable, fileInfo *FileInfo, f fileHandler) 
 		return moduledata{}, err
 	}
 
-	base, data, err := f.getSectionDataFromOffset(addr)
+	base, data, err := f.getSectionDataFromAddress(addr)
 	if err != nil {
 		return moduledata{}, err
 	}
