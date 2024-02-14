@@ -22,8 +22,11 @@ import (
 	"debug/gosym"
 	"debug/pe"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"math"
 	"os"
+	"slices"
 )
 
 func openPE(fp string) (peF *peFile, err error) {
@@ -60,13 +63,55 @@ type peFile struct {
 	imageBase   uint64
 }
 
-func (p *peFile) getSymbolValue(s string) (uint64, error) {
-	for _, sym := range p.file.Symbols {
-		if sym.Name == s {
-			return uint64(sym.Value), nil
+func (p *peFile) getSymbol(name string) (uint64, uint64, error) {
+	var addrs []uint64
+
+	const (
+		NUndef = 0  // An undefined (extern) symbol
+		NAbs   = -1 // An absolute symbol (e_value is a constant, not an address)
+		NDebug = -2 // A debugging symbol
+	)
+
+	foundedAddr := uint64(math.MaxUint64)
+
+	for _, s := range p.file.Symbols {
+		switch s.SectionNumber {
+		case NUndef, NDebug:
+			continue
+		case NAbs:
+			if s.Name == name {
+				// for absolute symbols, we don't care about the size
+				return uint64(s.Value), 0, nil
+			}
+			continue
+		}
+
+		if s.SectionNumber < 0 || len(p.file.Sections) < int(s.SectionNumber) {
+			return 0, 0, fmt.Errorf("invalid section number in symbol table")
+		}
+
+		sect := p.file.Sections[s.SectionNumber-1]
+		addr := p.imageBase + uint64(sect.VirtualAddress) + uint64(s.Value)
+
+		addrs = append(addrs, addr)
+
+		if s.Name == name {
+			foundedAddr = addr
 		}
 	}
-	return 0, fmt.Errorf("symbol %s not found", s)
+
+	if foundedAddr == math.MaxUint64 {
+		return 0, 0, fmt.Errorf("symbol not found")
+	}
+
+	slices.Sort(addrs)
+
+	index, _ := slices.BinarySearch(addrs, foundedAddr)
+
+	if index == len(addrs)-1 {
+		return foundedAddr, 0, errors.New("size not available")
+	}
+	return foundedAddr, addrs[index+1] - foundedAddr, nil
 }
 
 func (p *peFile) getParsedFile() any {

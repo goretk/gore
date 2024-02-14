@@ -76,15 +76,14 @@ func findGoCompilerVersion(f *GoFile) (*GoVersion, error) {
 	// Try to determine the version based on the schedinit function.
 	// FIXME: find a way to resolve cycle dependency
 	// As for now, tryFromSchedInit has following dependencies:
-	// tryFromSchedInit -> GetSTDLib -> ensureCompilerVersion -> findGoCompilerVersion
-	// -> tryFromSchedInit
+	// tryFromSchedInit -> GetSTDLib -> initPackages -> ensureCompilerVersion
+	// -> findGoCompilerVersion -> tryFromSchedInit
 	// so the cycle is created.
 	// The problem is that we need to resolve moduledata for pclntab to get the correct textStart
 	// and the moduledata relies on the compiler version.
-
-	//if v := tryFromSchedInit(f); v != nil {
-	//	return v, nil
-	//}
+	if v := tryFromSchedInit(f); v != nil {
+		return v, nil
+	}
 
 	// If no version was found, search the sections for the
 	// version string.
@@ -135,35 +134,41 @@ func tryFromSchedInit(f *GoFile) *GoVersion {
 		is32 = true
 	}
 
-	// Find schedinit function.
-	var fcn *Function
-	std, err := f.GetSTDLib()
+	//  FIXME: disable for now, see the comment in findGoCompilerVersion
+	//	// Find schedinit function.
+	//	var fcn *Function
+	//	std, err := f.GetSTDLib()
+	//	if err != nil {
+	//		return nil
+	//	}
+	//
+	//pkgLoop:
+	//	for _, v := range std {
+	//		if v.Name != "runtime" {
+	//			continue
+	//		}
+	//		for _, vv := range v.Functions {
+	//			if vv.Name != "schedinit" {
+	//				continue
+	//			}
+	//			fcn = vv
+	//			break pkgLoop
+	//		}
+	//	}
+	//
+	//	// Check if the function was found
+	//	if fcn == nil {
+	//		// If we can't find the function there is nothing to do.
+	//		return nil
+	//	}
+
+	addr, size, err := f.fh.getSymbol("runtime.schedinit")
 	if err != nil {
 		return nil
 	}
 
-pkgLoop:
-	for _, v := range std {
-		if v.Name != "runtime" {
-			continue
-		}
-		for _, vv := range v.Functions {
-			if vv.Name != "schedinit" {
-				continue
-			}
-			fcn = vv
-			break pkgLoop
-		}
-	}
-
-	// Check if the function was found
-	if fcn == nil {
-		// If we can't find the function there is nothing to do.
-		return nil
-	}
-
 	// Get the raw hex.
-	buf, err := f.Bytes(fcn.Offset, fcn.End-fcn.Offset)
+	buf, err := f.Bytes(addr, size)
 	if err != nil {
 		return nil
 	}
@@ -193,12 +198,12 @@ pkgLoop:
 		}
 
 		// Check what it's loading and if it's pointing to the compiler version used.
-		// First assume that the address is a direct addressing.
+		// First, assume that the address is a direct addressing.
 		arg := inst.Args[1].(x86asm.Mem)
 		addr := arg.Disp
 		if arg.Base == x86asm.EIP || arg.Base == x86asm.RIP {
 			// If the addressing is based on the instruction pointer, fix the address.
-			addr = addr + int64(fcn.Offset) + int64(s)
+			addr = addr + int64(addr) + int64(s)
 		}
 
 		// If the addressing is based on the stack pointer, this is not the right
@@ -235,7 +240,7 @@ pkgLoop:
 			continue
 		}
 
-		// Likely the version string.
+		// Likely a version string.
 		ver := string(bstr)
 
 		resolvedVer := ResolveGoVersion(ver)

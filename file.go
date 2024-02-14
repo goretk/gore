@@ -444,7 +444,8 @@ func sortTypes(types map[uint64]*GoType) []*GoType {
 
 type fileHandler interface {
 	io.Closer
-	getSymbolValue(string) (uint64, error)
+	// returns the size, value and error
+	getSymbol(name string) (uint64, uint64, error)
 	getPCLNTab(uint64) (*gosym.Table, error)
 	getRData() ([]byte, error)
 	getCodeSection() (uint64, []byte, error)

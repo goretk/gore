@@ -317,7 +317,7 @@ invalidMD:
 func readModuledataFromSymbol(vmd modulable, fileInfo *FileInfo, f fileHandler) (moduledata, error) {
 	vmdSize := binary.Size(vmd)
 
-	addr, err := f.getSymbolValue("runtime.firstmoduledata")
+	_, addr, err := f.getSymbol("runtime.firstmoduledata")
 	if err != nil {
 		return moduledata{}, err
 	}

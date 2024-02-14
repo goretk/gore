@@ -175,7 +175,7 @@ type mockFileHandler struct {
 	mGetSectionDataFromAddress func(uint64) (uint64, []byte, error)
 }
 
-func (m *mockFileHandler) getSymbolValue(s string) (uint64, error) {
+func (m *mockFileHandler) getSymbol(name string) (uint64, uint64, error) {
 	panic("implement me")
 }
 

@@ -46,17 +46,17 @@ type elfFile struct {
 	osFile *os.File
 }
 
-func (e *elfFile) getSymbolValue(s string) (uint64, error) {
+func (e *elfFile) getSymbol(name string) (uint64, uint64, error) {
 	syms, err := e.file.Symbols()
 	if err != nil {
-		return 0, fmt.Errorf("error when getting the symbols: %w", err)
+		return 0, 0, fmt.Errorf("error when getting the symbols: %w", err)
 	}
 	for _, sym := range syms {
-		if sym.Name == s {
-			return sym.Value, nil
+		if sym.Name == name {
+			return sym.Size, sym.Value, nil
 		}
 	}
-	return 0, fmt.Errorf("symbol %s not found", s)
+	return 0, 0, fmt.Errorf("symbol %s not found", name)
 }
 
 func (e *elfFile) getParsedFile() any {

@@ -21,8 +21,11 @@ import (
 	"debug/dwarf"
 	"debug/gosym"
 	"debug/macho"
+	"errors"
 	"fmt"
+	"math"
 	"os"
+	"slices"
 )
 
 func openMachO(fp string) (*machoFile, error) {
@@ -45,13 +48,37 @@ type machoFile struct {
 	osFile *os.File
 }
 
-func (m *machoFile) getSymbolValue(s string) (uint64, error) {
-	for _, sym := range m.file.Symtab.Syms {
-		if sym.Name == s {
-			return sym.Value, nil
+func (m *machoFile) getSymbol(name string) (uint64, uint64, error) {
+	var addrs []uint64
+
+	foundedAddr := uint64(math.MaxUint64)
+
+	const stabTypeMask = 0xe0
+
+	for _, s := range m.file.Symtab.Syms {
+		if s.Type&stabTypeMask != 0 || s.Sect == 0 {
+			continue
+		}
+
+		addrs = append(addrs, s.Value)
+
+		if s.Name == name {
+			foundedAddr = s.Value
 		}
 	}
-	return 0, fmt.Errorf("symbol %s not found", s)
+
+	if foundedAddr == math.MaxUint64 {
+		return 0, 0, fmt.Errorf("symbol %s not found", name)
+	}
+
+	slices.Sort(addrs)
+
+	index, _ := slices.BinarySearch(addrs, foundedAddr)
+
+	if index == len(addrs)-1 {
+		return foundedAddr, 0, errors.New("size not available")
+	}
+	return foundedAddr, addrs[index+1] - foundedAddr, nil
 }
 
 func (m *machoFile) getParsedFile() any {

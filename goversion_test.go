@@ -102,6 +102,8 @@ func TestVersionComparer(t *testing.T) {
 }
 
 func TestExtractVersionFromInitSched(t *testing.T) {
+	t.Skip("Gold not contains the unstripped binary")
+
 	r := require.New(t)
 
 	tests := []struct {
