@@ -326,7 +326,11 @@ pkgLoop:
 }
 
 func findGoRootPath(f *GoFile) (string, error) {
-	var goroot string
+	// if DWARF debug info exists, then this can simply be obtained from there
+	if goroot, ok := getGoRootFromDwarf(f.fh); ok {
+		return goroot, nil
+	}
+
 	// There is no GOROOT function may be inlined (after go1.16)
 	// at this time GOROOT is obtained through time_init function
 	goroot, err := tryFromGOROOT(f)

@@ -18,6 +18,7 @@
 package gore
 
 import (
+	"debug/dwarf"
 	"debug/elf"
 	"debug/gosym"
 	"errors"
@@ -113,14 +114,14 @@ func (e *elfFile) moduledataSection() string {
 	return ".noptrdata"
 }
 
-func (e *elfFile) getSectionDataFromOffset(off uint64) (uint64, []byte, error) {
+func (e *elfFile) getSectionDataFromAddress(address uint64) (uint64, []byte, error) {
 	for _, section := range e.file.Sections {
 		if section.Offset == 0 {
 			// Only exist in memory
 			continue
 		}
 
-		if section.Addr <= off && off < (section.Addr+section.Size) {
+		if section.Addr <= address && address < (section.Addr+section.Size) {
 			data, err := section.Data()
 			return section.Addr, data, err
 		}
@@ -177,4 +178,8 @@ func (e *elfFile) getBuildID() (string, error) {
 		return "", fmt.Errorf("error when getting note section: %w", err)
 	}
 	return parseBuildIDFromElf(data, e.file.ByteOrder)
+}
+
+func (e *elfFile) getDwarf() (*dwarf.Data, error) {
+	return e.file.DWARF()
 }

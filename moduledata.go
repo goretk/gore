@@ -24,10 +24,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/goretk/gore/extern"
-	"github.com/goretk/gore/extern/gover"
 	"io"
 	"strconv"
+
+	"github.com/goretk/gore/extern"
+	"github.com/goretk/gore/extern/gover"
 )
 
 // Moduledata holds information about the layout of the executable image in memory.
@@ -168,7 +169,8 @@ func (m moduledata) TypeLink() ModuleDataSection {
 
 // TypeLinkData returns the typelink section.
 func (m moduledata) TypeLinkData() ([]int32, error) {
-	base, data, err := m.fh.getSectionDataFromOffset(m.TypelinkAddr)
+	base, data, err := m.fh.getSectionDataFromAddress(m.TypelinkAddr)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the typelink data section: %w", err)
 	}
@@ -209,7 +211,7 @@ func (m ModuleDataSection) Data() ([]byte, error) {
 	if m.Length == 0 {
 		return []byte{}, nil
 	}
-	base, data, err := m.fh.getSectionDataFromOffset(m.Address)
+	base, data, err := m.fh.getSectionDataFromAddress(m.Address)
 	if err != nil {
 		return nil, fmt.Errorf("getting module data section failed: %w", err)
 	}

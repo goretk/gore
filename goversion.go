@@ -22,10 +22,11 @@ package gore
 import (
 	"bytes"
 	"errors"
+	"regexp"
+
 	"github.com/goretk/gore/extern"
 	"github.com/goretk/gore/extern/gover"
 	"golang.org/x/arch/x86/x86asm"
-	"regexp"
 )
 
 var goVersionMatcher = regexp.MustCompile(`(go[\d+.]*(beta|rc)?[\d*])`)
@@ -65,6 +66,13 @@ func GoVersionCompare(a, b string) int {
 }
 
 func findGoCompilerVersion(f *GoFile) (*GoVersion, error) {
+	// if DWARF debug info exists, then this can simply be obtained from there
+	if gover, ok := getBuildVersionFromDwarf(f.fh); ok {
+		if ver := ResolveGoVersion(gover); ver != nil {
+			return ver, nil
+		}
+	}
+
 	// Try to determine the version based on the schedinit function.
 	if v := tryFromSchedInit(f); v != nil {
 		return v, nil
@@ -119,7 +127,7 @@ func tryFromSchedInit(f *GoFile) *GoVersion {
 		is32 = true
 	}
 
-	// Find shedinit function.
+	// Find schedinit function.
 	var fcn *Function
 	std, err := f.GetSTDLib()
 	if err != nil {
@@ -140,7 +148,7 @@ pkgLoop:
 		}
 	}
 
-	// Check if the functions was found
+	// Check if the function was found
 	if fcn == nil {
 		// If we can't find the function there is nothing to do.
 		return nil

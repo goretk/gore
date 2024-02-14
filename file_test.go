@@ -18,6 +18,7 @@
 package gore
 
 import (
+	"debug/dwarf"
 	"debug/elf"
 	"debug/gosym"
 	"debug/macho"
@@ -171,7 +172,7 @@ func TestSetGoVersion(t *testing.T) {
 }
 
 type mockFileHandler struct {
-	mGetSectionDataFromOffset func(uint64) (uint64, []byte, error)
+	mGetSectionDataFromAddress func(uint64) (uint64, []byte, error)
 }
 
 func (m *mockFileHandler) getFile() *os.File {
@@ -198,8 +199,8 @@ func (m *mockFileHandler) getCodeSection() (uint64, []byte, error) {
 	panic("not implemented")
 }
 
-func (m *mockFileHandler) getSectionDataFromOffset(o uint64) (uint64, []byte, error) {
-	return m.mGetSectionDataFromOffset(o)
+func (m *mockFileHandler) getSectionDataFromAddress(a uint64) (uint64, []byte, error) {
+	return m.mGetSectionDataFromAddress(a)
 }
 
 func (m *mockFileHandler) getSectionData(string) (uint64, []byte, error) {
@@ -222,6 +223,10 @@ func (m *mockFileHandler) getBuildID() (string, error) {
 	panic("not implemented")
 }
 
+func (m *mockFileHandler) getDwarf() (*dwarf.Data, error) {
+	panic("not implemented")
+}
+
 func TestBytes(t *testing.T) {
 	assert := assert.New(t)
 	expectedBase := uint64(0x40000)
@@ -230,7 +235,7 @@ func TestBytes(t *testing.T) {
 	address := uint64(expectedBase + 2)
 	length := uint64(len(expectedBytes))
 	fh := &mockFileHandler{
-		mGetSectionDataFromOffset: func(a uint64) (uint64, []byte, error) {
+		mGetSectionDataFromAddress: func(a uint64) (uint64, []byte, error) {
 			if a > expectedBase+uint64(len(expectedSection)) || a < expectedBase {
 				return 0, nil, errors.New("out of bound")
 			}
@@ -282,5 +287,18 @@ func getData() string {
 func main() {
 	data := getData()
 	data += " | Test"
+}
+`
+
+const nostripSrc = `
+package main
+
+import (
+	"fmt"
+	"runtime"
+)
+
+func main() {
+	fmt.Println(runtime.GOROOT())
 }
 `

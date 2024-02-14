@@ -82,7 +82,7 @@ func getTypes(fileInfo *FileInfo, f fileHandler, md moduledata) (map[uint64]*GoT
 }
 
 func getLegacyTypes(fileInfo *FileInfo, f fileHandler, md moduledata) (map[uint64]*GoType, error) {
-	typelinkAddr, typelinkData, err := f.getSectionDataFromOffset(md.TypelinkAddr)
+	typelinkAddr, typelinkData, err := f.getSectionDataFromAddress(md.TypelinkAddr)
 	if err != nil {
 		return nil, fmt.Errorf("no typelink section found: %w", err)
 	}
@@ -95,15 +95,15 @@ func getLegacyTypes(fileInfo *FileInfo, f fileHandler, md moduledata) (map[uint6
 	goTypes := make(map[uint64]*GoType)
 	for i := uint64(0); i < md.TypelinkLen; i++ {
 		// Type offsets are always *_type
-		off, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
+		address, err := readUIntTo64(r, fileInfo.ByteOrder, fileInfo.WordSize == intSize32)
 		if err != nil {
 			return nil, err
 		}
-		baseAddr, baseData, err := f.getSectionDataFromOffset(off)
+		baseAddr, baseData, err := f.getSectionDataFromAddress(address)
 		if err != nil {
 			continue
 		}
-		typ := typeParse(goTypes, fileInfo, off-baseAddr, baseData, baseAddr)
+		typ := typeParse(goTypes, fileInfo, address-baseAddr, baseData, baseAddr)
 		if typ == nil {
 			continue
 		}
@@ -784,34 +784,34 @@ func parseMethods(r *bytes.Reader, fileInfo *FileInfo, sectionData []byte, secti
 }
 
 func typeOffset(fileInfo *FileInfo, field _typeField) int64 {
-	intSize := intSize64
+	intSize := int64(intSize64)
 	if fileInfo.WordSize == intSize32 {
 		intSize = intSize32
 	}
-	if field == _typeFieldSize {
-		return int64(0)
-	}
 
-	if field == _typeFieldKind {
-		return int64(2*intSize + 4 + 3)
-	}
+	switch field {
+	case _typeFieldSize:
+		return 0
 
-	if field == _typeFieldStr {
-		return int64(4*intSize + 4 + 4)
-	}
+	case _typeFieldKind:
+		return 2*intSize + 4 + 3
 
-	if field == _typeFieldFlag {
-		return int64(2*intSize + 4)
-	}
+	case _typeFieldStr:
+		return 4*intSize + 4 + 4
 
-	if field == _typeFieldEnd {
+	case _typeFieldFlag:
+		return 2*intSize + 4
+
+	case _typeFieldEnd:
 		if GoVersionCompare(fileInfo.goversion.Name, "go1.6beta1") < 0 {
-			return int64(8*intSize + 8)
+			return 8*intSize + 8
 		}
 		if GoVersionCompare(fileInfo.goversion.Name, "go1.7beta1") < 0 {
-			return int64(7*intSize + 8)
+			return 7*intSize + 8
 		}
-		return int64(4*intSize + 16)
+		return 4*intSize + 16
+
+	default:
+		return -1
 	}
-	return int64(-1)
 }
