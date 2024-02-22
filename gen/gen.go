@@ -21,17 +21,23 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"os"
 )
 
+var forceUpdate = flag.Bool("force", false, "force update")
+
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Println("go run ./gen [stdpkgs|goversion|moduledata]")
+	flag.Parse()
+
+	print("forceUpdate: ", *forceUpdate)
+
+	if flag.NArg() < 1 {
+		fmt.Println("go run ./gen [--force] [stdpkgs|goversion|moduledata]")
 		return
 	}
 
-	switch os.Args[1] {
+	switch flag.Arg(0) {
 	case "stdpkgs":
 		generateStdPkgs()
 	case "goversion":

@@ -211,7 +211,7 @@ func (g *moduleDataGenerator) writeSelector() {
 		}
 	}
 	g.writefln("default:")
-	g.writefln(`return nil, fmt.Errorf("unsupported version %%d and bits %%d", v, bits)`)
+	g.writeln(`return nil, fmt.Errorf("unsupported version %d and bits %d", v, bits)`)
 
 	g.writefln("}\n}\n")
 }
@@ -264,6 +264,10 @@ func (g *moduleDataGenerator) write(s string) {
 	_, _ = g.buf.WriteString(s)
 }
 
+func (*moduleDataGenerator) title(s string) string {
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
 func (g *moduleDataGenerator) writeVersionedModuleData(versionCode int, code string) error {
 	expr, err := parser.ParseExpr(code)
 	if err != nil {
@@ -295,17 +299,17 @@ func (g *moduleDataGenerator) writeVersionedModuleData(versionCode int, code str
 
 				switch t := field.Type.(type) {
 				case *ast.StarExpr:
-					g.writefln("%s uint%d", name.Name, bits)
+					g.writefln("%s uint%d", g.title(name.Name), bits)
 				case *ast.ArrayType:
-					g.writefln("%s, %[1]slen, %[1]scap uint%d", name.Name, bits)
+					g.writefln("%s, %[1]slen, %[1]scap uint%d", g.title(name.Name), bits)
 				case *ast.Ident:
 					switch t.Name {
 					case "uintptr":
-						g.writefln("%s uint%d", name.Name, bits)
+						g.writefln("%s uint%d", g.title(name.Name), bits)
 					case "string":
-						g.writefln("%s, %[1]slen uint%d", name.Name, bits)
+						g.writefln("%s, %[1]slen uint%d", g.title(name.Name), bits)
 					case "uint8":
-						g.writefln("%s uint8", name.Name)
+						g.writefln("%s uint8", g.title(name.Name))
 					default:
 						panic(fmt.Sprintf("unhandled type: %+v", t))
 					}
@@ -331,57 +335,57 @@ func (g *moduleDataGenerator) writeVersionedModuleData(versionCode int, code str
 		g.writefln("return moduledata{")
 
 		if exist("text", "etext") {
-			g.writefln("TextAddr: %s,", g.wrapValue("md.text", bits))
-			g.writefln("TextLen: %s,", g.wrapValue("md.etext - md.text", bits))
+			g.writefln("TextAddr: %s,", g.wrapValue("md.Text", bits))
+			g.writefln("TextLen: %s,", g.wrapValue("md.Etext - md.Text", bits))
 		}
 
 		if exist("noptrdata", "enoptrdata") {
-			g.writefln("NoPtrDataAddr: %s,", g.wrapValue("md.noptrdata", bits))
-			g.writefln("NoPtrDataLen: %s,", g.wrapValue("md.enoptrdata - md.noptrdata", bits))
+			g.writefln("NoPtrDataAddr: %s,", g.wrapValue("md.Noptrdata", bits))
+			g.writefln("NoPtrDataLen: %s,", g.wrapValue("md.Enoptrdata - md.Noptrdata", bits))
 		}
 
 		if exist("data", "edata") {
-			g.writefln("DataAddr: %s,", g.wrapValue("md.data", bits))
-			g.writefln("DataLen: %s,", g.wrapValue("md.edata - md.data", bits))
+			g.writefln("DataAddr: %s,", g.wrapValue("md.Data", bits))
+			g.writefln("DataLen: %s,", g.wrapValue("md.Edata - md.Data", bits))
 		}
 
 		if exist("bss", "ebss") {
-			g.writefln("BssAddr: %s,", g.wrapValue("md.bss", bits))
-			g.writefln("BssLen: %s,", g.wrapValue("md.ebss - md.bss", bits))
+			g.writefln("BssAddr: %s,", g.wrapValue("md.Bss", bits))
+			g.writefln("BssLen: %s,", g.wrapValue("md.Ebss - md.Bss", bits))
 		}
 
 		if exist("noptrbss", "enoptrbss") {
-			g.writefln("NoPtrBssAddr: %s,", g.wrapValue("md.noptrbss", bits))
-			g.writefln("NoPtrBssLen: %s,", g.wrapValue("md.enoptrbss - md.noptrbss", bits))
+			g.writefln("NoPtrBssAddr: %s,", g.wrapValue("md.Noptrbss", bits))
+			g.writefln("NoPtrBssLen: %s,", g.wrapValue("md.Enoptrbss - md.Noptrbss", bits))
 		}
 
 		if exist("types", "etypes") {
-			g.writefln("TypesAddr: %s,", g.wrapValue("md.types", bits))
-			g.writefln("TypesLen: %s,", g.wrapValue("md.etypes - md.types", bits))
+			g.writefln("TypesAddr: %s,", g.wrapValue("md.Types", bits))
+			g.writefln("TypesLen: %s,", g.wrapValue("md.Etypes - md.Types", bits))
 		}
 
 		if exist("typelinks") {
-			g.writefln("TypelinkAddr: %s,", g.wrapValue("md.typelinks", bits))
-			g.writefln("TypelinkLen: %s,", g.wrapValue("md.typelinkslen", bits))
+			g.writefln("TypelinkAddr: %s,", g.wrapValue("md.Typelinks", bits))
+			g.writefln("TypelinkLen: %s,", g.wrapValue("md.Typelinkslen", bits))
 		}
 
 		if exist("itablinks") {
-			g.writefln("ITabLinkAddr: %s,", g.wrapValue("md.itablinks", bits))
-			g.writefln("ITabLinkLen: %s,", g.wrapValue("md.itablinkslen", bits))
+			g.writefln("ITabLinkAddr: %s,", g.wrapValue("md.Itablinks", bits))
+			g.writefln("ITabLinkLen: %s,", g.wrapValue("md.Itablinkslen", bits))
 		}
 
 		if exist("ftab") {
-			g.writefln("FuncTabAddr: %s,", g.wrapValue("md.ftab", bits))
-			g.writefln("FuncTabLen: %s,", g.wrapValue("md.ftablen", bits))
+			g.writefln("FuncTabAddr: %s,", g.wrapValue("md.Ftab", bits))
+			g.writefln("FuncTabLen: %s,", g.wrapValue("md.Ftablen", bits))
 		}
 
 		if exist("pclntable") {
-			g.writefln("PCLNTabAddr: %s,", g.wrapValue("md.pclntable", bits))
-			g.writefln("PCLNTabLen: %s,", g.wrapValue("md.pclntablelen", bits))
+			g.writefln("PCLNTabAddr: %s,", g.wrapValue("md.Pclntable", bits))
+			g.writefln("PCLNTabLen: %s,", g.wrapValue("md.Pclntablelen", bits))
 		}
 
 		if exist("gofunc") {
-			g.writefln("GoFuncVal: %s,", g.wrapValue("md.gofunc", bits))
+			g.writefln("GoFuncVal: %s,", g.wrapValue("md.Gofunc", bits))
 		}
 
 		g.writefln("}\n}\n")

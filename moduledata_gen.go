@@ -22,2032 +22,2032 @@ package gore
 import "fmt"
 
 type moduledata_1_22_32 struct {
-	pcHeader                                    uint32
-	funcnametab, funcnametablen, funcnametabcap uint32
-	cutab, cutablen, cutabcap                   uint32
-	filetab, filetablen, filetabcap             uint32
-	pctab, pctablen, pctabcap                   uint32
-	pclntable, pclntablelen, pclntablecap       uint32
-	ftab, ftablen, ftabcap                      uint32
-	findfunctab                                 uint32
-	minpc                                       uint32
-	maxpc                                       uint32
-	text                                        uint32
-	etext                                       uint32
-	noptrdata                                   uint32
-	enoptrdata                                  uint32
-	data                                        uint32
-	edata                                       uint32
-	bss                                         uint32
-	ebss                                        uint32
-	noptrbss                                    uint32
-	enoptrbss                                   uint32
-	covctrs                                     uint32
-	ecovctrs                                    uint32
-	end                                         uint32
-	gcdata                                      uint32
-	gcbss                                       uint32
-	types                                       uint32
-	etypes                                      uint32
-	rodata                                      uint32
-	gofunc                                      uint32
-	textsectmap, textsectmaplen, textsectmapcap uint32
-	typelinks, typelinkslen, typelinkscap       uint32
-	itablinks, itablinkslen, itablinkscap       uint32
-	ptab, ptablen, ptabcap                      uint32
-	pluginpath, pluginpathlen                   uint32
-	pkghashes, pkghasheslen, pkghashescap       uint32
-	inittasks, inittaskslen, inittaskscap       uint32
+	PcHeader                                    uint32
+	Funcnametab, Funcnametablen, Funcnametabcap uint32
+	Cutab, Cutablen, Cutabcap                   uint32
+	Filetab, Filetablen, Filetabcap             uint32
+	Pctab, Pctablen, Pctabcap                   uint32
+	Pclntable, Pclntablelen, Pclntablecap       uint32
+	Ftab, Ftablen, Ftabcap                      uint32
+	Findfunctab                                 uint32
+	Minpc                                       uint32
+	Maxpc                                       uint32
+	Text                                        uint32
+	Etext                                       uint32
+	Noptrdata                                   uint32
+	Enoptrdata                                  uint32
+	Data                                        uint32
+	Edata                                       uint32
+	Bss                                         uint32
+	Ebss                                        uint32
+	Noptrbss                                    uint32
+	Enoptrbss                                   uint32
+	Covctrs                                     uint32
+	Ecovctrs                                    uint32
+	End                                         uint32
+	Gcdata                                      uint32
+	Gcbss                                       uint32
+	Types                                       uint32
+	Etypes                                      uint32
+	Rodata                                      uint32
+	Gofunc                                      uint32
+	Textsectmap, Textsectmaplen, Textsectmapcap uint32
+	Typelinks, Typelinkslen, Typelinkscap       uint32
+	Itablinks, Itablinkslen, Itablinkscap       uint32
+	Ptab, Ptablen, Ptabcap                      uint32
+	Pluginpath, Pluginpathlen                   uint32
+	Pkghashes, Pkghasheslen, Pkghashescap       uint32
+	Inittasks, Inittaskslen, Inittaskscap       uint32
 }
 
 func (md moduledata_1_22_32) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      uint64(md.text),
-		TextLen:       uint64(md.etext - md.text),
-		NoPtrDataAddr: uint64(md.noptrdata),
-		NoPtrDataLen:  uint64(md.enoptrdata - md.noptrdata),
-		DataAddr:      uint64(md.data),
-		DataLen:       uint64(md.edata - md.data),
-		BssAddr:       uint64(md.bss),
-		BssLen:        uint64(md.ebss - md.bss),
-		NoPtrBssAddr:  uint64(md.noptrbss),
-		NoPtrBssLen:   uint64(md.enoptrbss - md.noptrbss),
-		TypesAddr:     uint64(md.types),
-		TypesLen:      uint64(md.etypes - md.types),
-		TypelinkAddr:  uint64(md.typelinks),
-		TypelinkLen:   uint64(md.typelinkslen),
-		ITabLinkAddr:  uint64(md.itablinks),
-		ITabLinkLen:   uint64(md.itablinkslen),
-		FuncTabAddr:   uint64(md.ftab),
-		FuncTabLen:    uint64(md.ftablen),
-		PCLNTabAddr:   uint64(md.pclntable),
-		PCLNTabLen:    uint64(md.pclntablelen),
-		GoFuncVal:     uint64(md.gofunc),
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypesAddr:     uint64(md.Types),
+		TypesLen:      uint64(md.Etypes - md.Types),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		ITabLinkAddr:  uint64(md.Itablinks),
+		ITabLinkLen:   uint64(md.Itablinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
+		GoFuncVal:     uint64(md.Gofunc),
 	}
 }
 
 type moduledata_1_22_64 struct {
-	pcHeader                                    uint64
-	funcnametab, funcnametablen, funcnametabcap uint64
-	cutab, cutablen, cutabcap                   uint64
-	filetab, filetablen, filetabcap             uint64
-	pctab, pctablen, pctabcap                   uint64
-	pclntable, pclntablelen, pclntablecap       uint64
-	ftab, ftablen, ftabcap                      uint64
-	findfunctab                                 uint64
-	minpc                                       uint64
-	maxpc                                       uint64
-	text                                        uint64
-	etext                                       uint64
-	noptrdata                                   uint64
-	enoptrdata                                  uint64
-	data                                        uint64
-	edata                                       uint64
-	bss                                         uint64
-	ebss                                        uint64
-	noptrbss                                    uint64
-	enoptrbss                                   uint64
-	covctrs                                     uint64
-	ecovctrs                                    uint64
-	end                                         uint64
-	gcdata                                      uint64
-	gcbss                                       uint64
-	types                                       uint64
-	etypes                                      uint64
-	rodata                                      uint64
-	gofunc                                      uint64
-	textsectmap, textsectmaplen, textsectmapcap uint64
-	typelinks, typelinkslen, typelinkscap       uint64
-	itablinks, itablinkslen, itablinkscap       uint64
-	ptab, ptablen, ptabcap                      uint64
-	pluginpath, pluginpathlen                   uint64
-	pkghashes, pkghasheslen, pkghashescap       uint64
-	inittasks, inittaskslen, inittaskscap       uint64
+	PcHeader                                    uint64
+	Funcnametab, Funcnametablen, Funcnametabcap uint64
+	Cutab, Cutablen, Cutabcap                   uint64
+	Filetab, Filetablen, Filetabcap             uint64
+	Pctab, Pctablen, Pctabcap                   uint64
+	Pclntable, Pclntablelen, Pclntablecap       uint64
+	Ftab, Ftablen, Ftabcap                      uint64
+	Findfunctab                                 uint64
+	Minpc                                       uint64
+	Maxpc                                       uint64
+	Text                                        uint64
+	Etext                                       uint64
+	Noptrdata                                   uint64
+	Enoptrdata                                  uint64
+	Data                                        uint64
+	Edata                                       uint64
+	Bss                                         uint64
+	Ebss                                        uint64
+	Noptrbss                                    uint64
+	Enoptrbss                                   uint64
+	Covctrs                                     uint64
+	Ecovctrs                                    uint64
+	End                                         uint64
+	Gcdata                                      uint64
+	Gcbss                                       uint64
+	Types                                       uint64
+	Etypes                                      uint64
+	Rodata                                      uint64
+	Gofunc                                      uint64
+	Textsectmap, Textsectmaplen, Textsectmapcap uint64
+	Typelinks, Typelinkslen, Typelinkscap       uint64
+	Itablinks, Itablinkslen, Itablinkscap       uint64
+	Ptab, Ptablen, Ptabcap                      uint64
+	Pluginpath, Pluginpathlen                   uint64
+	Pkghashes, Pkghasheslen, Pkghashescap       uint64
+	Inittasks, Inittaskslen, Inittaskscap       uint64
 }
 
 func (md moduledata_1_22_64) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      md.text,
-		TextLen:       md.etext - md.text,
-		NoPtrDataAddr: md.noptrdata,
-		NoPtrDataLen:  md.enoptrdata - md.noptrdata,
-		DataAddr:      md.data,
-		DataLen:       md.edata - md.data,
-		BssAddr:       md.bss,
-		BssLen:        md.ebss - md.bss,
-		NoPtrBssAddr:  md.noptrbss,
-		NoPtrBssLen:   md.enoptrbss - md.noptrbss,
-		TypesAddr:     md.types,
-		TypesLen:      md.etypes - md.types,
-		TypelinkAddr:  md.typelinks,
-		TypelinkLen:   md.typelinkslen,
-		ITabLinkAddr:  md.itablinks,
-		ITabLinkLen:   md.itablinkslen,
-		FuncTabAddr:   md.ftab,
-		FuncTabLen:    md.ftablen,
-		PCLNTabAddr:   md.pclntable,
-		PCLNTabLen:    md.pclntablelen,
-		GoFuncVal:     md.gofunc,
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypesAddr:     md.Types,
+		TypesLen:      md.Etypes - md.Types,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		ITabLinkAddr:  md.Itablinks,
+		ITabLinkLen:   md.Itablinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
+		GoFuncVal:     md.Gofunc,
 	}
 }
 
 type moduledata_1_21_32 struct {
-	pcHeader                                    uint32
-	funcnametab, funcnametablen, funcnametabcap uint32
-	cutab, cutablen, cutabcap                   uint32
-	filetab, filetablen, filetabcap             uint32
-	pctab, pctablen, pctabcap                   uint32
-	pclntable, pclntablelen, pclntablecap       uint32
-	ftab, ftablen, ftabcap                      uint32
-	findfunctab                                 uint32
-	minpc                                       uint32
-	maxpc                                       uint32
-	text                                        uint32
-	etext                                       uint32
-	noptrdata                                   uint32
-	enoptrdata                                  uint32
-	data                                        uint32
-	edata                                       uint32
-	bss                                         uint32
-	ebss                                        uint32
-	noptrbss                                    uint32
-	enoptrbss                                   uint32
-	covctrs                                     uint32
-	ecovctrs                                    uint32
-	end                                         uint32
-	gcdata                                      uint32
-	gcbss                                       uint32
-	types                                       uint32
-	etypes                                      uint32
-	rodata                                      uint32
-	gofunc                                      uint32
-	textsectmap, textsectmaplen, textsectmapcap uint32
-	typelinks, typelinkslen, typelinkscap       uint32
-	itablinks, itablinkslen, itablinkscap       uint32
-	ptab, ptablen, ptabcap                      uint32
-	pluginpath, pluginpathlen                   uint32
-	pkghashes, pkghasheslen, pkghashescap       uint32
-	inittasks, inittaskslen, inittaskscap       uint32
+	PcHeader                                    uint32
+	Funcnametab, Funcnametablen, Funcnametabcap uint32
+	Cutab, Cutablen, Cutabcap                   uint32
+	Filetab, Filetablen, Filetabcap             uint32
+	Pctab, Pctablen, Pctabcap                   uint32
+	Pclntable, Pclntablelen, Pclntablecap       uint32
+	Ftab, Ftablen, Ftabcap                      uint32
+	Findfunctab                                 uint32
+	Minpc                                       uint32
+	Maxpc                                       uint32
+	Text                                        uint32
+	Etext                                       uint32
+	Noptrdata                                   uint32
+	Enoptrdata                                  uint32
+	Data                                        uint32
+	Edata                                       uint32
+	Bss                                         uint32
+	Ebss                                        uint32
+	Noptrbss                                    uint32
+	Enoptrbss                                   uint32
+	Covctrs                                     uint32
+	Ecovctrs                                    uint32
+	End                                         uint32
+	Gcdata                                      uint32
+	Gcbss                                       uint32
+	Types                                       uint32
+	Etypes                                      uint32
+	Rodata                                      uint32
+	Gofunc                                      uint32
+	Textsectmap, Textsectmaplen, Textsectmapcap uint32
+	Typelinks, Typelinkslen, Typelinkscap       uint32
+	Itablinks, Itablinkslen, Itablinkscap       uint32
+	Ptab, Ptablen, Ptabcap                      uint32
+	Pluginpath, Pluginpathlen                   uint32
+	Pkghashes, Pkghasheslen, Pkghashescap       uint32
+	Inittasks, Inittaskslen, Inittaskscap       uint32
 }
 
 func (md moduledata_1_21_32) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      uint64(md.text),
-		TextLen:       uint64(md.etext - md.text),
-		NoPtrDataAddr: uint64(md.noptrdata),
-		NoPtrDataLen:  uint64(md.enoptrdata - md.noptrdata),
-		DataAddr:      uint64(md.data),
-		DataLen:       uint64(md.edata - md.data),
-		BssAddr:       uint64(md.bss),
-		BssLen:        uint64(md.ebss - md.bss),
-		NoPtrBssAddr:  uint64(md.noptrbss),
-		NoPtrBssLen:   uint64(md.enoptrbss - md.noptrbss),
-		TypesAddr:     uint64(md.types),
-		TypesLen:      uint64(md.etypes - md.types),
-		TypelinkAddr:  uint64(md.typelinks),
-		TypelinkLen:   uint64(md.typelinkslen),
-		ITabLinkAddr:  uint64(md.itablinks),
-		ITabLinkLen:   uint64(md.itablinkslen),
-		FuncTabAddr:   uint64(md.ftab),
-		FuncTabLen:    uint64(md.ftablen),
-		PCLNTabAddr:   uint64(md.pclntable),
-		PCLNTabLen:    uint64(md.pclntablelen),
-		GoFuncVal:     uint64(md.gofunc),
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypesAddr:     uint64(md.Types),
+		TypesLen:      uint64(md.Etypes - md.Types),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		ITabLinkAddr:  uint64(md.Itablinks),
+		ITabLinkLen:   uint64(md.Itablinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
+		GoFuncVal:     uint64(md.Gofunc),
 	}
 }
 
 type moduledata_1_21_64 struct {
-	pcHeader                                    uint64
-	funcnametab, funcnametablen, funcnametabcap uint64
-	cutab, cutablen, cutabcap                   uint64
-	filetab, filetablen, filetabcap             uint64
-	pctab, pctablen, pctabcap                   uint64
-	pclntable, pclntablelen, pclntablecap       uint64
-	ftab, ftablen, ftabcap                      uint64
-	findfunctab                                 uint64
-	minpc                                       uint64
-	maxpc                                       uint64
-	text                                        uint64
-	etext                                       uint64
-	noptrdata                                   uint64
-	enoptrdata                                  uint64
-	data                                        uint64
-	edata                                       uint64
-	bss                                         uint64
-	ebss                                        uint64
-	noptrbss                                    uint64
-	enoptrbss                                   uint64
-	covctrs                                     uint64
-	ecovctrs                                    uint64
-	end                                         uint64
-	gcdata                                      uint64
-	gcbss                                       uint64
-	types                                       uint64
-	etypes                                      uint64
-	rodata                                      uint64
-	gofunc                                      uint64
-	textsectmap, textsectmaplen, textsectmapcap uint64
-	typelinks, typelinkslen, typelinkscap       uint64
-	itablinks, itablinkslen, itablinkscap       uint64
-	ptab, ptablen, ptabcap                      uint64
-	pluginpath, pluginpathlen                   uint64
-	pkghashes, pkghasheslen, pkghashescap       uint64
-	inittasks, inittaskslen, inittaskscap       uint64
+	PcHeader                                    uint64
+	Funcnametab, Funcnametablen, Funcnametabcap uint64
+	Cutab, Cutablen, Cutabcap                   uint64
+	Filetab, Filetablen, Filetabcap             uint64
+	Pctab, Pctablen, Pctabcap                   uint64
+	Pclntable, Pclntablelen, Pclntablecap       uint64
+	Ftab, Ftablen, Ftabcap                      uint64
+	Findfunctab                                 uint64
+	Minpc                                       uint64
+	Maxpc                                       uint64
+	Text                                        uint64
+	Etext                                       uint64
+	Noptrdata                                   uint64
+	Enoptrdata                                  uint64
+	Data                                        uint64
+	Edata                                       uint64
+	Bss                                         uint64
+	Ebss                                        uint64
+	Noptrbss                                    uint64
+	Enoptrbss                                   uint64
+	Covctrs                                     uint64
+	Ecovctrs                                    uint64
+	End                                         uint64
+	Gcdata                                      uint64
+	Gcbss                                       uint64
+	Types                                       uint64
+	Etypes                                      uint64
+	Rodata                                      uint64
+	Gofunc                                      uint64
+	Textsectmap, Textsectmaplen, Textsectmapcap uint64
+	Typelinks, Typelinkslen, Typelinkscap       uint64
+	Itablinks, Itablinkslen, Itablinkscap       uint64
+	Ptab, Ptablen, Ptabcap                      uint64
+	Pluginpath, Pluginpathlen                   uint64
+	Pkghashes, Pkghasheslen, Pkghashescap       uint64
+	Inittasks, Inittaskslen, Inittaskscap       uint64
 }
 
 func (md moduledata_1_21_64) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      md.text,
-		TextLen:       md.etext - md.text,
-		NoPtrDataAddr: md.noptrdata,
-		NoPtrDataLen:  md.enoptrdata - md.noptrdata,
-		DataAddr:      md.data,
-		DataLen:       md.edata - md.data,
-		BssAddr:       md.bss,
-		BssLen:        md.ebss - md.bss,
-		NoPtrBssAddr:  md.noptrbss,
-		NoPtrBssLen:   md.enoptrbss - md.noptrbss,
-		TypesAddr:     md.types,
-		TypesLen:      md.etypes - md.types,
-		TypelinkAddr:  md.typelinks,
-		TypelinkLen:   md.typelinkslen,
-		ITabLinkAddr:  md.itablinks,
-		ITabLinkLen:   md.itablinkslen,
-		FuncTabAddr:   md.ftab,
-		FuncTabLen:    md.ftablen,
-		PCLNTabAddr:   md.pclntable,
-		PCLNTabLen:    md.pclntablelen,
-		GoFuncVal:     md.gofunc,
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypesAddr:     md.Types,
+		TypesLen:      md.Etypes - md.Types,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		ITabLinkAddr:  md.Itablinks,
+		ITabLinkLen:   md.Itablinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
+		GoFuncVal:     md.Gofunc,
 	}
 }
 
 type moduledata_1_20_32 struct {
-	pcHeader                                    uint32
-	funcnametab, funcnametablen, funcnametabcap uint32
-	cutab, cutablen, cutabcap                   uint32
-	filetab, filetablen, filetabcap             uint32
-	pctab, pctablen, pctabcap                   uint32
-	pclntable, pclntablelen, pclntablecap       uint32
-	ftab, ftablen, ftabcap                      uint32
-	findfunctab                                 uint32
-	minpc                                       uint32
-	maxpc                                       uint32
-	text                                        uint32
-	etext                                       uint32
-	noptrdata                                   uint32
-	enoptrdata                                  uint32
-	data                                        uint32
-	edata                                       uint32
-	bss                                         uint32
-	ebss                                        uint32
-	noptrbss                                    uint32
-	enoptrbss                                   uint32
-	covctrs                                     uint32
-	ecovctrs                                    uint32
-	end                                         uint32
-	gcdata                                      uint32
-	gcbss                                       uint32
-	types                                       uint32
-	etypes                                      uint32
-	rodata                                      uint32
-	gofunc                                      uint32
-	textsectmap, textsectmaplen, textsectmapcap uint32
-	typelinks, typelinkslen, typelinkscap       uint32
-	itablinks, itablinkslen, itablinkscap       uint32
-	ptab, ptablen, ptabcap                      uint32
-	pluginpath, pluginpathlen                   uint32
-	pkghashes, pkghasheslen, pkghashescap       uint32
+	PcHeader                                    uint32
+	Funcnametab, Funcnametablen, Funcnametabcap uint32
+	Cutab, Cutablen, Cutabcap                   uint32
+	Filetab, Filetablen, Filetabcap             uint32
+	Pctab, Pctablen, Pctabcap                   uint32
+	Pclntable, Pclntablelen, Pclntablecap       uint32
+	Ftab, Ftablen, Ftabcap                      uint32
+	Findfunctab                                 uint32
+	Minpc                                       uint32
+	Maxpc                                       uint32
+	Text                                        uint32
+	Etext                                       uint32
+	Noptrdata                                   uint32
+	Enoptrdata                                  uint32
+	Data                                        uint32
+	Edata                                       uint32
+	Bss                                         uint32
+	Ebss                                        uint32
+	Noptrbss                                    uint32
+	Enoptrbss                                   uint32
+	Covctrs                                     uint32
+	Ecovctrs                                    uint32
+	End                                         uint32
+	Gcdata                                      uint32
+	Gcbss                                       uint32
+	Types                                       uint32
+	Etypes                                      uint32
+	Rodata                                      uint32
+	Gofunc                                      uint32
+	Textsectmap, Textsectmaplen, Textsectmapcap uint32
+	Typelinks, Typelinkslen, Typelinkscap       uint32
+	Itablinks, Itablinkslen, Itablinkscap       uint32
+	Ptab, Ptablen, Ptabcap                      uint32
+	Pluginpath, Pluginpathlen                   uint32
+	Pkghashes, Pkghasheslen, Pkghashescap       uint32
 }
 
 func (md moduledata_1_20_32) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      uint64(md.text),
-		TextLen:       uint64(md.etext - md.text),
-		NoPtrDataAddr: uint64(md.noptrdata),
-		NoPtrDataLen:  uint64(md.enoptrdata - md.noptrdata),
-		DataAddr:      uint64(md.data),
-		DataLen:       uint64(md.edata - md.data),
-		BssAddr:       uint64(md.bss),
-		BssLen:        uint64(md.ebss - md.bss),
-		NoPtrBssAddr:  uint64(md.noptrbss),
-		NoPtrBssLen:   uint64(md.enoptrbss - md.noptrbss),
-		TypesAddr:     uint64(md.types),
-		TypesLen:      uint64(md.etypes - md.types),
-		TypelinkAddr:  uint64(md.typelinks),
-		TypelinkLen:   uint64(md.typelinkslen),
-		ITabLinkAddr:  uint64(md.itablinks),
-		ITabLinkLen:   uint64(md.itablinkslen),
-		FuncTabAddr:   uint64(md.ftab),
-		FuncTabLen:    uint64(md.ftablen),
-		PCLNTabAddr:   uint64(md.pclntable),
-		PCLNTabLen:    uint64(md.pclntablelen),
-		GoFuncVal:     uint64(md.gofunc),
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypesAddr:     uint64(md.Types),
+		TypesLen:      uint64(md.Etypes - md.Types),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		ITabLinkAddr:  uint64(md.Itablinks),
+		ITabLinkLen:   uint64(md.Itablinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
+		GoFuncVal:     uint64(md.Gofunc),
 	}
 }
 
 type moduledata_1_20_64 struct {
-	pcHeader                                    uint64
-	funcnametab, funcnametablen, funcnametabcap uint64
-	cutab, cutablen, cutabcap                   uint64
-	filetab, filetablen, filetabcap             uint64
-	pctab, pctablen, pctabcap                   uint64
-	pclntable, pclntablelen, pclntablecap       uint64
-	ftab, ftablen, ftabcap                      uint64
-	findfunctab                                 uint64
-	minpc                                       uint64
-	maxpc                                       uint64
-	text                                        uint64
-	etext                                       uint64
-	noptrdata                                   uint64
-	enoptrdata                                  uint64
-	data                                        uint64
-	edata                                       uint64
-	bss                                         uint64
-	ebss                                        uint64
-	noptrbss                                    uint64
-	enoptrbss                                   uint64
-	covctrs                                     uint64
-	ecovctrs                                    uint64
-	end                                         uint64
-	gcdata                                      uint64
-	gcbss                                       uint64
-	types                                       uint64
-	etypes                                      uint64
-	rodata                                      uint64
-	gofunc                                      uint64
-	textsectmap, textsectmaplen, textsectmapcap uint64
-	typelinks, typelinkslen, typelinkscap       uint64
-	itablinks, itablinkslen, itablinkscap       uint64
-	ptab, ptablen, ptabcap                      uint64
-	pluginpath, pluginpathlen                   uint64
-	pkghashes, pkghasheslen, pkghashescap       uint64
+	PcHeader                                    uint64
+	Funcnametab, Funcnametablen, Funcnametabcap uint64
+	Cutab, Cutablen, Cutabcap                   uint64
+	Filetab, Filetablen, Filetabcap             uint64
+	Pctab, Pctablen, Pctabcap                   uint64
+	Pclntable, Pclntablelen, Pclntablecap       uint64
+	Ftab, Ftablen, Ftabcap                      uint64
+	Findfunctab                                 uint64
+	Minpc                                       uint64
+	Maxpc                                       uint64
+	Text                                        uint64
+	Etext                                       uint64
+	Noptrdata                                   uint64
+	Enoptrdata                                  uint64
+	Data                                        uint64
+	Edata                                       uint64
+	Bss                                         uint64
+	Ebss                                        uint64
+	Noptrbss                                    uint64
+	Enoptrbss                                   uint64
+	Covctrs                                     uint64
+	Ecovctrs                                    uint64
+	End                                         uint64
+	Gcdata                                      uint64
+	Gcbss                                       uint64
+	Types                                       uint64
+	Etypes                                      uint64
+	Rodata                                      uint64
+	Gofunc                                      uint64
+	Textsectmap, Textsectmaplen, Textsectmapcap uint64
+	Typelinks, Typelinkslen, Typelinkscap       uint64
+	Itablinks, Itablinkslen, Itablinkscap       uint64
+	Ptab, Ptablen, Ptabcap                      uint64
+	Pluginpath, Pluginpathlen                   uint64
+	Pkghashes, Pkghasheslen, Pkghashescap       uint64
 }
 
 func (md moduledata_1_20_64) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      md.text,
-		TextLen:       md.etext - md.text,
-		NoPtrDataAddr: md.noptrdata,
-		NoPtrDataLen:  md.enoptrdata - md.noptrdata,
-		DataAddr:      md.data,
-		DataLen:       md.edata - md.data,
-		BssAddr:       md.bss,
-		BssLen:        md.ebss - md.bss,
-		NoPtrBssAddr:  md.noptrbss,
-		NoPtrBssLen:   md.enoptrbss - md.noptrbss,
-		TypesAddr:     md.types,
-		TypesLen:      md.etypes - md.types,
-		TypelinkAddr:  md.typelinks,
-		TypelinkLen:   md.typelinkslen,
-		ITabLinkAddr:  md.itablinks,
-		ITabLinkLen:   md.itablinkslen,
-		FuncTabAddr:   md.ftab,
-		FuncTabLen:    md.ftablen,
-		PCLNTabAddr:   md.pclntable,
-		PCLNTabLen:    md.pclntablelen,
-		GoFuncVal:     md.gofunc,
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypesAddr:     md.Types,
+		TypesLen:      md.Etypes - md.Types,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		ITabLinkAddr:  md.Itablinks,
+		ITabLinkLen:   md.Itablinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
+		GoFuncVal:     md.Gofunc,
 	}
 }
 
 type moduledata_1_19_32 struct {
-	pcHeader                                    uint32
-	funcnametab, funcnametablen, funcnametabcap uint32
-	cutab, cutablen, cutabcap                   uint32
-	filetab, filetablen, filetabcap             uint32
-	pctab, pctablen, pctabcap                   uint32
-	pclntable, pclntablelen, pclntablecap       uint32
-	ftab, ftablen, ftabcap                      uint32
-	findfunctab                                 uint32
-	minpc                                       uint32
-	maxpc                                       uint32
-	text                                        uint32
-	etext                                       uint32
-	noptrdata                                   uint32
-	enoptrdata                                  uint32
-	data                                        uint32
-	edata                                       uint32
-	bss                                         uint32
-	ebss                                        uint32
-	noptrbss                                    uint32
-	enoptrbss                                   uint32
-	end                                         uint32
-	gcdata                                      uint32
-	gcbss                                       uint32
-	types                                       uint32
-	etypes                                      uint32
-	rodata                                      uint32
-	gofunc                                      uint32
-	textsectmap, textsectmaplen, textsectmapcap uint32
-	typelinks, typelinkslen, typelinkscap       uint32
-	itablinks, itablinkslen, itablinkscap       uint32
-	ptab, ptablen, ptabcap                      uint32
-	pluginpath, pluginpathlen                   uint32
-	pkghashes, pkghasheslen, pkghashescap       uint32
+	PcHeader                                    uint32
+	Funcnametab, Funcnametablen, Funcnametabcap uint32
+	Cutab, Cutablen, Cutabcap                   uint32
+	Filetab, Filetablen, Filetabcap             uint32
+	Pctab, Pctablen, Pctabcap                   uint32
+	Pclntable, Pclntablelen, Pclntablecap       uint32
+	Ftab, Ftablen, Ftabcap                      uint32
+	Findfunctab                                 uint32
+	Minpc                                       uint32
+	Maxpc                                       uint32
+	Text                                        uint32
+	Etext                                       uint32
+	Noptrdata                                   uint32
+	Enoptrdata                                  uint32
+	Data                                        uint32
+	Edata                                       uint32
+	Bss                                         uint32
+	Ebss                                        uint32
+	Noptrbss                                    uint32
+	Enoptrbss                                   uint32
+	End                                         uint32
+	Gcdata                                      uint32
+	Gcbss                                       uint32
+	Types                                       uint32
+	Etypes                                      uint32
+	Rodata                                      uint32
+	Gofunc                                      uint32
+	Textsectmap, Textsectmaplen, Textsectmapcap uint32
+	Typelinks, Typelinkslen, Typelinkscap       uint32
+	Itablinks, Itablinkslen, Itablinkscap       uint32
+	Ptab, Ptablen, Ptabcap                      uint32
+	Pluginpath, Pluginpathlen                   uint32
+	Pkghashes, Pkghasheslen, Pkghashescap       uint32
 }
 
 func (md moduledata_1_19_32) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      uint64(md.text),
-		TextLen:       uint64(md.etext - md.text),
-		NoPtrDataAddr: uint64(md.noptrdata),
-		NoPtrDataLen:  uint64(md.enoptrdata - md.noptrdata),
-		DataAddr:      uint64(md.data),
-		DataLen:       uint64(md.edata - md.data),
-		BssAddr:       uint64(md.bss),
-		BssLen:        uint64(md.ebss - md.bss),
-		NoPtrBssAddr:  uint64(md.noptrbss),
-		NoPtrBssLen:   uint64(md.enoptrbss - md.noptrbss),
-		TypesAddr:     uint64(md.types),
-		TypesLen:      uint64(md.etypes - md.types),
-		TypelinkAddr:  uint64(md.typelinks),
-		TypelinkLen:   uint64(md.typelinkslen),
-		ITabLinkAddr:  uint64(md.itablinks),
-		ITabLinkLen:   uint64(md.itablinkslen),
-		FuncTabAddr:   uint64(md.ftab),
-		FuncTabLen:    uint64(md.ftablen),
-		PCLNTabAddr:   uint64(md.pclntable),
-		PCLNTabLen:    uint64(md.pclntablelen),
-		GoFuncVal:     uint64(md.gofunc),
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypesAddr:     uint64(md.Types),
+		TypesLen:      uint64(md.Etypes - md.Types),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		ITabLinkAddr:  uint64(md.Itablinks),
+		ITabLinkLen:   uint64(md.Itablinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
+		GoFuncVal:     uint64(md.Gofunc),
 	}
 }
 
 type moduledata_1_19_64 struct {
-	pcHeader                                    uint64
-	funcnametab, funcnametablen, funcnametabcap uint64
-	cutab, cutablen, cutabcap                   uint64
-	filetab, filetablen, filetabcap             uint64
-	pctab, pctablen, pctabcap                   uint64
-	pclntable, pclntablelen, pclntablecap       uint64
-	ftab, ftablen, ftabcap                      uint64
-	findfunctab                                 uint64
-	minpc                                       uint64
-	maxpc                                       uint64
-	text                                        uint64
-	etext                                       uint64
-	noptrdata                                   uint64
-	enoptrdata                                  uint64
-	data                                        uint64
-	edata                                       uint64
-	bss                                         uint64
-	ebss                                        uint64
-	noptrbss                                    uint64
-	enoptrbss                                   uint64
-	end                                         uint64
-	gcdata                                      uint64
-	gcbss                                       uint64
-	types                                       uint64
-	etypes                                      uint64
-	rodata                                      uint64
-	gofunc                                      uint64
-	textsectmap, textsectmaplen, textsectmapcap uint64
-	typelinks, typelinkslen, typelinkscap       uint64
-	itablinks, itablinkslen, itablinkscap       uint64
-	ptab, ptablen, ptabcap                      uint64
-	pluginpath, pluginpathlen                   uint64
-	pkghashes, pkghasheslen, pkghashescap       uint64
+	PcHeader                                    uint64
+	Funcnametab, Funcnametablen, Funcnametabcap uint64
+	Cutab, Cutablen, Cutabcap                   uint64
+	Filetab, Filetablen, Filetabcap             uint64
+	Pctab, Pctablen, Pctabcap                   uint64
+	Pclntable, Pclntablelen, Pclntablecap       uint64
+	Ftab, Ftablen, Ftabcap                      uint64
+	Findfunctab                                 uint64
+	Minpc                                       uint64
+	Maxpc                                       uint64
+	Text                                        uint64
+	Etext                                       uint64
+	Noptrdata                                   uint64
+	Enoptrdata                                  uint64
+	Data                                        uint64
+	Edata                                       uint64
+	Bss                                         uint64
+	Ebss                                        uint64
+	Noptrbss                                    uint64
+	Enoptrbss                                   uint64
+	End                                         uint64
+	Gcdata                                      uint64
+	Gcbss                                       uint64
+	Types                                       uint64
+	Etypes                                      uint64
+	Rodata                                      uint64
+	Gofunc                                      uint64
+	Textsectmap, Textsectmaplen, Textsectmapcap uint64
+	Typelinks, Typelinkslen, Typelinkscap       uint64
+	Itablinks, Itablinkslen, Itablinkscap       uint64
+	Ptab, Ptablen, Ptabcap                      uint64
+	Pluginpath, Pluginpathlen                   uint64
+	Pkghashes, Pkghasheslen, Pkghashescap       uint64
 }
 
 func (md moduledata_1_19_64) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      md.text,
-		TextLen:       md.etext - md.text,
-		NoPtrDataAddr: md.noptrdata,
-		NoPtrDataLen:  md.enoptrdata - md.noptrdata,
-		DataAddr:      md.data,
-		DataLen:       md.edata - md.data,
-		BssAddr:       md.bss,
-		BssLen:        md.ebss - md.bss,
-		NoPtrBssAddr:  md.noptrbss,
-		NoPtrBssLen:   md.enoptrbss - md.noptrbss,
-		TypesAddr:     md.types,
-		TypesLen:      md.etypes - md.types,
-		TypelinkAddr:  md.typelinks,
-		TypelinkLen:   md.typelinkslen,
-		ITabLinkAddr:  md.itablinks,
-		ITabLinkLen:   md.itablinkslen,
-		FuncTabAddr:   md.ftab,
-		FuncTabLen:    md.ftablen,
-		PCLNTabAddr:   md.pclntable,
-		PCLNTabLen:    md.pclntablelen,
-		GoFuncVal:     md.gofunc,
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypesAddr:     md.Types,
+		TypesLen:      md.Etypes - md.Types,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		ITabLinkAddr:  md.Itablinks,
+		ITabLinkLen:   md.Itablinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
+		GoFuncVal:     md.Gofunc,
 	}
 }
 
 type moduledata_1_18_32 struct {
-	pcHeader                                    uint32
-	funcnametab, funcnametablen, funcnametabcap uint32
-	cutab, cutablen, cutabcap                   uint32
-	filetab, filetablen, filetabcap             uint32
-	pctab, pctablen, pctabcap                   uint32
-	pclntable, pclntablelen, pclntablecap       uint32
-	ftab, ftablen, ftabcap                      uint32
-	findfunctab                                 uint32
-	minpc                                       uint32
-	maxpc                                       uint32
-	text                                        uint32
-	etext                                       uint32
-	noptrdata                                   uint32
-	enoptrdata                                  uint32
-	data                                        uint32
-	edata                                       uint32
-	bss                                         uint32
-	ebss                                        uint32
-	noptrbss                                    uint32
-	enoptrbss                                   uint32
-	end                                         uint32
-	gcdata                                      uint32
-	gcbss                                       uint32
-	types                                       uint32
-	etypes                                      uint32
-	rodata                                      uint32
-	gofunc                                      uint32
-	textsectmap, textsectmaplen, textsectmapcap uint32
-	typelinks, typelinkslen, typelinkscap       uint32
-	itablinks, itablinkslen, itablinkscap       uint32
-	ptab, ptablen, ptabcap                      uint32
-	pluginpath, pluginpathlen                   uint32
-	pkghashes, pkghasheslen, pkghashescap       uint32
+	PcHeader                                    uint32
+	Funcnametab, Funcnametablen, Funcnametabcap uint32
+	Cutab, Cutablen, Cutabcap                   uint32
+	Filetab, Filetablen, Filetabcap             uint32
+	Pctab, Pctablen, Pctabcap                   uint32
+	Pclntable, Pclntablelen, Pclntablecap       uint32
+	Ftab, Ftablen, Ftabcap                      uint32
+	Findfunctab                                 uint32
+	Minpc                                       uint32
+	Maxpc                                       uint32
+	Text                                        uint32
+	Etext                                       uint32
+	Noptrdata                                   uint32
+	Enoptrdata                                  uint32
+	Data                                        uint32
+	Edata                                       uint32
+	Bss                                         uint32
+	Ebss                                        uint32
+	Noptrbss                                    uint32
+	Enoptrbss                                   uint32
+	End                                         uint32
+	Gcdata                                      uint32
+	Gcbss                                       uint32
+	Types                                       uint32
+	Etypes                                      uint32
+	Rodata                                      uint32
+	Gofunc                                      uint32
+	Textsectmap, Textsectmaplen, Textsectmapcap uint32
+	Typelinks, Typelinkslen, Typelinkscap       uint32
+	Itablinks, Itablinkslen, Itablinkscap       uint32
+	Ptab, Ptablen, Ptabcap                      uint32
+	Pluginpath, Pluginpathlen                   uint32
+	Pkghashes, Pkghasheslen, Pkghashescap       uint32
 }
 
 func (md moduledata_1_18_32) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      uint64(md.text),
-		TextLen:       uint64(md.etext - md.text),
-		NoPtrDataAddr: uint64(md.noptrdata),
-		NoPtrDataLen:  uint64(md.enoptrdata - md.noptrdata),
-		DataAddr:      uint64(md.data),
-		DataLen:       uint64(md.edata - md.data),
-		BssAddr:       uint64(md.bss),
-		BssLen:        uint64(md.ebss - md.bss),
-		NoPtrBssAddr:  uint64(md.noptrbss),
-		NoPtrBssLen:   uint64(md.enoptrbss - md.noptrbss),
-		TypesAddr:     uint64(md.types),
-		TypesLen:      uint64(md.etypes - md.types),
-		TypelinkAddr:  uint64(md.typelinks),
-		TypelinkLen:   uint64(md.typelinkslen),
-		ITabLinkAddr:  uint64(md.itablinks),
-		ITabLinkLen:   uint64(md.itablinkslen),
-		FuncTabAddr:   uint64(md.ftab),
-		FuncTabLen:    uint64(md.ftablen),
-		PCLNTabAddr:   uint64(md.pclntable),
-		PCLNTabLen:    uint64(md.pclntablelen),
-		GoFuncVal:     uint64(md.gofunc),
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypesAddr:     uint64(md.Types),
+		TypesLen:      uint64(md.Etypes - md.Types),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		ITabLinkAddr:  uint64(md.Itablinks),
+		ITabLinkLen:   uint64(md.Itablinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
+		GoFuncVal:     uint64(md.Gofunc),
 	}
 }
 
 type moduledata_1_18_64 struct {
-	pcHeader                                    uint64
-	funcnametab, funcnametablen, funcnametabcap uint64
-	cutab, cutablen, cutabcap                   uint64
-	filetab, filetablen, filetabcap             uint64
-	pctab, pctablen, pctabcap                   uint64
-	pclntable, pclntablelen, pclntablecap       uint64
-	ftab, ftablen, ftabcap                      uint64
-	findfunctab                                 uint64
-	minpc                                       uint64
-	maxpc                                       uint64
-	text                                        uint64
-	etext                                       uint64
-	noptrdata                                   uint64
-	enoptrdata                                  uint64
-	data                                        uint64
-	edata                                       uint64
-	bss                                         uint64
-	ebss                                        uint64
-	noptrbss                                    uint64
-	enoptrbss                                   uint64
-	end                                         uint64
-	gcdata                                      uint64
-	gcbss                                       uint64
-	types                                       uint64
-	etypes                                      uint64
-	rodata                                      uint64
-	gofunc                                      uint64
-	textsectmap, textsectmaplen, textsectmapcap uint64
-	typelinks, typelinkslen, typelinkscap       uint64
-	itablinks, itablinkslen, itablinkscap       uint64
-	ptab, ptablen, ptabcap                      uint64
-	pluginpath, pluginpathlen                   uint64
-	pkghashes, pkghasheslen, pkghashescap       uint64
+	PcHeader                                    uint64
+	Funcnametab, Funcnametablen, Funcnametabcap uint64
+	Cutab, Cutablen, Cutabcap                   uint64
+	Filetab, Filetablen, Filetabcap             uint64
+	Pctab, Pctablen, Pctabcap                   uint64
+	Pclntable, Pclntablelen, Pclntablecap       uint64
+	Ftab, Ftablen, Ftabcap                      uint64
+	Findfunctab                                 uint64
+	Minpc                                       uint64
+	Maxpc                                       uint64
+	Text                                        uint64
+	Etext                                       uint64
+	Noptrdata                                   uint64
+	Enoptrdata                                  uint64
+	Data                                        uint64
+	Edata                                       uint64
+	Bss                                         uint64
+	Ebss                                        uint64
+	Noptrbss                                    uint64
+	Enoptrbss                                   uint64
+	End                                         uint64
+	Gcdata                                      uint64
+	Gcbss                                       uint64
+	Types                                       uint64
+	Etypes                                      uint64
+	Rodata                                      uint64
+	Gofunc                                      uint64
+	Textsectmap, Textsectmaplen, Textsectmapcap uint64
+	Typelinks, Typelinkslen, Typelinkscap       uint64
+	Itablinks, Itablinkslen, Itablinkscap       uint64
+	Ptab, Ptablen, Ptabcap                      uint64
+	Pluginpath, Pluginpathlen                   uint64
+	Pkghashes, Pkghasheslen, Pkghashescap       uint64
 }
 
 func (md moduledata_1_18_64) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      md.text,
-		TextLen:       md.etext - md.text,
-		NoPtrDataAddr: md.noptrdata,
-		NoPtrDataLen:  md.enoptrdata - md.noptrdata,
-		DataAddr:      md.data,
-		DataLen:       md.edata - md.data,
-		BssAddr:       md.bss,
-		BssLen:        md.ebss - md.bss,
-		NoPtrBssAddr:  md.noptrbss,
-		NoPtrBssLen:   md.enoptrbss - md.noptrbss,
-		TypesAddr:     md.types,
-		TypesLen:      md.etypes - md.types,
-		TypelinkAddr:  md.typelinks,
-		TypelinkLen:   md.typelinkslen,
-		ITabLinkAddr:  md.itablinks,
-		ITabLinkLen:   md.itablinkslen,
-		FuncTabAddr:   md.ftab,
-		FuncTabLen:    md.ftablen,
-		PCLNTabAddr:   md.pclntable,
-		PCLNTabLen:    md.pclntablelen,
-		GoFuncVal:     md.gofunc,
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypesAddr:     md.Types,
+		TypesLen:      md.Etypes - md.Types,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		ITabLinkAddr:  md.Itablinks,
+		ITabLinkLen:   md.Itablinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
+		GoFuncVal:     md.Gofunc,
 	}
 }
 
 type moduledata_1_17_32 struct {
-	pcHeader                                    uint32
-	funcnametab, funcnametablen, funcnametabcap uint32
-	cutab, cutablen, cutabcap                   uint32
-	filetab, filetablen, filetabcap             uint32
-	pctab, pctablen, pctabcap                   uint32
-	pclntable, pclntablelen, pclntablecap       uint32
-	ftab, ftablen, ftabcap                      uint32
-	findfunctab                                 uint32
-	minpc                                       uint32
-	maxpc                                       uint32
-	text                                        uint32
-	etext                                       uint32
-	noptrdata                                   uint32
-	enoptrdata                                  uint32
-	data                                        uint32
-	edata                                       uint32
-	bss                                         uint32
-	ebss                                        uint32
-	noptrbss                                    uint32
-	enoptrbss                                   uint32
-	end                                         uint32
-	gcdata                                      uint32
-	gcbss                                       uint32
-	types                                       uint32
-	etypes                                      uint32
-	textsectmap, textsectmaplen, textsectmapcap uint32
-	typelinks, typelinkslen, typelinkscap       uint32
-	itablinks, itablinkslen, itablinkscap       uint32
-	ptab, ptablen, ptabcap                      uint32
-	pluginpath, pluginpathlen                   uint32
-	pkghashes, pkghasheslen, pkghashescap       uint32
+	PcHeader                                    uint32
+	Funcnametab, Funcnametablen, Funcnametabcap uint32
+	Cutab, Cutablen, Cutabcap                   uint32
+	Filetab, Filetablen, Filetabcap             uint32
+	Pctab, Pctablen, Pctabcap                   uint32
+	Pclntable, Pclntablelen, Pclntablecap       uint32
+	Ftab, Ftablen, Ftabcap                      uint32
+	Findfunctab                                 uint32
+	Minpc                                       uint32
+	Maxpc                                       uint32
+	Text                                        uint32
+	Etext                                       uint32
+	Noptrdata                                   uint32
+	Enoptrdata                                  uint32
+	Data                                        uint32
+	Edata                                       uint32
+	Bss                                         uint32
+	Ebss                                        uint32
+	Noptrbss                                    uint32
+	Enoptrbss                                   uint32
+	End                                         uint32
+	Gcdata                                      uint32
+	Gcbss                                       uint32
+	Types                                       uint32
+	Etypes                                      uint32
+	Textsectmap, Textsectmaplen, Textsectmapcap uint32
+	Typelinks, Typelinkslen, Typelinkscap       uint32
+	Itablinks, Itablinkslen, Itablinkscap       uint32
+	Ptab, Ptablen, Ptabcap                      uint32
+	Pluginpath, Pluginpathlen                   uint32
+	Pkghashes, Pkghasheslen, Pkghashescap       uint32
 }
 
 func (md moduledata_1_17_32) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      uint64(md.text),
-		TextLen:       uint64(md.etext - md.text),
-		NoPtrDataAddr: uint64(md.noptrdata),
-		NoPtrDataLen:  uint64(md.enoptrdata - md.noptrdata),
-		DataAddr:      uint64(md.data),
-		DataLen:       uint64(md.edata - md.data),
-		BssAddr:       uint64(md.bss),
-		BssLen:        uint64(md.ebss - md.bss),
-		NoPtrBssAddr:  uint64(md.noptrbss),
-		NoPtrBssLen:   uint64(md.enoptrbss - md.noptrbss),
-		TypesAddr:     uint64(md.types),
-		TypesLen:      uint64(md.etypes - md.types),
-		TypelinkAddr:  uint64(md.typelinks),
-		TypelinkLen:   uint64(md.typelinkslen),
-		ITabLinkAddr:  uint64(md.itablinks),
-		ITabLinkLen:   uint64(md.itablinkslen),
-		FuncTabAddr:   uint64(md.ftab),
-		FuncTabLen:    uint64(md.ftablen),
-		PCLNTabAddr:   uint64(md.pclntable),
-		PCLNTabLen:    uint64(md.pclntablelen),
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypesAddr:     uint64(md.Types),
+		TypesLen:      uint64(md.Etypes - md.Types),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		ITabLinkAddr:  uint64(md.Itablinks),
+		ITabLinkLen:   uint64(md.Itablinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
 	}
 }
 
 type moduledata_1_17_64 struct {
-	pcHeader                                    uint64
-	funcnametab, funcnametablen, funcnametabcap uint64
-	cutab, cutablen, cutabcap                   uint64
-	filetab, filetablen, filetabcap             uint64
-	pctab, pctablen, pctabcap                   uint64
-	pclntable, pclntablelen, pclntablecap       uint64
-	ftab, ftablen, ftabcap                      uint64
-	findfunctab                                 uint64
-	minpc                                       uint64
-	maxpc                                       uint64
-	text                                        uint64
-	etext                                       uint64
-	noptrdata                                   uint64
-	enoptrdata                                  uint64
-	data                                        uint64
-	edata                                       uint64
-	bss                                         uint64
-	ebss                                        uint64
-	noptrbss                                    uint64
-	enoptrbss                                   uint64
-	end                                         uint64
-	gcdata                                      uint64
-	gcbss                                       uint64
-	types                                       uint64
-	etypes                                      uint64
-	textsectmap, textsectmaplen, textsectmapcap uint64
-	typelinks, typelinkslen, typelinkscap       uint64
-	itablinks, itablinkslen, itablinkscap       uint64
-	ptab, ptablen, ptabcap                      uint64
-	pluginpath, pluginpathlen                   uint64
-	pkghashes, pkghasheslen, pkghashescap       uint64
+	PcHeader                                    uint64
+	Funcnametab, Funcnametablen, Funcnametabcap uint64
+	Cutab, Cutablen, Cutabcap                   uint64
+	Filetab, Filetablen, Filetabcap             uint64
+	Pctab, Pctablen, Pctabcap                   uint64
+	Pclntable, Pclntablelen, Pclntablecap       uint64
+	Ftab, Ftablen, Ftabcap                      uint64
+	Findfunctab                                 uint64
+	Minpc                                       uint64
+	Maxpc                                       uint64
+	Text                                        uint64
+	Etext                                       uint64
+	Noptrdata                                   uint64
+	Enoptrdata                                  uint64
+	Data                                        uint64
+	Edata                                       uint64
+	Bss                                         uint64
+	Ebss                                        uint64
+	Noptrbss                                    uint64
+	Enoptrbss                                   uint64
+	End                                         uint64
+	Gcdata                                      uint64
+	Gcbss                                       uint64
+	Types                                       uint64
+	Etypes                                      uint64
+	Textsectmap, Textsectmaplen, Textsectmapcap uint64
+	Typelinks, Typelinkslen, Typelinkscap       uint64
+	Itablinks, Itablinkslen, Itablinkscap       uint64
+	Ptab, Ptablen, Ptabcap                      uint64
+	Pluginpath, Pluginpathlen                   uint64
+	Pkghashes, Pkghasheslen, Pkghashescap       uint64
 }
 
 func (md moduledata_1_17_64) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      md.text,
-		TextLen:       md.etext - md.text,
-		NoPtrDataAddr: md.noptrdata,
-		NoPtrDataLen:  md.enoptrdata - md.noptrdata,
-		DataAddr:      md.data,
-		DataLen:       md.edata - md.data,
-		BssAddr:       md.bss,
-		BssLen:        md.ebss - md.bss,
-		NoPtrBssAddr:  md.noptrbss,
-		NoPtrBssLen:   md.enoptrbss - md.noptrbss,
-		TypesAddr:     md.types,
-		TypesLen:      md.etypes - md.types,
-		TypelinkAddr:  md.typelinks,
-		TypelinkLen:   md.typelinkslen,
-		ITabLinkAddr:  md.itablinks,
-		ITabLinkLen:   md.itablinkslen,
-		FuncTabAddr:   md.ftab,
-		FuncTabLen:    md.ftablen,
-		PCLNTabAddr:   md.pclntable,
-		PCLNTabLen:    md.pclntablelen,
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypesAddr:     md.Types,
+		TypesLen:      md.Etypes - md.Types,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		ITabLinkAddr:  md.Itablinks,
+		ITabLinkLen:   md.Itablinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
 	}
 }
 
 type moduledata_1_16_32 struct {
-	pcHeader                                    uint32
-	funcnametab, funcnametablen, funcnametabcap uint32
-	cutab, cutablen, cutabcap                   uint32
-	filetab, filetablen, filetabcap             uint32
-	pctab, pctablen, pctabcap                   uint32
-	pclntable, pclntablelen, pclntablecap       uint32
-	ftab, ftablen, ftabcap                      uint32
-	findfunctab                                 uint32
-	minpc                                       uint32
-	maxpc                                       uint32
-	text                                        uint32
-	etext                                       uint32
-	noptrdata                                   uint32
-	enoptrdata                                  uint32
-	data                                        uint32
-	edata                                       uint32
-	bss                                         uint32
-	ebss                                        uint32
-	noptrbss                                    uint32
-	enoptrbss                                   uint32
-	end                                         uint32
-	gcdata                                      uint32
-	gcbss                                       uint32
-	types                                       uint32
-	etypes                                      uint32
-	textsectmap, textsectmaplen, textsectmapcap uint32
-	typelinks, typelinkslen, typelinkscap       uint32
-	itablinks, itablinkslen, itablinkscap       uint32
-	ptab, ptablen, ptabcap                      uint32
-	pluginpath, pluginpathlen                   uint32
-	pkghashes, pkghasheslen, pkghashescap       uint32
+	PcHeader                                    uint32
+	Funcnametab, Funcnametablen, Funcnametabcap uint32
+	Cutab, Cutablen, Cutabcap                   uint32
+	Filetab, Filetablen, Filetabcap             uint32
+	Pctab, Pctablen, Pctabcap                   uint32
+	Pclntable, Pclntablelen, Pclntablecap       uint32
+	Ftab, Ftablen, Ftabcap                      uint32
+	Findfunctab                                 uint32
+	Minpc                                       uint32
+	Maxpc                                       uint32
+	Text                                        uint32
+	Etext                                       uint32
+	Noptrdata                                   uint32
+	Enoptrdata                                  uint32
+	Data                                        uint32
+	Edata                                       uint32
+	Bss                                         uint32
+	Ebss                                        uint32
+	Noptrbss                                    uint32
+	Enoptrbss                                   uint32
+	End                                         uint32
+	Gcdata                                      uint32
+	Gcbss                                       uint32
+	Types                                       uint32
+	Etypes                                      uint32
+	Textsectmap, Textsectmaplen, Textsectmapcap uint32
+	Typelinks, Typelinkslen, Typelinkscap       uint32
+	Itablinks, Itablinkslen, Itablinkscap       uint32
+	Ptab, Ptablen, Ptabcap                      uint32
+	Pluginpath, Pluginpathlen                   uint32
+	Pkghashes, Pkghasheslen, Pkghashescap       uint32
 }
 
 func (md moduledata_1_16_32) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      uint64(md.text),
-		TextLen:       uint64(md.etext - md.text),
-		NoPtrDataAddr: uint64(md.noptrdata),
-		NoPtrDataLen:  uint64(md.enoptrdata - md.noptrdata),
-		DataAddr:      uint64(md.data),
-		DataLen:       uint64(md.edata - md.data),
-		BssAddr:       uint64(md.bss),
-		BssLen:        uint64(md.ebss - md.bss),
-		NoPtrBssAddr:  uint64(md.noptrbss),
-		NoPtrBssLen:   uint64(md.enoptrbss - md.noptrbss),
-		TypesAddr:     uint64(md.types),
-		TypesLen:      uint64(md.etypes - md.types),
-		TypelinkAddr:  uint64(md.typelinks),
-		TypelinkLen:   uint64(md.typelinkslen),
-		ITabLinkAddr:  uint64(md.itablinks),
-		ITabLinkLen:   uint64(md.itablinkslen),
-		FuncTabAddr:   uint64(md.ftab),
-		FuncTabLen:    uint64(md.ftablen),
-		PCLNTabAddr:   uint64(md.pclntable),
-		PCLNTabLen:    uint64(md.pclntablelen),
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypesAddr:     uint64(md.Types),
+		TypesLen:      uint64(md.Etypes - md.Types),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		ITabLinkAddr:  uint64(md.Itablinks),
+		ITabLinkLen:   uint64(md.Itablinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
 	}
 }
 
 type moduledata_1_16_64 struct {
-	pcHeader                                    uint64
-	funcnametab, funcnametablen, funcnametabcap uint64
-	cutab, cutablen, cutabcap                   uint64
-	filetab, filetablen, filetabcap             uint64
-	pctab, pctablen, pctabcap                   uint64
-	pclntable, pclntablelen, pclntablecap       uint64
-	ftab, ftablen, ftabcap                      uint64
-	findfunctab                                 uint64
-	minpc                                       uint64
-	maxpc                                       uint64
-	text                                        uint64
-	etext                                       uint64
-	noptrdata                                   uint64
-	enoptrdata                                  uint64
-	data                                        uint64
-	edata                                       uint64
-	bss                                         uint64
-	ebss                                        uint64
-	noptrbss                                    uint64
-	enoptrbss                                   uint64
-	end                                         uint64
-	gcdata                                      uint64
-	gcbss                                       uint64
-	types                                       uint64
-	etypes                                      uint64
-	textsectmap, textsectmaplen, textsectmapcap uint64
-	typelinks, typelinkslen, typelinkscap       uint64
-	itablinks, itablinkslen, itablinkscap       uint64
-	ptab, ptablen, ptabcap                      uint64
-	pluginpath, pluginpathlen                   uint64
-	pkghashes, pkghasheslen, pkghashescap       uint64
+	PcHeader                                    uint64
+	Funcnametab, Funcnametablen, Funcnametabcap uint64
+	Cutab, Cutablen, Cutabcap                   uint64
+	Filetab, Filetablen, Filetabcap             uint64
+	Pctab, Pctablen, Pctabcap                   uint64
+	Pclntable, Pclntablelen, Pclntablecap       uint64
+	Ftab, Ftablen, Ftabcap                      uint64
+	Findfunctab                                 uint64
+	Minpc                                       uint64
+	Maxpc                                       uint64
+	Text                                        uint64
+	Etext                                       uint64
+	Noptrdata                                   uint64
+	Enoptrdata                                  uint64
+	Data                                        uint64
+	Edata                                       uint64
+	Bss                                         uint64
+	Ebss                                        uint64
+	Noptrbss                                    uint64
+	Enoptrbss                                   uint64
+	End                                         uint64
+	Gcdata                                      uint64
+	Gcbss                                       uint64
+	Types                                       uint64
+	Etypes                                      uint64
+	Textsectmap, Textsectmaplen, Textsectmapcap uint64
+	Typelinks, Typelinkslen, Typelinkscap       uint64
+	Itablinks, Itablinkslen, Itablinkscap       uint64
+	Ptab, Ptablen, Ptabcap                      uint64
+	Pluginpath, Pluginpathlen                   uint64
+	Pkghashes, Pkghasheslen, Pkghashescap       uint64
 }
 
 func (md moduledata_1_16_64) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      md.text,
-		TextLen:       md.etext - md.text,
-		NoPtrDataAddr: md.noptrdata,
-		NoPtrDataLen:  md.enoptrdata - md.noptrdata,
-		DataAddr:      md.data,
-		DataLen:       md.edata - md.data,
-		BssAddr:       md.bss,
-		BssLen:        md.ebss - md.bss,
-		NoPtrBssAddr:  md.noptrbss,
-		NoPtrBssLen:   md.enoptrbss - md.noptrbss,
-		TypesAddr:     md.types,
-		TypesLen:      md.etypes - md.types,
-		TypelinkAddr:  md.typelinks,
-		TypelinkLen:   md.typelinkslen,
-		ITabLinkAddr:  md.itablinks,
-		ITabLinkLen:   md.itablinkslen,
-		FuncTabAddr:   md.ftab,
-		FuncTabLen:    md.ftablen,
-		PCLNTabAddr:   md.pclntable,
-		PCLNTabLen:    md.pclntablelen,
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypesAddr:     md.Types,
+		TypesLen:      md.Etypes - md.Types,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		ITabLinkAddr:  md.Itablinks,
+		ITabLinkLen:   md.Itablinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
 	}
 }
 
 type moduledata_1_15_32 struct {
-	pclntable, pclntablelen, pclntablecap       uint32
-	ftab, ftablen, ftabcap                      uint32
-	filetab, filetablen, filetabcap             uint32
-	findfunctab                                 uint32
-	minpc                                       uint32
-	maxpc                                       uint32
-	text                                        uint32
-	etext                                       uint32
-	noptrdata                                   uint32
-	enoptrdata                                  uint32
-	data                                        uint32
-	edata                                       uint32
-	bss                                         uint32
-	ebss                                        uint32
-	noptrbss                                    uint32
-	enoptrbss                                   uint32
-	end                                         uint32
-	gcdata                                      uint32
-	gcbss                                       uint32
-	types                                       uint32
-	etypes                                      uint32
-	textsectmap, textsectmaplen, textsectmapcap uint32
-	typelinks, typelinkslen, typelinkscap       uint32
-	itablinks, itablinkslen, itablinkscap       uint32
-	ptab, ptablen, ptabcap                      uint32
-	pluginpath, pluginpathlen                   uint32
-	pkghashes, pkghasheslen, pkghashescap       uint32
+	Pclntable, Pclntablelen, Pclntablecap       uint32
+	Ftab, Ftablen, Ftabcap                      uint32
+	Filetab, Filetablen, Filetabcap             uint32
+	Findfunctab                                 uint32
+	Minpc                                       uint32
+	Maxpc                                       uint32
+	Text                                        uint32
+	Etext                                       uint32
+	Noptrdata                                   uint32
+	Enoptrdata                                  uint32
+	Data                                        uint32
+	Edata                                       uint32
+	Bss                                         uint32
+	Ebss                                        uint32
+	Noptrbss                                    uint32
+	Enoptrbss                                   uint32
+	End                                         uint32
+	Gcdata                                      uint32
+	Gcbss                                       uint32
+	Types                                       uint32
+	Etypes                                      uint32
+	Textsectmap, Textsectmaplen, Textsectmapcap uint32
+	Typelinks, Typelinkslen, Typelinkscap       uint32
+	Itablinks, Itablinkslen, Itablinkscap       uint32
+	Ptab, Ptablen, Ptabcap                      uint32
+	Pluginpath, Pluginpathlen                   uint32
+	Pkghashes, Pkghasheslen, Pkghashescap       uint32
 }
 
 func (md moduledata_1_15_32) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      uint64(md.text),
-		TextLen:       uint64(md.etext - md.text),
-		NoPtrDataAddr: uint64(md.noptrdata),
-		NoPtrDataLen:  uint64(md.enoptrdata - md.noptrdata),
-		DataAddr:      uint64(md.data),
-		DataLen:       uint64(md.edata - md.data),
-		BssAddr:       uint64(md.bss),
-		BssLen:        uint64(md.ebss - md.bss),
-		NoPtrBssAddr:  uint64(md.noptrbss),
-		NoPtrBssLen:   uint64(md.enoptrbss - md.noptrbss),
-		TypesAddr:     uint64(md.types),
-		TypesLen:      uint64(md.etypes - md.types),
-		TypelinkAddr:  uint64(md.typelinks),
-		TypelinkLen:   uint64(md.typelinkslen),
-		ITabLinkAddr:  uint64(md.itablinks),
-		ITabLinkLen:   uint64(md.itablinkslen),
-		FuncTabAddr:   uint64(md.ftab),
-		FuncTabLen:    uint64(md.ftablen),
-		PCLNTabAddr:   uint64(md.pclntable),
-		PCLNTabLen:    uint64(md.pclntablelen),
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypesAddr:     uint64(md.Types),
+		TypesLen:      uint64(md.Etypes - md.Types),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		ITabLinkAddr:  uint64(md.Itablinks),
+		ITabLinkLen:   uint64(md.Itablinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
 	}
 }
 
 type moduledata_1_15_64 struct {
-	pclntable, pclntablelen, pclntablecap       uint64
-	ftab, ftablen, ftabcap                      uint64
-	filetab, filetablen, filetabcap             uint64
-	findfunctab                                 uint64
-	minpc                                       uint64
-	maxpc                                       uint64
-	text                                        uint64
-	etext                                       uint64
-	noptrdata                                   uint64
-	enoptrdata                                  uint64
-	data                                        uint64
-	edata                                       uint64
-	bss                                         uint64
-	ebss                                        uint64
-	noptrbss                                    uint64
-	enoptrbss                                   uint64
-	end                                         uint64
-	gcdata                                      uint64
-	gcbss                                       uint64
-	types                                       uint64
-	etypes                                      uint64
-	textsectmap, textsectmaplen, textsectmapcap uint64
-	typelinks, typelinkslen, typelinkscap       uint64
-	itablinks, itablinkslen, itablinkscap       uint64
-	ptab, ptablen, ptabcap                      uint64
-	pluginpath, pluginpathlen                   uint64
-	pkghashes, pkghasheslen, pkghashescap       uint64
+	Pclntable, Pclntablelen, Pclntablecap       uint64
+	Ftab, Ftablen, Ftabcap                      uint64
+	Filetab, Filetablen, Filetabcap             uint64
+	Findfunctab                                 uint64
+	Minpc                                       uint64
+	Maxpc                                       uint64
+	Text                                        uint64
+	Etext                                       uint64
+	Noptrdata                                   uint64
+	Enoptrdata                                  uint64
+	Data                                        uint64
+	Edata                                       uint64
+	Bss                                         uint64
+	Ebss                                        uint64
+	Noptrbss                                    uint64
+	Enoptrbss                                   uint64
+	End                                         uint64
+	Gcdata                                      uint64
+	Gcbss                                       uint64
+	Types                                       uint64
+	Etypes                                      uint64
+	Textsectmap, Textsectmaplen, Textsectmapcap uint64
+	Typelinks, Typelinkslen, Typelinkscap       uint64
+	Itablinks, Itablinkslen, Itablinkscap       uint64
+	Ptab, Ptablen, Ptabcap                      uint64
+	Pluginpath, Pluginpathlen                   uint64
+	Pkghashes, Pkghasheslen, Pkghashescap       uint64
 }
 
 func (md moduledata_1_15_64) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      md.text,
-		TextLen:       md.etext - md.text,
-		NoPtrDataAddr: md.noptrdata,
-		NoPtrDataLen:  md.enoptrdata - md.noptrdata,
-		DataAddr:      md.data,
-		DataLen:       md.edata - md.data,
-		BssAddr:       md.bss,
-		BssLen:        md.ebss - md.bss,
-		NoPtrBssAddr:  md.noptrbss,
-		NoPtrBssLen:   md.enoptrbss - md.noptrbss,
-		TypesAddr:     md.types,
-		TypesLen:      md.etypes - md.types,
-		TypelinkAddr:  md.typelinks,
-		TypelinkLen:   md.typelinkslen,
-		ITabLinkAddr:  md.itablinks,
-		ITabLinkLen:   md.itablinkslen,
-		FuncTabAddr:   md.ftab,
-		FuncTabLen:    md.ftablen,
-		PCLNTabAddr:   md.pclntable,
-		PCLNTabLen:    md.pclntablelen,
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypesAddr:     md.Types,
+		TypesLen:      md.Etypes - md.Types,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		ITabLinkAddr:  md.Itablinks,
+		ITabLinkLen:   md.Itablinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
 	}
 }
 
 type moduledata_1_14_32 struct {
-	pclntable, pclntablelen, pclntablecap       uint32
-	ftab, ftablen, ftabcap                      uint32
-	filetab, filetablen, filetabcap             uint32
-	findfunctab                                 uint32
-	minpc                                       uint32
-	maxpc                                       uint32
-	text                                        uint32
-	etext                                       uint32
-	noptrdata                                   uint32
-	enoptrdata                                  uint32
-	data                                        uint32
-	edata                                       uint32
-	bss                                         uint32
-	ebss                                        uint32
-	noptrbss                                    uint32
-	enoptrbss                                   uint32
-	end                                         uint32
-	gcdata                                      uint32
-	gcbss                                       uint32
-	types                                       uint32
-	etypes                                      uint32
-	textsectmap, textsectmaplen, textsectmapcap uint32
-	typelinks, typelinkslen, typelinkscap       uint32
-	itablinks, itablinkslen, itablinkscap       uint32
-	ptab, ptablen, ptabcap                      uint32
-	pluginpath, pluginpathlen                   uint32
-	pkghashes, pkghasheslen, pkghashescap       uint32
+	Pclntable, Pclntablelen, Pclntablecap       uint32
+	Ftab, Ftablen, Ftabcap                      uint32
+	Filetab, Filetablen, Filetabcap             uint32
+	Findfunctab                                 uint32
+	Minpc                                       uint32
+	Maxpc                                       uint32
+	Text                                        uint32
+	Etext                                       uint32
+	Noptrdata                                   uint32
+	Enoptrdata                                  uint32
+	Data                                        uint32
+	Edata                                       uint32
+	Bss                                         uint32
+	Ebss                                        uint32
+	Noptrbss                                    uint32
+	Enoptrbss                                   uint32
+	End                                         uint32
+	Gcdata                                      uint32
+	Gcbss                                       uint32
+	Types                                       uint32
+	Etypes                                      uint32
+	Textsectmap, Textsectmaplen, Textsectmapcap uint32
+	Typelinks, Typelinkslen, Typelinkscap       uint32
+	Itablinks, Itablinkslen, Itablinkscap       uint32
+	Ptab, Ptablen, Ptabcap                      uint32
+	Pluginpath, Pluginpathlen                   uint32
+	Pkghashes, Pkghasheslen, Pkghashescap       uint32
 }
 
 func (md moduledata_1_14_32) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      uint64(md.text),
-		TextLen:       uint64(md.etext - md.text),
-		NoPtrDataAddr: uint64(md.noptrdata),
-		NoPtrDataLen:  uint64(md.enoptrdata - md.noptrdata),
-		DataAddr:      uint64(md.data),
-		DataLen:       uint64(md.edata - md.data),
-		BssAddr:       uint64(md.bss),
-		BssLen:        uint64(md.ebss - md.bss),
-		NoPtrBssAddr:  uint64(md.noptrbss),
-		NoPtrBssLen:   uint64(md.enoptrbss - md.noptrbss),
-		TypesAddr:     uint64(md.types),
-		TypesLen:      uint64(md.etypes - md.types),
-		TypelinkAddr:  uint64(md.typelinks),
-		TypelinkLen:   uint64(md.typelinkslen),
-		ITabLinkAddr:  uint64(md.itablinks),
-		ITabLinkLen:   uint64(md.itablinkslen),
-		FuncTabAddr:   uint64(md.ftab),
-		FuncTabLen:    uint64(md.ftablen),
-		PCLNTabAddr:   uint64(md.pclntable),
-		PCLNTabLen:    uint64(md.pclntablelen),
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypesAddr:     uint64(md.Types),
+		TypesLen:      uint64(md.Etypes - md.Types),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		ITabLinkAddr:  uint64(md.Itablinks),
+		ITabLinkLen:   uint64(md.Itablinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
 	}
 }
 
 type moduledata_1_14_64 struct {
-	pclntable, pclntablelen, pclntablecap       uint64
-	ftab, ftablen, ftabcap                      uint64
-	filetab, filetablen, filetabcap             uint64
-	findfunctab                                 uint64
-	minpc                                       uint64
-	maxpc                                       uint64
-	text                                        uint64
-	etext                                       uint64
-	noptrdata                                   uint64
-	enoptrdata                                  uint64
-	data                                        uint64
-	edata                                       uint64
-	bss                                         uint64
-	ebss                                        uint64
-	noptrbss                                    uint64
-	enoptrbss                                   uint64
-	end                                         uint64
-	gcdata                                      uint64
-	gcbss                                       uint64
-	types                                       uint64
-	etypes                                      uint64
-	textsectmap, textsectmaplen, textsectmapcap uint64
-	typelinks, typelinkslen, typelinkscap       uint64
-	itablinks, itablinkslen, itablinkscap       uint64
-	ptab, ptablen, ptabcap                      uint64
-	pluginpath, pluginpathlen                   uint64
-	pkghashes, pkghasheslen, pkghashescap       uint64
+	Pclntable, Pclntablelen, Pclntablecap       uint64
+	Ftab, Ftablen, Ftabcap                      uint64
+	Filetab, Filetablen, Filetabcap             uint64
+	Findfunctab                                 uint64
+	Minpc                                       uint64
+	Maxpc                                       uint64
+	Text                                        uint64
+	Etext                                       uint64
+	Noptrdata                                   uint64
+	Enoptrdata                                  uint64
+	Data                                        uint64
+	Edata                                       uint64
+	Bss                                         uint64
+	Ebss                                        uint64
+	Noptrbss                                    uint64
+	Enoptrbss                                   uint64
+	End                                         uint64
+	Gcdata                                      uint64
+	Gcbss                                       uint64
+	Types                                       uint64
+	Etypes                                      uint64
+	Textsectmap, Textsectmaplen, Textsectmapcap uint64
+	Typelinks, Typelinkslen, Typelinkscap       uint64
+	Itablinks, Itablinkslen, Itablinkscap       uint64
+	Ptab, Ptablen, Ptabcap                      uint64
+	Pluginpath, Pluginpathlen                   uint64
+	Pkghashes, Pkghasheslen, Pkghashescap       uint64
 }
 
 func (md moduledata_1_14_64) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      md.text,
-		TextLen:       md.etext - md.text,
-		NoPtrDataAddr: md.noptrdata,
-		NoPtrDataLen:  md.enoptrdata - md.noptrdata,
-		DataAddr:      md.data,
-		DataLen:       md.edata - md.data,
-		BssAddr:       md.bss,
-		BssLen:        md.ebss - md.bss,
-		NoPtrBssAddr:  md.noptrbss,
-		NoPtrBssLen:   md.enoptrbss - md.noptrbss,
-		TypesAddr:     md.types,
-		TypesLen:      md.etypes - md.types,
-		TypelinkAddr:  md.typelinks,
-		TypelinkLen:   md.typelinkslen,
-		ITabLinkAddr:  md.itablinks,
-		ITabLinkLen:   md.itablinkslen,
-		FuncTabAddr:   md.ftab,
-		FuncTabLen:    md.ftablen,
-		PCLNTabAddr:   md.pclntable,
-		PCLNTabLen:    md.pclntablelen,
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypesAddr:     md.Types,
+		TypesLen:      md.Etypes - md.Types,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		ITabLinkAddr:  md.Itablinks,
+		ITabLinkLen:   md.Itablinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
 	}
 }
 
 type moduledata_1_13_32 struct {
-	pclntable, pclntablelen, pclntablecap       uint32
-	ftab, ftablen, ftabcap                      uint32
-	filetab, filetablen, filetabcap             uint32
-	findfunctab                                 uint32
-	minpc                                       uint32
-	maxpc                                       uint32
-	text                                        uint32
-	etext                                       uint32
-	noptrdata                                   uint32
-	enoptrdata                                  uint32
-	data                                        uint32
-	edata                                       uint32
-	bss                                         uint32
-	ebss                                        uint32
-	noptrbss                                    uint32
-	enoptrbss                                   uint32
-	end                                         uint32
-	gcdata                                      uint32
-	gcbss                                       uint32
-	types                                       uint32
-	etypes                                      uint32
-	textsectmap, textsectmaplen, textsectmapcap uint32
-	typelinks, typelinkslen, typelinkscap       uint32
-	itablinks, itablinkslen, itablinkscap       uint32
-	ptab, ptablen, ptabcap                      uint32
-	pluginpath, pluginpathlen                   uint32
-	pkghashes, pkghasheslen, pkghashescap       uint32
+	Pclntable, Pclntablelen, Pclntablecap       uint32
+	Ftab, Ftablen, Ftabcap                      uint32
+	Filetab, Filetablen, Filetabcap             uint32
+	Findfunctab                                 uint32
+	Minpc                                       uint32
+	Maxpc                                       uint32
+	Text                                        uint32
+	Etext                                       uint32
+	Noptrdata                                   uint32
+	Enoptrdata                                  uint32
+	Data                                        uint32
+	Edata                                       uint32
+	Bss                                         uint32
+	Ebss                                        uint32
+	Noptrbss                                    uint32
+	Enoptrbss                                   uint32
+	End                                         uint32
+	Gcdata                                      uint32
+	Gcbss                                       uint32
+	Types                                       uint32
+	Etypes                                      uint32
+	Textsectmap, Textsectmaplen, Textsectmapcap uint32
+	Typelinks, Typelinkslen, Typelinkscap       uint32
+	Itablinks, Itablinkslen, Itablinkscap       uint32
+	Ptab, Ptablen, Ptabcap                      uint32
+	Pluginpath, Pluginpathlen                   uint32
+	Pkghashes, Pkghasheslen, Pkghashescap       uint32
 }
 
 func (md moduledata_1_13_32) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      uint64(md.text),
-		TextLen:       uint64(md.etext - md.text),
-		NoPtrDataAddr: uint64(md.noptrdata),
-		NoPtrDataLen:  uint64(md.enoptrdata - md.noptrdata),
-		DataAddr:      uint64(md.data),
-		DataLen:       uint64(md.edata - md.data),
-		BssAddr:       uint64(md.bss),
-		BssLen:        uint64(md.ebss - md.bss),
-		NoPtrBssAddr:  uint64(md.noptrbss),
-		NoPtrBssLen:   uint64(md.enoptrbss - md.noptrbss),
-		TypesAddr:     uint64(md.types),
-		TypesLen:      uint64(md.etypes - md.types),
-		TypelinkAddr:  uint64(md.typelinks),
-		TypelinkLen:   uint64(md.typelinkslen),
-		ITabLinkAddr:  uint64(md.itablinks),
-		ITabLinkLen:   uint64(md.itablinkslen),
-		FuncTabAddr:   uint64(md.ftab),
-		FuncTabLen:    uint64(md.ftablen),
-		PCLNTabAddr:   uint64(md.pclntable),
-		PCLNTabLen:    uint64(md.pclntablelen),
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypesAddr:     uint64(md.Types),
+		TypesLen:      uint64(md.Etypes - md.Types),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		ITabLinkAddr:  uint64(md.Itablinks),
+		ITabLinkLen:   uint64(md.Itablinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
 	}
 }
 
 type moduledata_1_13_64 struct {
-	pclntable, pclntablelen, pclntablecap       uint64
-	ftab, ftablen, ftabcap                      uint64
-	filetab, filetablen, filetabcap             uint64
-	findfunctab                                 uint64
-	minpc                                       uint64
-	maxpc                                       uint64
-	text                                        uint64
-	etext                                       uint64
-	noptrdata                                   uint64
-	enoptrdata                                  uint64
-	data                                        uint64
-	edata                                       uint64
-	bss                                         uint64
-	ebss                                        uint64
-	noptrbss                                    uint64
-	enoptrbss                                   uint64
-	end                                         uint64
-	gcdata                                      uint64
-	gcbss                                       uint64
-	types                                       uint64
-	etypes                                      uint64
-	textsectmap, textsectmaplen, textsectmapcap uint64
-	typelinks, typelinkslen, typelinkscap       uint64
-	itablinks, itablinkslen, itablinkscap       uint64
-	ptab, ptablen, ptabcap                      uint64
-	pluginpath, pluginpathlen                   uint64
-	pkghashes, pkghasheslen, pkghashescap       uint64
+	Pclntable, Pclntablelen, Pclntablecap       uint64
+	Ftab, Ftablen, Ftabcap                      uint64
+	Filetab, Filetablen, Filetabcap             uint64
+	Findfunctab                                 uint64
+	Minpc                                       uint64
+	Maxpc                                       uint64
+	Text                                        uint64
+	Etext                                       uint64
+	Noptrdata                                   uint64
+	Enoptrdata                                  uint64
+	Data                                        uint64
+	Edata                                       uint64
+	Bss                                         uint64
+	Ebss                                        uint64
+	Noptrbss                                    uint64
+	Enoptrbss                                   uint64
+	End                                         uint64
+	Gcdata                                      uint64
+	Gcbss                                       uint64
+	Types                                       uint64
+	Etypes                                      uint64
+	Textsectmap, Textsectmaplen, Textsectmapcap uint64
+	Typelinks, Typelinkslen, Typelinkscap       uint64
+	Itablinks, Itablinkslen, Itablinkscap       uint64
+	Ptab, Ptablen, Ptabcap                      uint64
+	Pluginpath, Pluginpathlen                   uint64
+	Pkghashes, Pkghasheslen, Pkghashescap       uint64
 }
 
 func (md moduledata_1_13_64) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      md.text,
-		TextLen:       md.etext - md.text,
-		NoPtrDataAddr: md.noptrdata,
-		NoPtrDataLen:  md.enoptrdata - md.noptrdata,
-		DataAddr:      md.data,
-		DataLen:       md.edata - md.data,
-		BssAddr:       md.bss,
-		BssLen:        md.ebss - md.bss,
-		NoPtrBssAddr:  md.noptrbss,
-		NoPtrBssLen:   md.enoptrbss - md.noptrbss,
-		TypesAddr:     md.types,
-		TypesLen:      md.etypes - md.types,
-		TypelinkAddr:  md.typelinks,
-		TypelinkLen:   md.typelinkslen,
-		ITabLinkAddr:  md.itablinks,
-		ITabLinkLen:   md.itablinkslen,
-		FuncTabAddr:   md.ftab,
-		FuncTabLen:    md.ftablen,
-		PCLNTabAddr:   md.pclntable,
-		PCLNTabLen:    md.pclntablelen,
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypesAddr:     md.Types,
+		TypesLen:      md.Etypes - md.Types,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		ITabLinkAddr:  md.Itablinks,
+		ITabLinkLen:   md.Itablinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
 	}
 }
 
 type moduledata_1_12_32 struct {
-	pclntable, pclntablelen, pclntablecap       uint32
-	ftab, ftablen, ftabcap                      uint32
-	filetab, filetablen, filetabcap             uint32
-	findfunctab                                 uint32
-	minpc                                       uint32
-	maxpc                                       uint32
-	text                                        uint32
-	etext                                       uint32
-	noptrdata                                   uint32
-	enoptrdata                                  uint32
-	data                                        uint32
-	edata                                       uint32
-	bss                                         uint32
-	ebss                                        uint32
-	noptrbss                                    uint32
-	enoptrbss                                   uint32
-	end                                         uint32
-	gcdata                                      uint32
-	gcbss                                       uint32
-	types                                       uint32
-	etypes                                      uint32
-	textsectmap, textsectmaplen, textsectmapcap uint32
-	typelinks, typelinkslen, typelinkscap       uint32
-	itablinks, itablinkslen, itablinkscap       uint32
-	ptab, ptablen, ptabcap                      uint32
-	pluginpath, pluginpathlen                   uint32
-	pkghashes, pkghasheslen, pkghashescap       uint32
+	Pclntable, Pclntablelen, Pclntablecap       uint32
+	Ftab, Ftablen, Ftabcap                      uint32
+	Filetab, Filetablen, Filetabcap             uint32
+	Findfunctab                                 uint32
+	Minpc                                       uint32
+	Maxpc                                       uint32
+	Text                                        uint32
+	Etext                                       uint32
+	Noptrdata                                   uint32
+	Enoptrdata                                  uint32
+	Data                                        uint32
+	Edata                                       uint32
+	Bss                                         uint32
+	Ebss                                        uint32
+	Noptrbss                                    uint32
+	Enoptrbss                                   uint32
+	End                                         uint32
+	Gcdata                                      uint32
+	Gcbss                                       uint32
+	Types                                       uint32
+	Etypes                                      uint32
+	Textsectmap, Textsectmaplen, Textsectmapcap uint32
+	Typelinks, Typelinkslen, Typelinkscap       uint32
+	Itablinks, Itablinkslen, Itablinkscap       uint32
+	Ptab, Ptablen, Ptabcap                      uint32
+	Pluginpath, Pluginpathlen                   uint32
+	Pkghashes, Pkghasheslen, Pkghashescap       uint32
 }
 
 func (md moduledata_1_12_32) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      uint64(md.text),
-		TextLen:       uint64(md.etext - md.text),
-		NoPtrDataAddr: uint64(md.noptrdata),
-		NoPtrDataLen:  uint64(md.enoptrdata - md.noptrdata),
-		DataAddr:      uint64(md.data),
-		DataLen:       uint64(md.edata - md.data),
-		BssAddr:       uint64(md.bss),
-		BssLen:        uint64(md.ebss - md.bss),
-		NoPtrBssAddr:  uint64(md.noptrbss),
-		NoPtrBssLen:   uint64(md.enoptrbss - md.noptrbss),
-		TypesAddr:     uint64(md.types),
-		TypesLen:      uint64(md.etypes - md.types),
-		TypelinkAddr:  uint64(md.typelinks),
-		TypelinkLen:   uint64(md.typelinkslen),
-		ITabLinkAddr:  uint64(md.itablinks),
-		ITabLinkLen:   uint64(md.itablinkslen),
-		FuncTabAddr:   uint64(md.ftab),
-		FuncTabLen:    uint64(md.ftablen),
-		PCLNTabAddr:   uint64(md.pclntable),
-		PCLNTabLen:    uint64(md.pclntablelen),
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypesAddr:     uint64(md.Types),
+		TypesLen:      uint64(md.Etypes - md.Types),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		ITabLinkAddr:  uint64(md.Itablinks),
+		ITabLinkLen:   uint64(md.Itablinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
 	}
 }
 
 type moduledata_1_12_64 struct {
-	pclntable, pclntablelen, pclntablecap       uint64
-	ftab, ftablen, ftabcap                      uint64
-	filetab, filetablen, filetabcap             uint64
-	findfunctab                                 uint64
-	minpc                                       uint64
-	maxpc                                       uint64
-	text                                        uint64
-	etext                                       uint64
-	noptrdata                                   uint64
-	enoptrdata                                  uint64
-	data                                        uint64
-	edata                                       uint64
-	bss                                         uint64
-	ebss                                        uint64
-	noptrbss                                    uint64
-	enoptrbss                                   uint64
-	end                                         uint64
-	gcdata                                      uint64
-	gcbss                                       uint64
-	types                                       uint64
-	etypes                                      uint64
-	textsectmap, textsectmaplen, textsectmapcap uint64
-	typelinks, typelinkslen, typelinkscap       uint64
-	itablinks, itablinkslen, itablinkscap       uint64
-	ptab, ptablen, ptabcap                      uint64
-	pluginpath, pluginpathlen                   uint64
-	pkghashes, pkghasheslen, pkghashescap       uint64
+	Pclntable, Pclntablelen, Pclntablecap       uint64
+	Ftab, Ftablen, Ftabcap                      uint64
+	Filetab, Filetablen, Filetabcap             uint64
+	Findfunctab                                 uint64
+	Minpc                                       uint64
+	Maxpc                                       uint64
+	Text                                        uint64
+	Etext                                       uint64
+	Noptrdata                                   uint64
+	Enoptrdata                                  uint64
+	Data                                        uint64
+	Edata                                       uint64
+	Bss                                         uint64
+	Ebss                                        uint64
+	Noptrbss                                    uint64
+	Enoptrbss                                   uint64
+	End                                         uint64
+	Gcdata                                      uint64
+	Gcbss                                       uint64
+	Types                                       uint64
+	Etypes                                      uint64
+	Textsectmap, Textsectmaplen, Textsectmapcap uint64
+	Typelinks, Typelinkslen, Typelinkscap       uint64
+	Itablinks, Itablinkslen, Itablinkscap       uint64
+	Ptab, Ptablen, Ptabcap                      uint64
+	Pluginpath, Pluginpathlen                   uint64
+	Pkghashes, Pkghasheslen, Pkghashescap       uint64
 }
 
 func (md moduledata_1_12_64) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      md.text,
-		TextLen:       md.etext - md.text,
-		NoPtrDataAddr: md.noptrdata,
-		NoPtrDataLen:  md.enoptrdata - md.noptrdata,
-		DataAddr:      md.data,
-		DataLen:       md.edata - md.data,
-		BssAddr:       md.bss,
-		BssLen:        md.ebss - md.bss,
-		NoPtrBssAddr:  md.noptrbss,
-		NoPtrBssLen:   md.enoptrbss - md.noptrbss,
-		TypesAddr:     md.types,
-		TypesLen:      md.etypes - md.types,
-		TypelinkAddr:  md.typelinks,
-		TypelinkLen:   md.typelinkslen,
-		ITabLinkAddr:  md.itablinks,
-		ITabLinkLen:   md.itablinkslen,
-		FuncTabAddr:   md.ftab,
-		FuncTabLen:    md.ftablen,
-		PCLNTabAddr:   md.pclntable,
-		PCLNTabLen:    md.pclntablelen,
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypesAddr:     md.Types,
+		TypesLen:      md.Etypes - md.Types,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		ITabLinkAddr:  md.Itablinks,
+		ITabLinkLen:   md.Itablinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
 	}
 }
 
 type moduledata_1_11_32 struct {
-	pclntable, pclntablelen, pclntablecap       uint32
-	ftab, ftablen, ftabcap                      uint32
-	filetab, filetablen, filetabcap             uint32
-	findfunctab                                 uint32
-	minpc                                       uint32
-	maxpc                                       uint32
-	text                                        uint32
-	etext                                       uint32
-	noptrdata                                   uint32
-	enoptrdata                                  uint32
-	data                                        uint32
-	edata                                       uint32
-	bss                                         uint32
-	ebss                                        uint32
-	noptrbss                                    uint32
-	enoptrbss                                   uint32
-	end                                         uint32
-	gcdata                                      uint32
-	gcbss                                       uint32
-	types                                       uint32
-	etypes                                      uint32
-	textsectmap, textsectmaplen, textsectmapcap uint32
-	typelinks, typelinkslen, typelinkscap       uint32
-	itablinks, itablinkslen, itablinkscap       uint32
-	ptab, ptablen, ptabcap                      uint32
-	pluginpath, pluginpathlen                   uint32
-	pkghashes, pkghasheslen, pkghashescap       uint32
+	Pclntable, Pclntablelen, Pclntablecap       uint32
+	Ftab, Ftablen, Ftabcap                      uint32
+	Filetab, Filetablen, Filetabcap             uint32
+	Findfunctab                                 uint32
+	Minpc                                       uint32
+	Maxpc                                       uint32
+	Text                                        uint32
+	Etext                                       uint32
+	Noptrdata                                   uint32
+	Enoptrdata                                  uint32
+	Data                                        uint32
+	Edata                                       uint32
+	Bss                                         uint32
+	Ebss                                        uint32
+	Noptrbss                                    uint32
+	Enoptrbss                                   uint32
+	End                                         uint32
+	Gcdata                                      uint32
+	Gcbss                                       uint32
+	Types                                       uint32
+	Etypes                                      uint32
+	Textsectmap, Textsectmaplen, Textsectmapcap uint32
+	Typelinks, Typelinkslen, Typelinkscap       uint32
+	Itablinks, Itablinkslen, Itablinkscap       uint32
+	Ptab, Ptablen, Ptabcap                      uint32
+	Pluginpath, Pluginpathlen                   uint32
+	Pkghashes, Pkghasheslen, Pkghashescap       uint32
 }
 
 func (md moduledata_1_11_32) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      uint64(md.text),
-		TextLen:       uint64(md.etext - md.text),
-		NoPtrDataAddr: uint64(md.noptrdata),
-		NoPtrDataLen:  uint64(md.enoptrdata - md.noptrdata),
-		DataAddr:      uint64(md.data),
-		DataLen:       uint64(md.edata - md.data),
-		BssAddr:       uint64(md.bss),
-		BssLen:        uint64(md.ebss - md.bss),
-		NoPtrBssAddr:  uint64(md.noptrbss),
-		NoPtrBssLen:   uint64(md.enoptrbss - md.noptrbss),
-		TypesAddr:     uint64(md.types),
-		TypesLen:      uint64(md.etypes - md.types),
-		TypelinkAddr:  uint64(md.typelinks),
-		TypelinkLen:   uint64(md.typelinkslen),
-		ITabLinkAddr:  uint64(md.itablinks),
-		ITabLinkLen:   uint64(md.itablinkslen),
-		FuncTabAddr:   uint64(md.ftab),
-		FuncTabLen:    uint64(md.ftablen),
-		PCLNTabAddr:   uint64(md.pclntable),
-		PCLNTabLen:    uint64(md.pclntablelen),
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypesAddr:     uint64(md.Types),
+		TypesLen:      uint64(md.Etypes - md.Types),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		ITabLinkAddr:  uint64(md.Itablinks),
+		ITabLinkLen:   uint64(md.Itablinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
 	}
 }
 
 type moduledata_1_11_64 struct {
-	pclntable, pclntablelen, pclntablecap       uint64
-	ftab, ftablen, ftabcap                      uint64
-	filetab, filetablen, filetabcap             uint64
-	findfunctab                                 uint64
-	minpc                                       uint64
-	maxpc                                       uint64
-	text                                        uint64
-	etext                                       uint64
-	noptrdata                                   uint64
-	enoptrdata                                  uint64
-	data                                        uint64
-	edata                                       uint64
-	bss                                         uint64
-	ebss                                        uint64
-	noptrbss                                    uint64
-	enoptrbss                                   uint64
-	end                                         uint64
-	gcdata                                      uint64
-	gcbss                                       uint64
-	types                                       uint64
-	etypes                                      uint64
-	textsectmap, textsectmaplen, textsectmapcap uint64
-	typelinks, typelinkslen, typelinkscap       uint64
-	itablinks, itablinkslen, itablinkscap       uint64
-	ptab, ptablen, ptabcap                      uint64
-	pluginpath, pluginpathlen                   uint64
-	pkghashes, pkghasheslen, pkghashescap       uint64
+	Pclntable, Pclntablelen, Pclntablecap       uint64
+	Ftab, Ftablen, Ftabcap                      uint64
+	Filetab, Filetablen, Filetabcap             uint64
+	Findfunctab                                 uint64
+	Minpc                                       uint64
+	Maxpc                                       uint64
+	Text                                        uint64
+	Etext                                       uint64
+	Noptrdata                                   uint64
+	Enoptrdata                                  uint64
+	Data                                        uint64
+	Edata                                       uint64
+	Bss                                         uint64
+	Ebss                                        uint64
+	Noptrbss                                    uint64
+	Enoptrbss                                   uint64
+	End                                         uint64
+	Gcdata                                      uint64
+	Gcbss                                       uint64
+	Types                                       uint64
+	Etypes                                      uint64
+	Textsectmap, Textsectmaplen, Textsectmapcap uint64
+	Typelinks, Typelinkslen, Typelinkscap       uint64
+	Itablinks, Itablinkslen, Itablinkscap       uint64
+	Ptab, Ptablen, Ptabcap                      uint64
+	Pluginpath, Pluginpathlen                   uint64
+	Pkghashes, Pkghasheslen, Pkghashescap       uint64
 }
 
 func (md moduledata_1_11_64) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      md.text,
-		TextLen:       md.etext - md.text,
-		NoPtrDataAddr: md.noptrdata,
-		NoPtrDataLen:  md.enoptrdata - md.noptrdata,
-		DataAddr:      md.data,
-		DataLen:       md.edata - md.data,
-		BssAddr:       md.bss,
-		BssLen:        md.ebss - md.bss,
-		NoPtrBssAddr:  md.noptrbss,
-		NoPtrBssLen:   md.enoptrbss - md.noptrbss,
-		TypesAddr:     md.types,
-		TypesLen:      md.etypes - md.types,
-		TypelinkAddr:  md.typelinks,
-		TypelinkLen:   md.typelinkslen,
-		ITabLinkAddr:  md.itablinks,
-		ITabLinkLen:   md.itablinkslen,
-		FuncTabAddr:   md.ftab,
-		FuncTabLen:    md.ftablen,
-		PCLNTabAddr:   md.pclntable,
-		PCLNTabLen:    md.pclntablelen,
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypesAddr:     md.Types,
+		TypesLen:      md.Etypes - md.Types,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		ITabLinkAddr:  md.Itablinks,
+		ITabLinkLen:   md.Itablinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
 	}
 }
 
 type moduledata_1_10_32 struct {
-	pclntable, pclntablelen, pclntablecap       uint32
-	ftab, ftablen, ftabcap                      uint32
-	filetab, filetablen, filetabcap             uint32
-	findfunctab                                 uint32
-	minpc                                       uint32
-	maxpc                                       uint32
-	text                                        uint32
-	etext                                       uint32
-	noptrdata                                   uint32
-	enoptrdata                                  uint32
-	data                                        uint32
-	edata                                       uint32
-	bss                                         uint32
-	ebss                                        uint32
-	noptrbss                                    uint32
-	enoptrbss                                   uint32
-	end                                         uint32
-	gcdata                                      uint32
-	gcbss                                       uint32
-	types                                       uint32
-	etypes                                      uint32
-	textsectmap, textsectmaplen, textsectmapcap uint32
-	typelinks, typelinkslen, typelinkscap       uint32
-	itablinks, itablinkslen, itablinkscap       uint32
-	ptab, ptablen, ptabcap                      uint32
-	pluginpath, pluginpathlen                   uint32
-	pkghashes, pkghasheslen, pkghashescap       uint32
+	Pclntable, Pclntablelen, Pclntablecap       uint32
+	Ftab, Ftablen, Ftabcap                      uint32
+	Filetab, Filetablen, Filetabcap             uint32
+	Findfunctab                                 uint32
+	Minpc                                       uint32
+	Maxpc                                       uint32
+	Text                                        uint32
+	Etext                                       uint32
+	Noptrdata                                   uint32
+	Enoptrdata                                  uint32
+	Data                                        uint32
+	Edata                                       uint32
+	Bss                                         uint32
+	Ebss                                        uint32
+	Noptrbss                                    uint32
+	Enoptrbss                                   uint32
+	End                                         uint32
+	Gcdata                                      uint32
+	Gcbss                                       uint32
+	Types                                       uint32
+	Etypes                                      uint32
+	Textsectmap, Textsectmaplen, Textsectmapcap uint32
+	Typelinks, Typelinkslen, Typelinkscap       uint32
+	Itablinks, Itablinkslen, Itablinkscap       uint32
+	Ptab, Ptablen, Ptabcap                      uint32
+	Pluginpath, Pluginpathlen                   uint32
+	Pkghashes, Pkghasheslen, Pkghashescap       uint32
 }
 
 func (md moduledata_1_10_32) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      uint64(md.text),
-		TextLen:       uint64(md.etext - md.text),
-		NoPtrDataAddr: uint64(md.noptrdata),
-		NoPtrDataLen:  uint64(md.enoptrdata - md.noptrdata),
-		DataAddr:      uint64(md.data),
-		DataLen:       uint64(md.edata - md.data),
-		BssAddr:       uint64(md.bss),
-		BssLen:        uint64(md.ebss - md.bss),
-		NoPtrBssAddr:  uint64(md.noptrbss),
-		NoPtrBssLen:   uint64(md.enoptrbss - md.noptrbss),
-		TypesAddr:     uint64(md.types),
-		TypesLen:      uint64(md.etypes - md.types),
-		TypelinkAddr:  uint64(md.typelinks),
-		TypelinkLen:   uint64(md.typelinkslen),
-		ITabLinkAddr:  uint64(md.itablinks),
-		ITabLinkLen:   uint64(md.itablinkslen),
-		FuncTabAddr:   uint64(md.ftab),
-		FuncTabLen:    uint64(md.ftablen),
-		PCLNTabAddr:   uint64(md.pclntable),
-		PCLNTabLen:    uint64(md.pclntablelen),
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypesAddr:     uint64(md.Types),
+		TypesLen:      uint64(md.Etypes - md.Types),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		ITabLinkAddr:  uint64(md.Itablinks),
+		ITabLinkLen:   uint64(md.Itablinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
 	}
 }
 
 type moduledata_1_10_64 struct {
-	pclntable, pclntablelen, pclntablecap       uint64
-	ftab, ftablen, ftabcap                      uint64
-	filetab, filetablen, filetabcap             uint64
-	findfunctab                                 uint64
-	minpc                                       uint64
-	maxpc                                       uint64
-	text                                        uint64
-	etext                                       uint64
-	noptrdata                                   uint64
-	enoptrdata                                  uint64
-	data                                        uint64
-	edata                                       uint64
-	bss                                         uint64
-	ebss                                        uint64
-	noptrbss                                    uint64
-	enoptrbss                                   uint64
-	end                                         uint64
-	gcdata                                      uint64
-	gcbss                                       uint64
-	types                                       uint64
-	etypes                                      uint64
-	textsectmap, textsectmaplen, textsectmapcap uint64
-	typelinks, typelinkslen, typelinkscap       uint64
-	itablinks, itablinkslen, itablinkscap       uint64
-	ptab, ptablen, ptabcap                      uint64
-	pluginpath, pluginpathlen                   uint64
-	pkghashes, pkghasheslen, pkghashescap       uint64
+	Pclntable, Pclntablelen, Pclntablecap       uint64
+	Ftab, Ftablen, Ftabcap                      uint64
+	Filetab, Filetablen, Filetabcap             uint64
+	Findfunctab                                 uint64
+	Minpc                                       uint64
+	Maxpc                                       uint64
+	Text                                        uint64
+	Etext                                       uint64
+	Noptrdata                                   uint64
+	Enoptrdata                                  uint64
+	Data                                        uint64
+	Edata                                       uint64
+	Bss                                         uint64
+	Ebss                                        uint64
+	Noptrbss                                    uint64
+	Enoptrbss                                   uint64
+	End                                         uint64
+	Gcdata                                      uint64
+	Gcbss                                       uint64
+	Types                                       uint64
+	Etypes                                      uint64
+	Textsectmap, Textsectmaplen, Textsectmapcap uint64
+	Typelinks, Typelinkslen, Typelinkscap       uint64
+	Itablinks, Itablinkslen, Itablinkscap       uint64
+	Ptab, Ptablen, Ptabcap                      uint64
+	Pluginpath, Pluginpathlen                   uint64
+	Pkghashes, Pkghasheslen, Pkghashescap       uint64
 }
 
 func (md moduledata_1_10_64) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      md.text,
-		TextLen:       md.etext - md.text,
-		NoPtrDataAddr: md.noptrdata,
-		NoPtrDataLen:  md.enoptrdata - md.noptrdata,
-		DataAddr:      md.data,
-		DataLen:       md.edata - md.data,
-		BssAddr:       md.bss,
-		BssLen:        md.ebss - md.bss,
-		NoPtrBssAddr:  md.noptrbss,
-		NoPtrBssLen:   md.enoptrbss - md.noptrbss,
-		TypesAddr:     md.types,
-		TypesLen:      md.etypes - md.types,
-		TypelinkAddr:  md.typelinks,
-		TypelinkLen:   md.typelinkslen,
-		ITabLinkAddr:  md.itablinks,
-		ITabLinkLen:   md.itablinkslen,
-		FuncTabAddr:   md.ftab,
-		FuncTabLen:    md.ftablen,
-		PCLNTabAddr:   md.pclntable,
-		PCLNTabLen:    md.pclntablelen,
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypesAddr:     md.Types,
+		TypesLen:      md.Etypes - md.Types,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		ITabLinkAddr:  md.Itablinks,
+		ITabLinkLen:   md.Itablinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
 	}
 }
 
 type moduledata_1_9_32 struct {
-	pclntable, pclntablelen, pclntablecap       uint32
-	ftab, ftablen, ftabcap                      uint32
-	filetab, filetablen, filetabcap             uint32
-	findfunctab                                 uint32
-	minpc                                       uint32
-	maxpc                                       uint32
-	text                                        uint32
-	etext                                       uint32
-	noptrdata                                   uint32
-	enoptrdata                                  uint32
-	data                                        uint32
-	edata                                       uint32
-	bss                                         uint32
-	ebss                                        uint32
-	noptrbss                                    uint32
-	enoptrbss                                   uint32
-	end                                         uint32
-	gcdata                                      uint32
-	gcbss                                       uint32
-	types                                       uint32
-	etypes                                      uint32
-	textsectmap, textsectmaplen, textsectmapcap uint32
-	typelinks, typelinkslen, typelinkscap       uint32
-	itablinks, itablinkslen, itablinkscap       uint32
-	ptab, ptablen, ptabcap                      uint32
-	pluginpath, pluginpathlen                   uint32
-	pkghashes, pkghasheslen, pkghashescap       uint32
+	Pclntable, Pclntablelen, Pclntablecap       uint32
+	Ftab, Ftablen, Ftabcap                      uint32
+	Filetab, Filetablen, Filetabcap             uint32
+	Findfunctab                                 uint32
+	Minpc                                       uint32
+	Maxpc                                       uint32
+	Text                                        uint32
+	Etext                                       uint32
+	Noptrdata                                   uint32
+	Enoptrdata                                  uint32
+	Data                                        uint32
+	Edata                                       uint32
+	Bss                                         uint32
+	Ebss                                        uint32
+	Noptrbss                                    uint32
+	Enoptrbss                                   uint32
+	End                                         uint32
+	Gcdata                                      uint32
+	Gcbss                                       uint32
+	Types                                       uint32
+	Etypes                                      uint32
+	Textsectmap, Textsectmaplen, Textsectmapcap uint32
+	Typelinks, Typelinkslen, Typelinkscap       uint32
+	Itablinks, Itablinkslen, Itablinkscap       uint32
+	Ptab, Ptablen, Ptabcap                      uint32
+	Pluginpath, Pluginpathlen                   uint32
+	Pkghashes, Pkghasheslen, Pkghashescap       uint32
 }
 
 func (md moduledata_1_9_32) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      uint64(md.text),
-		TextLen:       uint64(md.etext - md.text),
-		NoPtrDataAddr: uint64(md.noptrdata),
-		NoPtrDataLen:  uint64(md.enoptrdata - md.noptrdata),
-		DataAddr:      uint64(md.data),
-		DataLen:       uint64(md.edata - md.data),
-		BssAddr:       uint64(md.bss),
-		BssLen:        uint64(md.ebss - md.bss),
-		NoPtrBssAddr:  uint64(md.noptrbss),
-		NoPtrBssLen:   uint64(md.enoptrbss - md.noptrbss),
-		TypesAddr:     uint64(md.types),
-		TypesLen:      uint64(md.etypes - md.types),
-		TypelinkAddr:  uint64(md.typelinks),
-		TypelinkLen:   uint64(md.typelinkslen),
-		ITabLinkAddr:  uint64(md.itablinks),
-		ITabLinkLen:   uint64(md.itablinkslen),
-		FuncTabAddr:   uint64(md.ftab),
-		FuncTabLen:    uint64(md.ftablen),
-		PCLNTabAddr:   uint64(md.pclntable),
-		PCLNTabLen:    uint64(md.pclntablelen),
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypesAddr:     uint64(md.Types),
+		TypesLen:      uint64(md.Etypes - md.Types),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		ITabLinkAddr:  uint64(md.Itablinks),
+		ITabLinkLen:   uint64(md.Itablinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
 	}
 }
 
 type moduledata_1_9_64 struct {
-	pclntable, pclntablelen, pclntablecap       uint64
-	ftab, ftablen, ftabcap                      uint64
-	filetab, filetablen, filetabcap             uint64
-	findfunctab                                 uint64
-	minpc                                       uint64
-	maxpc                                       uint64
-	text                                        uint64
-	etext                                       uint64
-	noptrdata                                   uint64
-	enoptrdata                                  uint64
-	data                                        uint64
-	edata                                       uint64
-	bss                                         uint64
-	ebss                                        uint64
-	noptrbss                                    uint64
-	enoptrbss                                   uint64
-	end                                         uint64
-	gcdata                                      uint64
-	gcbss                                       uint64
-	types                                       uint64
-	etypes                                      uint64
-	textsectmap, textsectmaplen, textsectmapcap uint64
-	typelinks, typelinkslen, typelinkscap       uint64
-	itablinks, itablinkslen, itablinkscap       uint64
-	ptab, ptablen, ptabcap                      uint64
-	pluginpath, pluginpathlen                   uint64
-	pkghashes, pkghasheslen, pkghashescap       uint64
+	Pclntable, Pclntablelen, Pclntablecap       uint64
+	Ftab, Ftablen, Ftabcap                      uint64
+	Filetab, Filetablen, Filetabcap             uint64
+	Findfunctab                                 uint64
+	Minpc                                       uint64
+	Maxpc                                       uint64
+	Text                                        uint64
+	Etext                                       uint64
+	Noptrdata                                   uint64
+	Enoptrdata                                  uint64
+	Data                                        uint64
+	Edata                                       uint64
+	Bss                                         uint64
+	Ebss                                        uint64
+	Noptrbss                                    uint64
+	Enoptrbss                                   uint64
+	End                                         uint64
+	Gcdata                                      uint64
+	Gcbss                                       uint64
+	Types                                       uint64
+	Etypes                                      uint64
+	Textsectmap, Textsectmaplen, Textsectmapcap uint64
+	Typelinks, Typelinkslen, Typelinkscap       uint64
+	Itablinks, Itablinkslen, Itablinkscap       uint64
+	Ptab, Ptablen, Ptabcap                      uint64
+	Pluginpath, Pluginpathlen                   uint64
+	Pkghashes, Pkghasheslen, Pkghashescap       uint64
 }
 
 func (md moduledata_1_9_64) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      md.text,
-		TextLen:       md.etext - md.text,
-		NoPtrDataAddr: md.noptrdata,
-		NoPtrDataLen:  md.enoptrdata - md.noptrdata,
-		DataAddr:      md.data,
-		DataLen:       md.edata - md.data,
-		BssAddr:       md.bss,
-		BssLen:        md.ebss - md.bss,
-		NoPtrBssAddr:  md.noptrbss,
-		NoPtrBssLen:   md.enoptrbss - md.noptrbss,
-		TypesAddr:     md.types,
-		TypesLen:      md.etypes - md.types,
-		TypelinkAddr:  md.typelinks,
-		TypelinkLen:   md.typelinkslen,
-		ITabLinkAddr:  md.itablinks,
-		ITabLinkLen:   md.itablinkslen,
-		FuncTabAddr:   md.ftab,
-		FuncTabLen:    md.ftablen,
-		PCLNTabAddr:   md.pclntable,
-		PCLNTabLen:    md.pclntablelen,
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypesAddr:     md.Types,
+		TypesLen:      md.Etypes - md.Types,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		ITabLinkAddr:  md.Itablinks,
+		ITabLinkLen:   md.Itablinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
 	}
 }
 
 type moduledata_1_8_32 struct {
-	pclntable, pclntablelen, pclntablecap       uint32
-	ftab, ftablen, ftabcap                      uint32
-	filetab, filetablen, filetabcap             uint32
-	findfunctab                                 uint32
-	minpc                                       uint32
-	maxpc                                       uint32
-	text                                        uint32
-	etext                                       uint32
-	noptrdata                                   uint32
-	enoptrdata                                  uint32
-	data                                        uint32
-	edata                                       uint32
-	bss                                         uint32
-	ebss                                        uint32
-	noptrbss                                    uint32
-	enoptrbss                                   uint32
-	end                                         uint32
-	gcdata                                      uint32
-	gcbss                                       uint32
-	types                                       uint32
-	etypes                                      uint32
-	textsectmap, textsectmaplen, textsectmapcap uint32
-	typelinks, typelinkslen, typelinkscap       uint32
-	itablinks, itablinkslen, itablinkscap       uint32
-	ptab, ptablen, ptabcap                      uint32
-	pluginpath, pluginpathlen                   uint32
-	pkghashes, pkghasheslen, pkghashescap       uint32
+	Pclntable, Pclntablelen, Pclntablecap       uint32
+	Ftab, Ftablen, Ftabcap                      uint32
+	Filetab, Filetablen, Filetabcap             uint32
+	Findfunctab                                 uint32
+	Minpc                                       uint32
+	Maxpc                                       uint32
+	Text                                        uint32
+	Etext                                       uint32
+	Noptrdata                                   uint32
+	Enoptrdata                                  uint32
+	Data                                        uint32
+	Edata                                       uint32
+	Bss                                         uint32
+	Ebss                                        uint32
+	Noptrbss                                    uint32
+	Enoptrbss                                   uint32
+	End                                         uint32
+	Gcdata                                      uint32
+	Gcbss                                       uint32
+	Types                                       uint32
+	Etypes                                      uint32
+	Textsectmap, Textsectmaplen, Textsectmapcap uint32
+	Typelinks, Typelinkslen, Typelinkscap       uint32
+	Itablinks, Itablinkslen, Itablinkscap       uint32
+	Ptab, Ptablen, Ptabcap                      uint32
+	Pluginpath, Pluginpathlen                   uint32
+	Pkghashes, Pkghasheslen, Pkghashescap       uint32
 }
 
 func (md moduledata_1_8_32) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      uint64(md.text),
-		TextLen:       uint64(md.etext - md.text),
-		NoPtrDataAddr: uint64(md.noptrdata),
-		NoPtrDataLen:  uint64(md.enoptrdata - md.noptrdata),
-		DataAddr:      uint64(md.data),
-		DataLen:       uint64(md.edata - md.data),
-		BssAddr:       uint64(md.bss),
-		BssLen:        uint64(md.ebss - md.bss),
-		NoPtrBssAddr:  uint64(md.noptrbss),
-		NoPtrBssLen:   uint64(md.enoptrbss - md.noptrbss),
-		TypesAddr:     uint64(md.types),
-		TypesLen:      uint64(md.etypes - md.types),
-		TypelinkAddr:  uint64(md.typelinks),
-		TypelinkLen:   uint64(md.typelinkslen),
-		ITabLinkAddr:  uint64(md.itablinks),
-		ITabLinkLen:   uint64(md.itablinkslen),
-		FuncTabAddr:   uint64(md.ftab),
-		FuncTabLen:    uint64(md.ftablen),
-		PCLNTabAddr:   uint64(md.pclntable),
-		PCLNTabLen:    uint64(md.pclntablelen),
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypesAddr:     uint64(md.Types),
+		TypesLen:      uint64(md.Etypes - md.Types),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		ITabLinkAddr:  uint64(md.Itablinks),
+		ITabLinkLen:   uint64(md.Itablinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
 	}
 }
 
 type moduledata_1_8_64 struct {
-	pclntable, pclntablelen, pclntablecap       uint64
-	ftab, ftablen, ftabcap                      uint64
-	filetab, filetablen, filetabcap             uint64
-	findfunctab                                 uint64
-	minpc                                       uint64
-	maxpc                                       uint64
-	text                                        uint64
-	etext                                       uint64
-	noptrdata                                   uint64
-	enoptrdata                                  uint64
-	data                                        uint64
-	edata                                       uint64
-	bss                                         uint64
-	ebss                                        uint64
-	noptrbss                                    uint64
-	enoptrbss                                   uint64
-	end                                         uint64
-	gcdata                                      uint64
-	gcbss                                       uint64
-	types                                       uint64
-	etypes                                      uint64
-	textsectmap, textsectmaplen, textsectmapcap uint64
-	typelinks, typelinkslen, typelinkscap       uint64
-	itablinks, itablinkslen, itablinkscap       uint64
-	ptab, ptablen, ptabcap                      uint64
-	pluginpath, pluginpathlen                   uint64
-	pkghashes, pkghasheslen, pkghashescap       uint64
+	Pclntable, Pclntablelen, Pclntablecap       uint64
+	Ftab, Ftablen, Ftabcap                      uint64
+	Filetab, Filetablen, Filetabcap             uint64
+	Findfunctab                                 uint64
+	Minpc                                       uint64
+	Maxpc                                       uint64
+	Text                                        uint64
+	Etext                                       uint64
+	Noptrdata                                   uint64
+	Enoptrdata                                  uint64
+	Data                                        uint64
+	Edata                                       uint64
+	Bss                                         uint64
+	Ebss                                        uint64
+	Noptrbss                                    uint64
+	Enoptrbss                                   uint64
+	End                                         uint64
+	Gcdata                                      uint64
+	Gcbss                                       uint64
+	Types                                       uint64
+	Etypes                                      uint64
+	Textsectmap, Textsectmaplen, Textsectmapcap uint64
+	Typelinks, Typelinkslen, Typelinkscap       uint64
+	Itablinks, Itablinkslen, Itablinkscap       uint64
+	Ptab, Ptablen, Ptabcap                      uint64
+	Pluginpath, Pluginpathlen                   uint64
+	Pkghashes, Pkghasheslen, Pkghashescap       uint64
 }
 
 func (md moduledata_1_8_64) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      md.text,
-		TextLen:       md.etext - md.text,
-		NoPtrDataAddr: md.noptrdata,
-		NoPtrDataLen:  md.enoptrdata - md.noptrdata,
-		DataAddr:      md.data,
-		DataLen:       md.edata - md.data,
-		BssAddr:       md.bss,
-		BssLen:        md.ebss - md.bss,
-		NoPtrBssAddr:  md.noptrbss,
-		NoPtrBssLen:   md.enoptrbss - md.noptrbss,
-		TypesAddr:     md.types,
-		TypesLen:      md.etypes - md.types,
-		TypelinkAddr:  md.typelinks,
-		TypelinkLen:   md.typelinkslen,
-		ITabLinkAddr:  md.itablinks,
-		ITabLinkLen:   md.itablinkslen,
-		FuncTabAddr:   md.ftab,
-		FuncTabLen:    md.ftablen,
-		PCLNTabAddr:   md.pclntable,
-		PCLNTabLen:    md.pclntablelen,
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypesAddr:     md.Types,
+		TypesLen:      md.Etypes - md.Types,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		ITabLinkAddr:  md.Itablinks,
+		ITabLinkLen:   md.Itablinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
 	}
 }
 
 type moduledata_1_7_32 struct {
-	pclntable, pclntablelen, pclntablecap uint32
-	ftab, ftablen, ftabcap                uint32
-	filetab, filetablen, filetabcap       uint32
-	findfunctab                           uint32
-	minpc                                 uint32
-	maxpc                                 uint32
-	text                                  uint32
-	etext                                 uint32
-	noptrdata                             uint32
-	enoptrdata                            uint32
-	data                                  uint32
-	edata                                 uint32
-	bss                                   uint32
-	ebss                                  uint32
-	noptrbss                              uint32
-	enoptrbss                             uint32
-	end                                   uint32
-	gcdata                                uint32
-	gcbss                                 uint32
-	types                                 uint32
-	etypes                                uint32
-	typelinks, typelinkslen, typelinkscap uint32
-	itablinks, itablinkslen, itablinkscap uint32
+	Pclntable, Pclntablelen, Pclntablecap uint32
+	Ftab, Ftablen, Ftabcap                uint32
+	Filetab, Filetablen, Filetabcap       uint32
+	Findfunctab                           uint32
+	Minpc                                 uint32
+	Maxpc                                 uint32
+	Text                                  uint32
+	Etext                                 uint32
+	Noptrdata                             uint32
+	Enoptrdata                            uint32
+	Data                                  uint32
+	Edata                                 uint32
+	Bss                                   uint32
+	Ebss                                  uint32
+	Noptrbss                              uint32
+	Enoptrbss                             uint32
+	End                                   uint32
+	Gcdata                                uint32
+	Gcbss                                 uint32
+	Types                                 uint32
+	Etypes                                uint32
+	Typelinks, Typelinkslen, Typelinkscap uint32
+	Itablinks, Itablinkslen, Itablinkscap uint32
 }
 
 func (md moduledata_1_7_32) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      uint64(md.text),
-		TextLen:       uint64(md.etext - md.text),
-		NoPtrDataAddr: uint64(md.noptrdata),
-		NoPtrDataLen:  uint64(md.enoptrdata - md.noptrdata),
-		DataAddr:      uint64(md.data),
-		DataLen:       uint64(md.edata - md.data),
-		BssAddr:       uint64(md.bss),
-		BssLen:        uint64(md.ebss - md.bss),
-		NoPtrBssAddr:  uint64(md.noptrbss),
-		NoPtrBssLen:   uint64(md.enoptrbss - md.noptrbss),
-		TypesAddr:     uint64(md.types),
-		TypesLen:      uint64(md.etypes - md.types),
-		TypelinkAddr:  uint64(md.typelinks),
-		TypelinkLen:   uint64(md.typelinkslen),
-		ITabLinkAddr:  uint64(md.itablinks),
-		ITabLinkLen:   uint64(md.itablinkslen),
-		FuncTabAddr:   uint64(md.ftab),
-		FuncTabLen:    uint64(md.ftablen),
-		PCLNTabAddr:   uint64(md.pclntable),
-		PCLNTabLen:    uint64(md.pclntablelen),
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypesAddr:     uint64(md.Types),
+		TypesLen:      uint64(md.Etypes - md.Types),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		ITabLinkAddr:  uint64(md.Itablinks),
+		ITabLinkLen:   uint64(md.Itablinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
 	}
 }
 
 type moduledata_1_7_64 struct {
-	pclntable, pclntablelen, pclntablecap uint64
-	ftab, ftablen, ftabcap                uint64
-	filetab, filetablen, filetabcap       uint64
-	findfunctab                           uint64
-	minpc                                 uint64
-	maxpc                                 uint64
-	text                                  uint64
-	etext                                 uint64
-	noptrdata                             uint64
-	enoptrdata                            uint64
-	data                                  uint64
-	edata                                 uint64
-	bss                                   uint64
-	ebss                                  uint64
-	noptrbss                              uint64
-	enoptrbss                             uint64
-	end                                   uint64
-	gcdata                                uint64
-	gcbss                                 uint64
-	types                                 uint64
-	etypes                                uint64
-	typelinks, typelinkslen, typelinkscap uint64
-	itablinks, itablinkslen, itablinkscap uint64
+	Pclntable, Pclntablelen, Pclntablecap uint64
+	Ftab, Ftablen, Ftabcap                uint64
+	Filetab, Filetablen, Filetabcap       uint64
+	Findfunctab                           uint64
+	Minpc                                 uint64
+	Maxpc                                 uint64
+	Text                                  uint64
+	Etext                                 uint64
+	Noptrdata                             uint64
+	Enoptrdata                            uint64
+	Data                                  uint64
+	Edata                                 uint64
+	Bss                                   uint64
+	Ebss                                  uint64
+	Noptrbss                              uint64
+	Enoptrbss                             uint64
+	End                                   uint64
+	Gcdata                                uint64
+	Gcbss                                 uint64
+	Types                                 uint64
+	Etypes                                uint64
+	Typelinks, Typelinkslen, Typelinkscap uint64
+	Itablinks, Itablinkslen, Itablinkscap uint64
 }
 
 func (md moduledata_1_7_64) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      md.text,
-		TextLen:       md.etext - md.text,
-		NoPtrDataAddr: md.noptrdata,
-		NoPtrDataLen:  md.enoptrdata - md.noptrdata,
-		DataAddr:      md.data,
-		DataLen:       md.edata - md.data,
-		BssAddr:       md.bss,
-		BssLen:        md.ebss - md.bss,
-		NoPtrBssAddr:  md.noptrbss,
-		NoPtrBssLen:   md.enoptrbss - md.noptrbss,
-		TypesAddr:     md.types,
-		TypesLen:      md.etypes - md.types,
-		TypelinkAddr:  md.typelinks,
-		TypelinkLen:   md.typelinkslen,
-		ITabLinkAddr:  md.itablinks,
-		ITabLinkLen:   md.itablinkslen,
-		FuncTabAddr:   md.ftab,
-		FuncTabLen:    md.ftablen,
-		PCLNTabAddr:   md.pclntable,
-		PCLNTabLen:    md.pclntablelen,
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypesAddr:     md.Types,
+		TypesLen:      md.Etypes - md.Types,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		ITabLinkAddr:  md.Itablinks,
+		ITabLinkLen:   md.Itablinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
 	}
 }
 
 type moduledata_1_6_32 struct {
-	pclntable, pclntablelen, pclntablecap uint32
-	ftab, ftablen, ftabcap                uint32
-	filetab, filetablen, filetabcap       uint32
-	findfunctab                           uint32
-	minpc                                 uint32
-	maxpc                                 uint32
-	text                                  uint32
-	etext                                 uint32
-	noptrdata                             uint32
-	enoptrdata                            uint32
-	data                                  uint32
-	edata                                 uint32
-	bss                                   uint32
-	ebss                                  uint32
-	noptrbss                              uint32
-	enoptrbss                             uint32
-	end                                   uint32
-	gcdata                                uint32
-	gcbss                                 uint32
-	typelinks, typelinkslen, typelinkscap uint32
+	Pclntable, Pclntablelen, Pclntablecap uint32
+	Ftab, Ftablen, Ftabcap                uint32
+	Filetab, Filetablen, Filetabcap       uint32
+	Findfunctab                           uint32
+	Minpc                                 uint32
+	Maxpc                                 uint32
+	Text                                  uint32
+	Etext                                 uint32
+	Noptrdata                             uint32
+	Enoptrdata                            uint32
+	Data                                  uint32
+	Edata                                 uint32
+	Bss                                   uint32
+	Ebss                                  uint32
+	Noptrbss                              uint32
+	Enoptrbss                             uint32
+	End                                   uint32
+	Gcdata                                uint32
+	Gcbss                                 uint32
+	Typelinks, Typelinkslen, Typelinkscap uint32
 }
 
 func (md moduledata_1_6_32) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      uint64(md.text),
-		TextLen:       uint64(md.etext - md.text),
-		NoPtrDataAddr: uint64(md.noptrdata),
-		NoPtrDataLen:  uint64(md.enoptrdata - md.noptrdata),
-		DataAddr:      uint64(md.data),
-		DataLen:       uint64(md.edata - md.data),
-		BssAddr:       uint64(md.bss),
-		BssLen:        uint64(md.ebss - md.bss),
-		NoPtrBssAddr:  uint64(md.noptrbss),
-		NoPtrBssLen:   uint64(md.enoptrbss - md.noptrbss),
-		TypelinkAddr:  uint64(md.typelinks),
-		TypelinkLen:   uint64(md.typelinkslen),
-		FuncTabAddr:   uint64(md.ftab),
-		FuncTabLen:    uint64(md.ftablen),
-		PCLNTabAddr:   uint64(md.pclntable),
-		PCLNTabLen:    uint64(md.pclntablelen),
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
 	}
 }
 
 type moduledata_1_6_64 struct {
-	pclntable, pclntablelen, pclntablecap uint64
-	ftab, ftablen, ftabcap                uint64
-	filetab, filetablen, filetabcap       uint64
-	findfunctab                           uint64
-	minpc                                 uint64
-	maxpc                                 uint64
-	text                                  uint64
-	etext                                 uint64
-	noptrdata                             uint64
-	enoptrdata                            uint64
-	data                                  uint64
-	edata                                 uint64
-	bss                                   uint64
-	ebss                                  uint64
-	noptrbss                              uint64
-	enoptrbss                             uint64
-	end                                   uint64
-	gcdata                                uint64
-	gcbss                                 uint64
-	typelinks, typelinkslen, typelinkscap uint64
+	Pclntable, Pclntablelen, Pclntablecap uint64
+	Ftab, Ftablen, Ftabcap                uint64
+	Filetab, Filetablen, Filetabcap       uint64
+	Findfunctab                           uint64
+	Minpc                                 uint64
+	Maxpc                                 uint64
+	Text                                  uint64
+	Etext                                 uint64
+	Noptrdata                             uint64
+	Enoptrdata                            uint64
+	Data                                  uint64
+	Edata                                 uint64
+	Bss                                   uint64
+	Ebss                                  uint64
+	Noptrbss                              uint64
+	Enoptrbss                             uint64
+	End                                   uint64
+	Gcdata                                uint64
+	Gcbss                                 uint64
+	Typelinks, Typelinkslen, Typelinkscap uint64
 }
 
 func (md moduledata_1_6_64) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      md.text,
-		TextLen:       md.etext - md.text,
-		NoPtrDataAddr: md.noptrdata,
-		NoPtrDataLen:  md.enoptrdata - md.noptrdata,
-		DataAddr:      md.data,
-		DataLen:       md.edata - md.data,
-		BssAddr:       md.bss,
-		BssLen:        md.ebss - md.bss,
-		NoPtrBssAddr:  md.noptrbss,
-		NoPtrBssLen:   md.enoptrbss - md.noptrbss,
-		TypelinkAddr:  md.typelinks,
-		TypelinkLen:   md.typelinkslen,
-		FuncTabAddr:   md.ftab,
-		FuncTabLen:    md.ftablen,
-		PCLNTabAddr:   md.pclntable,
-		PCLNTabLen:    md.pclntablelen,
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
 	}
 }
 
 type moduledata_1_5_32 struct {
-	pclntable, pclntablelen, pclntablecap uint32
-	ftab, ftablen, ftabcap                uint32
-	filetab, filetablen, filetabcap       uint32
-	findfunctab                           uint32
-	minpc                                 uint32
-	maxpc                                 uint32
-	text                                  uint32
-	etext                                 uint32
-	noptrdata                             uint32
-	enoptrdata                            uint32
-	data                                  uint32
-	edata                                 uint32
-	bss                                   uint32
-	ebss                                  uint32
-	noptrbss                              uint32
-	enoptrbss                             uint32
-	end                                   uint32
-	gcdata                                uint32
-	gcbss                                 uint32
-	typelinks, typelinkslen, typelinkscap uint32
+	Pclntable, Pclntablelen, Pclntablecap uint32
+	Ftab, Ftablen, Ftabcap                uint32
+	Filetab, Filetablen, Filetabcap       uint32
+	Findfunctab                           uint32
+	Minpc                                 uint32
+	Maxpc                                 uint32
+	Text                                  uint32
+	Etext                                 uint32
+	Noptrdata                             uint32
+	Enoptrdata                            uint32
+	Data                                  uint32
+	Edata                                 uint32
+	Bss                                   uint32
+	Ebss                                  uint32
+	Noptrbss                              uint32
+	Enoptrbss                             uint32
+	End                                   uint32
+	Gcdata                                uint32
+	Gcbss                                 uint32
+	Typelinks, Typelinkslen, Typelinkscap uint32
 }
 
 func (md moduledata_1_5_32) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      uint64(md.text),
-		TextLen:       uint64(md.etext - md.text),
-		NoPtrDataAddr: uint64(md.noptrdata),
-		NoPtrDataLen:  uint64(md.enoptrdata - md.noptrdata),
-		DataAddr:      uint64(md.data),
-		DataLen:       uint64(md.edata - md.data),
-		BssAddr:       uint64(md.bss),
-		BssLen:        uint64(md.ebss - md.bss),
-		NoPtrBssAddr:  uint64(md.noptrbss),
-		NoPtrBssLen:   uint64(md.enoptrbss - md.noptrbss),
-		TypelinkAddr:  uint64(md.typelinks),
-		TypelinkLen:   uint64(md.typelinkslen),
-		FuncTabAddr:   uint64(md.ftab),
-		FuncTabLen:    uint64(md.ftablen),
-		PCLNTabAddr:   uint64(md.pclntable),
-		PCLNTabLen:    uint64(md.pclntablelen),
+		TextAddr:      uint64(md.Text),
+		TextLen:       uint64(md.Etext - md.Text),
+		NoPtrDataAddr: uint64(md.Noptrdata),
+		NoPtrDataLen:  uint64(md.Enoptrdata - md.Noptrdata),
+		DataAddr:      uint64(md.Data),
+		DataLen:       uint64(md.Edata - md.Data),
+		BssAddr:       uint64(md.Bss),
+		BssLen:        uint64(md.Ebss - md.Bss),
+		NoPtrBssAddr:  uint64(md.Noptrbss),
+		NoPtrBssLen:   uint64(md.Enoptrbss - md.Noptrbss),
+		TypelinkAddr:  uint64(md.Typelinks),
+		TypelinkLen:   uint64(md.Typelinkslen),
+		FuncTabAddr:   uint64(md.Ftab),
+		FuncTabLen:    uint64(md.Ftablen),
+		PCLNTabAddr:   uint64(md.Pclntable),
+		PCLNTabLen:    uint64(md.Pclntablelen),
 	}
 }
 
 type moduledata_1_5_64 struct {
-	pclntable, pclntablelen, pclntablecap uint64
-	ftab, ftablen, ftabcap                uint64
-	filetab, filetablen, filetabcap       uint64
-	findfunctab                           uint64
-	minpc                                 uint64
-	maxpc                                 uint64
-	text                                  uint64
-	etext                                 uint64
-	noptrdata                             uint64
-	enoptrdata                            uint64
-	data                                  uint64
-	edata                                 uint64
-	bss                                   uint64
-	ebss                                  uint64
-	noptrbss                              uint64
-	enoptrbss                             uint64
-	end                                   uint64
-	gcdata                                uint64
-	gcbss                                 uint64
-	typelinks, typelinkslen, typelinkscap uint64
+	Pclntable, Pclntablelen, Pclntablecap uint64
+	Ftab, Ftablen, Ftabcap                uint64
+	Filetab, Filetablen, Filetabcap       uint64
+	Findfunctab                           uint64
+	Minpc                                 uint64
+	Maxpc                                 uint64
+	Text                                  uint64
+	Etext                                 uint64
+	Noptrdata                             uint64
+	Enoptrdata                            uint64
+	Data                                  uint64
+	Edata                                 uint64
+	Bss                                   uint64
+	Ebss                                  uint64
+	Noptrbss                              uint64
+	Enoptrbss                             uint64
+	End                                   uint64
+	Gcdata                                uint64
+	Gcbss                                 uint64
+	Typelinks, Typelinkslen, Typelinkscap uint64
 }
 
 func (md moduledata_1_5_64) toModuledata() moduledata {
 	return moduledata{
-		TextAddr:      md.text,
-		TextLen:       md.etext - md.text,
-		NoPtrDataAddr: md.noptrdata,
-		NoPtrDataLen:  md.enoptrdata - md.noptrdata,
-		DataAddr:      md.data,
-		DataLen:       md.edata - md.data,
-		BssAddr:       md.bss,
-		BssLen:        md.ebss - md.bss,
-		NoPtrBssAddr:  md.noptrbss,
-		NoPtrBssLen:   md.enoptrbss - md.noptrbss,
-		TypelinkAddr:  md.typelinks,
-		TypelinkLen:   md.typelinkslen,
-		FuncTabAddr:   md.ftab,
-		FuncTabLen:    md.ftablen,
-		PCLNTabAddr:   md.pclntable,
-		PCLNTabLen:    md.pclntablelen,
+		TextAddr:      md.Text,
+		TextLen:       md.Etext - md.Text,
+		NoPtrDataAddr: md.Noptrdata,
+		NoPtrDataLen:  md.Enoptrdata - md.Noptrdata,
+		DataAddr:      md.Data,
+		DataLen:       md.Edata - md.Data,
+		BssAddr:       md.Bss,
+		BssLen:        md.Ebss - md.Bss,
+		NoPtrBssAddr:  md.Noptrbss,
+		NoPtrBssLen:   md.Enoptrbss - md.Noptrbss,
+		TypelinkAddr:  md.Typelinks,
+		TypelinkLen:   md.Typelinkslen,
+		FuncTabAddr:   md.Ftab,
+		FuncTabLen:    md.Ftablen,
+		PCLNTabAddr:   md.Pclntable,
+		PCLNTabLen:    md.Pclntablelen,
 	}
 }
 
