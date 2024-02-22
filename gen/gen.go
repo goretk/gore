@@ -30,8 +30,6 @@ var forceUpdate = flag.Bool("force", false, "force update")
 func main() {
 	flag.Parse()
 
-	print("forceUpdate: ", *forceUpdate)
-
 	if flag.NArg() < 1 {
 		fmt.Println("go run ./gen [--force] [stdpkgs|goversion|moduledata]")
 		return
