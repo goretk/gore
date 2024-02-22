@@ -2132,7 +2132,7 @@ func selectModuleData(v int, bits int) (modulable, error) {
 
 func getModuleDataList(bits int) ([]modulable, error) {
 	if bits != 32 && bits != 64 {
-		return nil, fmt.Errorf("unsupported bits %!d(MISSING)", bits)
+		return nil, fmt.Errorf("unsupported bits %d", bits)
 	}
 	if bits == 32 {
 		return []modulable{

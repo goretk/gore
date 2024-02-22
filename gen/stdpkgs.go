@@ -153,7 +153,7 @@ func generateStdPkgs() {
 		return
 	}
 
-	if hash == currentHash {
+	if hash == currentHash && !*forceUpdate {
 		fmt.Println("No need to update " + stdpkgOutputFile)
 		return
 	}
