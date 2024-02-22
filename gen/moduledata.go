@@ -19,6 +19,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/goretk/gore/extern"
@@ -29,6 +30,7 @@ import (
 	"go/token"
 	"os"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -90,7 +92,6 @@ func getCurrentMaxGoBit() (int, error) {
 				if typeSpec, ok := spec.(*ast.TypeSpec); ok {
 					if _, ok := typeSpec.Type.(*ast.StructType); ok {
 						name := typeSpec.Name.Name
-
 						if moduleNameMatcher.MatchString(name) {
 							matches := moduleNameMatcher.FindStringSubmatch(name)
 							if len(matches) != 2 {
@@ -213,6 +214,26 @@ func (g *moduleDataGenerator) writeSelector() {
 	g.writeln(`return nil, fmt.Errorf("unsupported version %%d and bits %%d", v, bits)`)
 
 	g.writeln("}\n}\n")
+}
+
+func (g *moduleDataGenerator) writeModuleListGetter() {
+	g.writeln("func getModuleDataList(bits int) ([]modulable, error) {")
+	g.writeln("if bits != 32 && bits != 64 { return nil, fmt.Errorf(\"unsupported bits %d\", bits)}")
+
+	g.writeln("if bits == 32 {")
+	g.writeln("return []modulable{")
+	for _, versionCode := range g.knownVersions {
+		g.writeln("&%s{},", g.generateTypeName(versionCode, 32))
+	}
+	g.writeln("}, nil")
+	g.writeln("} else {")
+	g.writeln("return []modulable{")
+	for _, versionCode := range g.knownVersions {
+		g.writeln("&%s{},", g.generateTypeName(versionCode, 64))
+	}
+	g.writeln("}, nil")
+	g.writeln("}")
+	g.writeln("}\n")
 
 }
 
@@ -225,10 +246,6 @@ func (*moduleDataGenerator) wrapValue(name string, bits int) string {
 		return fmt.Sprintf("uint64(%s)", name)
 	}
 	return name
-}
-
-func (*moduleDataGenerator) title(s string) string {
-	return strings.ToUpper(s[:1]) + s[1:]
 }
 
 func (g *moduleDataGenerator) writeln(format string, a ...interface{}) {
@@ -266,17 +283,17 @@ func (g *moduleDataGenerator) writeVersionedModuleData(versionCode int, code str
 
 				switch t := field.Type.(type) {
 				case *ast.StarExpr:
-					g.writeln("%s uint%d", g.title(name.Name), bits)
+					g.writeln("%s uint%d", name.Name, bits)
 				case *ast.ArrayType:
-					g.writeln("%s, %[1]slen, %[1]scap uint%d", g.title(name.Name), bits)
+					g.writeln("%s, %[1]slen, %[1]scap uint%d", name.Name, bits)
 				case *ast.Ident:
 					switch t.Name {
 					case "uintptr":
-						g.writeln("%s uint%d", g.title(name.Name), bits)
+						g.writeln("%s uint%d", name.Name, bits)
 					case "string":
-						g.writeln("%s, %[1]slen uint%d", g.title(name.Name), bits)
+						g.writeln("%s, %[1]slen uint%d", name.Name, bits)
 					case "uint8":
-						g.writeln("%s uint8", g.title(name.Name))
+						g.writeln("%s uint8", name.Name)
 					default:
 						panic(fmt.Sprintf("unhandled type: %+v", t))
 					}
@@ -302,57 +319,57 @@ func (g *moduleDataGenerator) writeVersionedModuleData(versionCode int, code str
 		g.writeln("return moduledata{")
 
 		if exist("text", "etext") {
-			g.writeln("TextAddr: %s,", g.wrapValue("md.Text", bits))
-			g.writeln("TextLen: %s,", g.wrapValue("md.Etext - md.Text", bits))
+			g.writeln("TextAddr: %s,", g.wrapValue("md.text", bits))
+			g.writeln("TextLen: %s,", g.wrapValue("md.etext - md.text", bits))
 		}
 
 		if exist("noptrdata", "enoptrdata") {
-			g.writeln("NoPtrDataAddr: %s,", g.wrapValue("md.Noptrdata", bits))
-			g.writeln("NoPtrDataLen: %s,", g.wrapValue("md.Enoptrdata - md.Noptrdata", bits))
+			g.writeln("NoPtrDataAddr: %s,", g.wrapValue("md.noptrdata", bits))
+			g.writeln("NoPtrDataLen: %s,", g.wrapValue("md.enoptrdata - md.noptrdata", bits))
 		}
 
 		if exist("data", "edata") {
-			g.writeln("DataAddr: %s,", g.wrapValue("md.Data", bits))
-			g.writeln("DataLen: %s,", g.wrapValue("md.Edata - md.Data", bits))
+			g.writeln("DataAddr: %s,", g.wrapValue("md.data", bits))
+			g.writeln("DataLen: %s,", g.wrapValue("md.edata - md.data", bits))
 		}
 
 		if exist("bss", "ebss") {
-			g.writeln("BssAddr: %s,", g.wrapValue("md.Bss", bits))
-			g.writeln("BssLen: %s,", g.wrapValue("md.Ebss - md.Bss", bits))
+			g.writeln("BssAddr: %s,", g.wrapValue("md.bss", bits))
+			g.writeln("BssLen: %s,", g.wrapValue("md.ebss - md.bss", bits))
 		}
 
 		if exist("noptrbss", "enoptrbss") {
-			g.writeln("NoPtrBssAddr: %s,", g.wrapValue("md.Noptrbss", bits))
-			g.writeln("NoPtrBssLen: %s,", g.wrapValue("md.Enoptrbss - md.Noptrbss", bits))
+			g.writeln("NoPtrBssAddr: %s,", g.wrapValue("md.noptrbss", bits))
+			g.writeln("NoPtrBssLen: %s,", g.wrapValue("md.enoptrbss - md.noptrbss", bits))
 		}
 
 		if exist("types", "etypes") {
-			g.writeln("TypesAddr: %s,", g.wrapValue("md.Types", bits))
-			g.writeln("TypesLen: %s,", g.wrapValue("md.Etypes - md.Types", bits))
+			g.writeln("TypesAddr: %s,", g.wrapValue("md.types", bits))
+			g.writeln("TypesLen: %s,", g.wrapValue("md.etypes - md.types", bits))
 		}
 
 		if exist("typelinks") {
-			g.writeln("TypelinkAddr: %s,", g.wrapValue("md.Typelinks", bits))
-			g.writeln("TypelinkLen: %s,", g.wrapValue("md.Typelinkslen", bits))
+			g.writeln("TypelinkAddr: %s,", g.wrapValue("md.typelinks", bits))
+			g.writeln("TypelinkLen: %s,", g.wrapValue("md.typelinkslen", bits))
 		}
 
 		if exist("itablinks") {
-			g.writeln("ITabLinkAddr: %s,", g.wrapValue("md.Itablinks", bits))
-			g.writeln("ITabLinkLen: %s,", g.wrapValue("md.Itablinkslen", bits))
+			g.writeln("ITabLinkAddr: %s,", g.wrapValue("md.itablinks", bits))
+			g.writeln("ITabLinkLen: %s,", g.wrapValue("md.itablinkslen", bits))
 		}
 
 		if exist("ftab") {
-			g.writeln("FuncTabAddr: %s,", g.wrapValue("md.Ftab", bits))
-			g.writeln("FuncTabLen: %s,", g.wrapValue("md.Ftablen", bits))
+			g.writeln("FuncTabAddr: %s,", g.wrapValue("md.ftab", bits))
+			g.writeln("FuncTabLen: %s,", g.wrapValue("md.ftablen", bits))
 		}
 
 		if exist("pclntable") {
-			g.writeln("PCLNTabAddr: %s,", g.wrapValue("md.Pclntable", bits))
-			g.writeln("PCLNTabLen: %s,", g.wrapValue("md.Pclntablelen", bits))
+			g.writeln("PCLNTabAddr: %s,", g.wrapValue("md.pclntable", bits))
+			g.writeln("PCLNTabLen: %s,", g.wrapValue("md.pclntablelen", bits))
 		}
 
 		if exist("gofunc") {
-			g.writeln("GoFuncVal: %s,", g.wrapValue("md.Gofunc", bits))
+			g.writeln("GoFuncVal: %s,", g.wrapValue("md.gofunc", bits))
 		}
 
 		g.writeln("}\n}\n")
@@ -384,7 +401,9 @@ func generateModuleData() {
 		versionCodes = append(versionCodes, versionCode)
 	}
 
-	sort.Ints(versionCodes)
+	slices.SortFunc(versionCodes, func(a, b int) int {
+		return -cmp.Compare(a, b)
+	})
 
 	for _, versionCode := range versionCodes {
 		err = g.add(versionCode, sources[versionCode])
@@ -394,6 +413,7 @@ func generateModuleData() {
 	}
 
 	g.writeSelector()
+	g.writeModuleListGetter()
 
 	out, err := format.Source(g.buf.Bytes())
 	if err != nil {
