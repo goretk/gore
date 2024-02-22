@@ -19,7 +19,6 @@ package gore
 
 import (
 	"debug/dwarf"
-	"debug/gosym"
 	"debug/macho"
 	"errors"
 	"fmt"
@@ -95,19 +94,6 @@ func (m *machoFile) Close() error {
 		return err
 	}
 	return m.osFile.Close()
-}
-
-func (m *machoFile) getPCLNTab(textStart uint64) (*gosym.Table, error) {
-	section := m.file.Section("__gopclntab")
-	if section == nil {
-		return nil, ErrNoPCLNTab
-	}
-	data, err := section.Data()
-	if data == nil {
-		return nil, err
-	}
-	pcln := gosym.NewLineTable(data, textStart)
-	return gosym.NewTable(nil, pcln)
 }
 
 func (m *machoFile) getRData() ([]byte, error) {

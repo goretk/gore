@@ -20,7 +20,6 @@ package gore
 import (
 	"debug/dwarf"
 	"debug/elf"
-	"debug/gosym"
 	"debug/macho"
 	"debug/pe"
 	"errors"
@@ -188,10 +187,6 @@ func (m *mockFileHandler) getParsedFile() any {
 }
 
 func (m *mockFileHandler) Close() error {
-	panic("not implemented")
-}
-
-func (m *mockFileHandler) getPCLNTab(uint64) (*gosym.Table, error) {
 	panic("not implemented")
 }
 

@@ -20,6 +20,7 @@ package gore
 import (
 	"bytes"
 	"encoding/binary"
+	"sync"
 )
 
 // keep sync with debug/gosym/pclntab.go
@@ -29,6 +30,27 @@ const (
 	gopclntab118magic uint32 = 0xfffffff0
 	gopclntab120magic uint32 = 0xfffffff1
 )
+
+// if the target relies on a brute force search,
+// use this cache the result
+type pclntabOnce struct {
+	*sync.Once
+	pclntab []byte
+	start   uint64
+	err     error
+}
+
+func newPclnTabOnce() *pclntabOnce {
+	return &pclntabOnce{Once: &sync.Once{}}
+}
+
+func (o *pclntabOnce) load(loader func() (uint64, []byte, error)) (uint64, []byte, error) {
+	o.Do(func() {
+		o.start, o.pclntab, o.err = loader()
+	})
+	return o.start, o.pclntab, o.err
+
+}
 
 // searchSectionForTab looks for the PCLN table within the section.
 func searchSectionForTab(secData []byte, order binary.ByteOrder) ([]byte, error) {

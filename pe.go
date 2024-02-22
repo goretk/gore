@@ -19,7 +19,6 @@ package gore
 
 import (
 	"debug/dwarf"
-	"debug/gosym"
 	"debug/pe"
 	"encoding/binary"
 	"errors"
@@ -50,17 +49,30 @@ func openPE(fp string) (peF *peFile, err error) {
 		err = fmt.Errorf("error when parsing the PE file: %w", err)
 		return
 	}
-	peF = &peFile{file: f, osFile: osFile}
+
+	imageBase := uint64(0)
+
+	switch hdr := f.OptionalHeader.(type) {
+	case *pe.OptionalHeader32:
+		imageBase = uint64(hdr.ImageBase)
+	case *pe.OptionalHeader64:
+		imageBase = hdr.ImageBase
+	default:
+		err = errors.New("unknown optional header type")
+		return
+	}
+
+	peF = &peFile{file: f, osFile: osFile, imageBase: imageBase, pcln: newPclnTabOnce()}
 	return
 }
 
 var _ fileHandler = (*peFile)(nil)
 
 type peFile struct {
-	file        *pe.File
-	osFile      *os.File
-	pclntabAddr uint64
-	imageBase   uint64
+	file      *pe.File
+	osFile    *os.File
+	imageBase uint64
+	pcln      *pclntabOnce
 }
 
 func (p *peFile) getSymbol(name string) (uint64, uint64, error) {
@@ -122,16 +134,6 @@ func (p *peFile) getFile() *os.File {
 	return p.osFile
 }
 
-func (p *peFile) getPCLNTab(textStart uint64) (*gosym.Table, error) {
-	addr, pclndat, err := p.searchForPCLNTab()
-	if err != nil {
-		return nil, err
-	}
-	pcln := gosym.NewLineTable(pclndat, textStart)
-	p.pclntabAddr = uint64(addr) + p.imageBase
-	return gosym.NewTable(make([]byte, 0), pcln)
-}
-
 // searchFileForPCLNTab will search the .rdata section for the
 // PCLN table.
 func (p *peFile) searchForPCLNTab() (uint32, []byte, error) {
@@ -186,8 +188,12 @@ func (p *peFile) moduledataSection() string {
 }
 
 func (p *peFile) getPCLNTABData() (uint64, []byte, error) {
-	b, d, e := p.searchForPCLNTab()
-	return p.imageBase + uint64(b), d, e
+	return p.pcln.load(p.getPCLNTABDataImpl)
+}
+
+func (p *peFile) getPCLNTABDataImpl() (uint64, []byte, error) {
+	start, data, err := p.searchForPCLNTab()
+	return p.imageBase + uint64(start), data, err
 }
 
 func (p *peFile) getSectionDataFromAddress(address uint64) (uint64, []byte, error) {
@@ -218,13 +224,9 @@ func (p *peFile) getFileInfo() *FileInfo {
 	fi := &FileInfo{ByteOrder: binary.LittleEndian, OS: "windows"}
 	if p.file.Machine == pe.IMAGE_FILE_MACHINE_I386 {
 		fi.WordSize = intSize32
-		optHdr := p.file.OptionalHeader.(*pe.OptionalHeader32)
-		p.imageBase = uint64(optHdr.ImageBase)
 		fi.Arch = Arch386
 	} else {
 		fi.WordSize = intSize64
-		optHdr := p.file.OptionalHeader.(*pe.OptionalHeader64)
-		p.imageBase = optHdr.ImageBase
 		fi.Arch = ArchAMD64
 	}
 	return fi

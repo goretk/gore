@@ -386,7 +386,12 @@ func (f *GoFile) PCLNTab() (*gosym.Table, error) {
 	if err != nil {
 		return nil, err
 	}
-	return f.fh.getPCLNTab(f.moduledata.TextAddr)
+	_, data, err := f.fh.getPCLNTABData()
+	if err != nil {
+		return nil, err
+	}
+	pcln := gosym.NewLineTable(data, f.moduledata.TextAddr)
+	return gosym.NewTable(make([]byte, 0), pcln)
 }
 
 // GetTypes returns a map of all types found in the binary file.
@@ -446,13 +451,12 @@ type fileHandler interface {
 	io.Closer
 	// returns the size, value and error
 	getSymbol(name string) (uint64, uint64, error)
-	getPCLNTab(uint64) (*gosym.Table, error)
+	getPCLNTABData() (uint64, []byte, error)
 	getRData() ([]byte, error)
 	getCodeSection() (uint64, []byte, error)
 	getSectionDataFromAddress(uint64) (uint64, []byte, error)
 	getSectionData(string) (uint64, []byte, error)
 	getFileInfo() *FileInfo
-	getPCLNTABData() (uint64, []byte, error)
 	moduledataSection() string
 	getBuildID() (string, error)
 	getFile() *os.File
