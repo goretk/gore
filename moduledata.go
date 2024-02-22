@@ -31,6 +31,9 @@ import (
 	"github.com/goretk/gore/extern/gover"
 )
 
+var ErrInvalidModuledata = errors.New("invalid moduledata")
+var ErrNoEnoughDataForVMD = errors.New("no enough data to read moduledata")
+
 // Moduledata holds information about the layout of the executable image in memory.
 type Moduledata interface {
 	// Text returns the text secion.
@@ -238,6 +241,10 @@ func pickVersionedModuleData(info *FileInfo) (modulable, error) {
 		bits = 64
 	}
 
+	if info.goversion == nil {
+		return nil, ErrNoGoVersionFound
+	}
+
 	ver := gover.Parse(extern.StripGo(info.goversion.Name))
 	zero := gover.Version{}
 	if ver == zero {
@@ -256,9 +263,23 @@ func pickVersionedModuleData(info *FileInfo) (modulable, error) {
 	return buf, nil
 }
 
-func searchModuledata(vmd modulable, fileInfo *FileInfo, f fileHandler) (moduledata, error) {
-	vmdSize := binary.Size(vmd)
+func validateModuledata(md Moduledata, fileInfo *FileInfo, f fileHandler) (bool, error) {
+	// Take a simple validation step to ensure that the moduledata is valid.
+	text := md.Text()
 
+	textSectAddr, textSect, err := f.getCodeSection()
+	if err != nil {
+		// this is not a failed validation, but a real error needs to be resolved
+		return false, err
+	}
+
+	mdTextStart := text.Address
+	mdTextEnd := text.Address + text.Length
+
+	return textSectAddr <= mdTextStart && mdTextEnd <= textSectAddr+uint64(len(textSect)), nil
+}
+
+func searchModuledata(vmd modulable, fileInfo *FileInfo, f fileHandler) (moduledata, error) {
 	_, secData, err := f.getSectionData(f.moduledataSection())
 	if err != nil {
 		return moduledata{}, err
@@ -273,50 +294,102 @@ func searchModuledata(vmd modulable, fileInfo *FileInfo, f fileHandler) (moduled
 		return moduledata{}, err
 	}
 
-search:
-	off := bytes.Index(secData, magic)
-	if off == -1 || len(secData) < off+vmdSize {
-		return moduledata{}, errors.New("could not find moduledata")
+	// If we have a versioned moduledata, we can skip the search.
+	var candidates []modulable
+	if vmd == nil {
+		bits := 32
+		if fileInfo.WordSize == intSize64 {
+			bits = 64
+		}
+		candidates, _ = getModuleDataList(bits)
 	}
 
-	data := secData[off : off+vmdSize]
-
-	// Read the module struct from the file.
-	r := bytes.NewReader(data)
-	err = binary.Read(r, fileInfo.ByteOrder, vmd)
-	if err != nil {
-		return moduledata{}, fmt.Errorf("error when reading module data from file: %w", err)
+	// Mark a recoverable error with position information.
+	type offsetInvalidError struct {
+		error
+		offset int
 	}
 
-	// Convert the read struct to the type we return to the caller.
-	md := vmd.toModuledata()
+	// for search, we always need validation, so the behavior here is different from readModuledataFromSymbol
+	trySearch := func(vmd modulable, data []byte) (moduledata, error) {
+		off := bytes.Index(secData, magic)
 
-	// Take a simple validation step to ensure that the moduledata is valid.
-	text := md.TextAddr
-	etext := md.TextAddr + md.TextLen
+		if off == -1 {
+			return moduledata{}, errors.New("could not find pclntab address")
+		}
 
-	textSectAddr, textSect, err := f.getCodeSection()
-	if err != nil {
-		return moduledata{}, err
+		tryLoad := func(vmd modulable, off int) (moduledata, error) {
+			vmdSize := binary.Size(vmd)
+			if len(secData) < off+vmdSize {
+				return moduledata{}, ErrNoEnoughDataForVMD
+			}
+
+			mdData := secData[off : off+vmdSize]
+
+			// Read the module struct from the file.
+			r := bytes.NewReader(mdData)
+			err = binary.Read(r, fileInfo.ByteOrder, vmd)
+			if err != nil {
+				return moduledata{}, fmt.Errorf("error when reading module data: %w", err)
+			}
+
+			// Convert the read struct to the type we return to the caller.
+			md := vmd.toModuledata()
+
+			valid, err := validateModuledata(md, fileInfo, f)
+			if err != nil {
+				return moduledata{}, err
+			}
+			if !valid {
+				return moduledata{}, offsetInvalidError{ErrInvalidModuledata, off}
+			}
+			return md, nil
+		}
+
+		if vmd != nil {
+			return tryLoad(vmd, off)
+		} else {
+			minVmdSize := binary.Size(candidates[0])
+			for _, candidateVmd := range candidates {
+				minVmdSize = min(minVmdSize, binary.Size(candidateVmd))
+			}
+
+			for _, candidateVmd := range candidates {
+				md, err := tryLoad(candidateVmd, off)
+				if err == nil {
+					return md, nil
+				}
+			}
+
+			if len(secData) < off+minVmdSize {
+				return moduledata{}, ErrNoEnoughDataForVMD
+			}
+
+			return moduledata{}, offsetInvalidError{errors.New("could not find moduledata with this match"), off}
+		}
+
 	}
-	if text > etext {
-		goto invalidMD
+
+	var offErr offsetInvalidError
+	current := secData
+	for {
+		md, err := trySearch(vmd, current)
+		if err == nil {
+			md.fh = f
+			return md, nil
+		}
+		if !errors.As(err, &offErr) {
+			return moduledata{}, err
+		}
+		current = current[offErr.offset+1:]
 	}
-
-	if !(textSectAddr <= text && text < textSectAddr+uint64(len(textSect))) {
-		goto invalidMD
-	}
-
-	return md, nil
-
-invalidMD:
-	secData = secData[off+1:]
-	goto search
 }
 
+// Normally, we believe the info read from symbol
+// is always correct, so no validation is needed.
+// But without the goversion a brute force search is needed.
+// And the moduledata can be malformed.
 func readModuledataFromSymbol(vmd modulable, fileInfo *FileInfo, f fileHandler) (moduledata, error) {
-	vmdSize := binary.Size(vmd)
-
 	_, addr, err := f.getSymbol("runtime.firstmoduledata")
 	if err != nil {
 		return moduledata{}, err
@@ -327,33 +400,75 @@ func readModuledataFromSymbol(vmd modulable, fileInfo *FileInfo, f fileHandler) 
 		return moduledata{}, err
 	}
 
-	if addr-base+uint64(vmdSize) > uint64(len(data)) {
-		return moduledata{}, errors.New("moduledata is too big")
+	tryLoad := func(vmd modulable, validate bool) (moduledata, error) {
+		vmdSize := binary.Size(vmd)
+		if addr-base+uint64(vmdSize) > uint64(len(data)) {
+			return moduledata{}, errors.New("moduledata is too big")
+		}
+		r := bytes.NewReader(data[addr-base : addr-base+uint64(vmdSize)])
+		err = binary.Read(r, fileInfo.ByteOrder, vmd)
+		if err != nil {
+			return moduledata{}, fmt.Errorf("error when reading module data from file: %w", err)
+		}
+		md := vmd.toModuledata()
+
+		if validate {
+			valid, err := validateModuledata(md, fileInfo, f)
+			if err != nil {
+				return moduledata{}, err
+			}
+			if !valid {
+				return moduledata{}, errors.New("moduledata is invalid")
+			}
+		}
+		return md, nil
 	}
 
-	r := bytes.NewReader(data[addr-base : addr-base+uint64(vmdSize)])
-	err = binary.Read(r, fileInfo.ByteOrder, vmd)
-	if err != nil {
-		return moduledata{}, fmt.Errorf("error when reading module data from file: %w", err)
+	if vmd != nil {
+		return tryLoad(vmd, true)
+	} else {
+		// cannot determine the version, so we have to traverse it
+		var bits int
+		if fileInfo.WordSize == intSize32 {
+			bits = 32
+		} else {
+			bits = 64
+		}
+
+		candidates, _ := getModuleDataList(bits)
+		for _, candidateVmd := range candidates {
+			// can have error result, need to validate
+			md, err := tryLoad(candidateVmd, true)
+			if err == nil {
+				return md, nil
+			}
+		}
+		return moduledata{}, errors.New("could not find moduledata")
 	}
 
-	// Believe the symbol is correct, so no validation is needed.
-	return vmd.toModuledata(), nil
 }
 
 func extractModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
 	vmd, err := pickVersionedModuleData(fileInfo)
 	if err != nil {
+		if !errors.Is(err, ErrNoGoVersionFound) {
+			return moduledata{}, err
+		}
+	}
+
+	hasSymbol, err := f.hasSymbolTable()
+	if err != nil {
 		return moduledata{}, err
 	}
-
-	md, err := readModuledataFromSymbol(vmd, fileInfo, f)
-	if err == nil {
-		md.fh = f
-		return md, nil
+	if hasSymbol {
+		md, err := readModuledataFromSymbol(vmd, fileInfo, f)
+		if err == nil {
+			md.fh = f
+			return md, nil
+		}
 	}
 
-	md, err = searchModuledata(vmd, fileInfo, f)
+	md, err := searchModuledata(vmd, fileInfo, f)
 	if err != nil {
 		return moduledata{}, err
 	}

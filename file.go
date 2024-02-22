@@ -140,11 +140,8 @@ type GoFile struct {
 
 func (f *GoFile) initModuleData() error {
 	f.initModuleDataOnce.Do(func() {
-		err := f.ensureCompilerVersion()
-		if err != nil {
-			f.initModuleDataError = err
-			return
-		}
+		// since we can traverse moduledata now, no goversion no longer an unrecoverable error
+		_ = f.ensureCompilerVersion()
 		f.moduledata, f.initModuleDataError = extractModuledata(f.FileInfo, f.fh)
 	})
 	return f.initModuleDataError
@@ -451,6 +448,7 @@ type fileHandler interface {
 	io.Closer
 	// returns the size, value and error
 	getSymbol(name string) (uint64, uint64, error)
+	hasSymbolTable() (bool, error)
 	getPCLNTABData() (uint64, []byte, error)
 	getRData() ([]byte, error)
 	getCodeSection() (uint64, []byte, error)

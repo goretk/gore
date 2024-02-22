@@ -20,11 +20,10 @@ package gore
 import (
 	"debug/dwarf"
 	"debug/macho"
-	"errors"
 	"fmt"
-	"math"
 	"os"
 	"slices"
+	"sort"
 )
 
 func openMachO(fp string) (*machoFile, error) {
@@ -37,7 +36,7 @@ func openMachO(fp string) (*machoFile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error when parsing the Mach-O file: %w", err)
 	}
-	return &machoFile{file: f, osFile: osFile}, nil
+	return &machoFile{file: f, osFile: osFile, symtab: newSymbolTableOnce()}, nil
 }
 
 var _ fileHandler = (*machoFile)(nil)
@@ -45,39 +44,62 @@ var _ fileHandler = (*machoFile)(nil)
 type machoFile struct {
 	file   *macho.File
 	osFile *os.File
+	symtab *symbolTableOnce
+}
+
+func (m *machoFile) initSymtab() error {
+	m.symtab.Do(func() {
+		if m.file.Symtab == nil {
+			// just do nothing, keep err nil and table empty
+			return
+		}
+		const stabTypeMask = 0xe0
+		// Build a sorted list of addresses of all symbols.
+		// We infer the size of a symbol by looking at where the next symbol begins.
+		var addrs []uint64
+		for _, s := range m.file.Symtab.Syms {
+			// Skip stab debug info.
+			if s.Type&stabTypeMask == 0 {
+				addrs = append(addrs, s.Value)
+			}
+		}
+		slices.Sort(addrs)
+
+		var syms []symbol
+		for _, s := range m.file.Symtab.Syms {
+			if s.Type&stabTypeMask != 0 {
+				// Skip stab debug info.
+				continue
+			}
+			sym := symbol{Name: s.Name, Value: s.Value}
+			i := sort.Search(len(addrs), func(x int) bool { return addrs[x] > s.Value })
+			if i < len(addrs) {
+				sym.Size = addrs[i] - s.Value
+			}
+			syms = append(syms, sym)
+		}
+
+		for _, sym := range syms {
+			m.symtab.table[sym.Name] = sym
+		}
+	})
+	return m.symtab.err
+}
+
+func (m *machoFile) hasSymbolTable() (bool, error) {
+	return m.file.Symtab != nil, nil
 }
 
 func (m *machoFile) getSymbol(name string) (uint64, uint64, error) {
-	var addrs []uint64
-
-	foundedAddr := uint64(math.MaxUint64)
-
-	const stabTypeMask = 0xe0
-
-	for _, s := range m.file.Symtab.Syms {
-		if s.Type&stabTypeMask != 0 || s.Sect == 0 {
-			continue
-		}
-
-		addrs = append(addrs, s.Value)
-
-		if s.Name == name {
-			foundedAddr = s.Value
-		}
+	err := m.initSymtab()
+	if err != nil {
+		return 0, 0, err
 	}
-
-	if foundedAddr == math.MaxUint64 {
-		return 0, 0, fmt.Errorf("symbol %s not found", name)
+	sym, ok := m.symtab.table[name]
+	if !ok {
+		return 0, 0, ErrSymbolNotFound
 	}
-
-	slices.Sort(addrs)
-
-	index, _ := slices.BinarySearch(addrs, foundedAddr)
-
-	if index == len(addrs)-1 {
-		return foundedAddr, 0, errors.New("size not available")
-	}
-	return foundedAddr, addrs[index+1] - foundedAddr, nil
+	return sym.Value, sym.Size, nil
 }
 
 func (m *machoFile) getParsedFile() any {

@@ -35,7 +35,12 @@ func openELF(fp string) (*elfFile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error when parsing the ELF file: %w", err)
 	}
-	return &elfFile{file: f, osFile: osFile, pcln: newPclnTabOnce()}, nil
+	return &elfFile{
+		file:   f,
+		osFile: osFile,
+		pcln:   newPclnTabOnce(),
+		symtab: newSymbolTableOnce(),
+	}, nil
 }
 
 var _ fileHandler = (*elfFile)(nil)
@@ -44,19 +49,48 @@ type elfFile struct {
 	file   *elf.File
 	osFile *os.File
 	pcln   *pclntabOnce
+	symtab *symbolTableOnce
+}
+
+func (e *elfFile) initSymTab() error {
+	e.symtab.Do(func() {
+		syms, err := e.file.Symbols()
+		if err != nil {
+			// If the error is ErrNoSymbols, we just ignore it.
+			if !errors.Is(err, elf.ErrNoSymbols) {
+				e.symtab.err = fmt.Errorf("error when getting the symbols: %w", err)
+			}
+			return
+		}
+		for _, sym := range syms {
+			e.symtab.table[sym.Name] = symbol{
+				Name:  sym.Name,
+				Value: sym.Value,
+				Size:  sym.Size,
+			}
+		}
+	})
+	return e.symtab.err
+}
+
+func (e *elfFile) hasSymbolTable() (bool, error) {
+	err := e.initSymTab()
+	if err != nil {
+		return false, err
+	}
+	return len(e.symtab.table) > 0, nil
 }
 
 func (e *elfFile) getSymbol(name string) (uint64, uint64, error) {
-	syms, err := e.file.Symbols()
+	err := e.initSymTab()
 	if err != nil {
-		return 0, 0, fmt.Errorf("error when getting the symbols: %w", err)
+		return 0, 0, err
 	}
-	for _, sym := range syms {
-		if sym.Name == name {
-			return sym.Size, sym.Value, nil
-		}
+	sym, ok := e.symtab.table[name]
+	if !ok {
+		return 0, 0, ErrSymbolNotFound
 	}
-	return 0, 0, fmt.Errorf("symbol %s not found", name)
+	return sym.Value, sym.Size, nil
 }
 
 func (e *elfFile) getParsedFile() any {
