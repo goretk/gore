@@ -67,36 +67,53 @@ func TestMain(m *testing.M) {
 	fmt.Println("Creating test resources, this can take some time...")
 	var tmpDirs []string
 	fs := make(map[string]string)
+
+	resultChan := make(chan buildResult)
+	wg := &sync.WaitGroup{}
+
+	go func() {
+		for r := range resultChan {
+			tmpDirs = append(tmpDirs, r.dir)
+			name := r.os + r.arch
+			if r.pie {
+				name += "-pie"
+			}
+			if !r.strip {
+				name += "-nostrip"
+			}
+			fs[name] = r.exe
+		}
+	}()
+
 	for _, r := range dynResources {
 		fmt.Printf("Building resource file for %s_%s\n", r.os, r.arch)
-		exe, dir := buildTestResource(testresourcesrc, r.os, r.arch, false, true)
-		tmpDirs = append(tmpDirs, dir)
-		fs[r.os+r.arch] = exe
+		go buildTestResource(testresourcesrc, r.os, r.arch, false, true, wg, resultChan)
 
-		// Build PIE version of the file. Not all host systems, particular macOS, appears to be able
+		// Build a PIE version of the file. Not all host systems, particular macOS, appears to be able
 		// to compile a PIE build of linux-386. In this case, we skip this combination.
 		if !(r.arch == "386" && r.os == "linux") {
-			exe, dir = buildTestResource(testresourcesrc, r.os, r.arch, true, true)
-			tmpDirs = append(tmpDirs, dir)
-			fs[r.os+r.arch+"-pie"] = exe
+			go buildTestResource(testresourcesrc, r.os, r.arch, true, true, wg, resultChan)
 		}
 
 		// build unstripped binary; needs separate source file with reference to GOROOT
 		// for test trying to access it to pass
-		exe, dir = buildTestResource(nostripSrc, r.os, r.arch, false, false)
-		tmpDirs = append(tmpDirs, dir)
-		fs[r.os+r.arch+"-nostrip"] = exe
-
+		go buildTestResource(nostripSrc, r.os, r.arch, false, false, wg, resultChan)
 	}
+
+	wg.Wait()
+	close(resultChan)
+
 	dynResourceFiles = &testFiles{files: fs}
 
 	fmt.Println("Launching tests")
 	code := m.Run()
 
 	fmt.Println("Clean up test resources")
+
 	for _, d := range tmpDirs {
 		os.RemoveAll(d)
 	}
+
 	os.Exit(code)
 }
 
@@ -473,7 +490,18 @@ func TestDwarfString(t *testing.T) {
 	}
 }
 
-func buildTestResource(body, goos, arch string, pie, stripped bool) (string, string) {
+type buildResult struct {
+	exe   string
+	dir   string
+	strip bool
+	pie   bool
+	os    string
+	arch  string
+}
+
+func buildTestResource(body, goos, arch string, pie, stripped bool, wg *sync.WaitGroup, result chan buildResult) {
+	wg.Add(1)
+	defer wg.Done()
 	goBin, err := exec.LookPath("go")
 	if err != nil {
 		panic("No go tool chain found: " + err.Error())
@@ -515,10 +543,11 @@ func buildTestResource(body, goos, arch string, pie, stripped bool) (string, str
 	cmd.Env = append(cmd.Env, "GOCACHE="+tmpdir, "GOARCH="+arch, "GOOS="+goos, "GOPATH="+gopath, "GOTMPDIR="+gopath, "PATH="+os.Getenv("PATH"))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		panic("building test executable failed: " + string(out))
+		fmt.Printf("building test executable failed: %s\n", string(out))
+		os.Exit(1)
 	}
 
-	return exe, tmpdir
+	result <- buildResult{exe: exe, dir: tmpdir, strip: stripped, pie: pie, os: goos, arch: arch}
 }
 
 func testCompilerVersion() string {
