@@ -503,6 +503,9 @@ func buildTestResource(body, goos, arch string, pie, stripped bool) (string, str
 	args := []string{"build", "-o", exe, "-ldflags", ldFlags}
 	if pie {
 		args = append(args, "-buildmode=pie")
+	} else {
+		// Windows use pie by default
+		args = append(args, "-buildmode=exe")
 	}
 	args = append(args, src)
 
