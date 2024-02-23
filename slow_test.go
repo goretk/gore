@@ -87,16 +87,19 @@ func TestMain(m *testing.M) {
 
 	for _, r := range dynResources {
 		fmt.Printf("Building resource file for %s_%s\n", r.os, r.arch)
+		wg.Add(1)
 		go buildTestResource(testresourcesrc, r.os, r.arch, false, true, wg, resultChan)
 
 		// Build a PIE version of the file. Not all host systems, particular macOS, appears to be able
 		// to compile a PIE build of linux-386. In this case, we skip this combination.
 		if !(r.arch == "386" && r.os == "linux") {
+			wg.Add(1)
 			go buildTestResource(testresourcesrc, r.os, r.arch, true, true, wg, resultChan)
 		}
 
 		// build unstripped binary; needs separate source file with reference to GOROOT
 		// for test trying to access it to pass
+		wg.Add(1)
 		go buildTestResource(nostripSrc, r.os, r.arch, false, false, wg, resultChan)
 	}
 
@@ -500,7 +503,6 @@ type buildResult struct {
 }
 
 func buildTestResource(body, goos, arch string, pie, stripped bool, wg *sync.WaitGroup, result chan buildResult) {
-	wg.Add(1)
 	defer wg.Done()
 	goBin, err := exec.LookPath("go")
 	if err != nil {
