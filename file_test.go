@@ -343,5 +343,6 @@ func main() {
 	data := getData()
 	data += " | Test"
 	fmt.Println(runtime.GOROOT())
+	fmt.Println(data)
 }
 `
