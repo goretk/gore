@@ -283,6 +283,11 @@ func getGoldenResources() ([]string, error) {
 const testresourcesrc = `
 package main
 
+import (
+	"fmt"
+	"runtime"
+)
+
 //go:noinline
 func getData() string {
 	return "Name: GoRE"
@@ -291,18 +296,7 @@ func getData() string {
 func main() {
 	data := getData()
 	data += " | Test"
-}
-`
-
-const nostripSrc = `
-package main
-
-import (
-	"fmt"
-	"runtime"
-)
-
-func main() {
 	fmt.Println(runtime.GOROOT())
+	fmt.Println(data)
 }
 `
