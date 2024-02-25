@@ -157,8 +157,8 @@ func TestMain(m *testing.M) {
 }
 
 func TestOpenAndCloseFile(t *testing.T) {
-	getMatrix(t, nil, nil, "open", func(tt *testing.T, exe string) {
-		a := assert.New(tt)
+	getMatrix(t, nil, nil, "open", func(t *testing.T, exe string) {
+		a := assert.New(t)
 
 		f, err := Open(exe)
 		a.NoError(err)
@@ -168,9 +168,9 @@ func TestOpenAndCloseFile(t *testing.T) {
 }
 
 func TestGetPackages(t *testing.T) {
-	getMatrix(t, nil, nil, "getPackages", func(tt *testing.T, exe string) {
-		a := assert.New(tt)
-		r := require.New(tt)
+	getMatrix(t, nil, nil, "getPackages", func(t *testing.T, exe string) {
+		a := assert.New(t)
+		r := require.New(t)
 
 		f, err := Open(exe)
 		r.NoError(err)
@@ -224,7 +224,7 @@ func TestGetPackages(t *testing.T) {
 }
 
 func TestGetTypesFromDynamicBuiltResources(t *testing.T) {
-	getMatrix(t, nil, nil, "getTypes", func(tt *testing.T, exe string) {
+	getMatrix(t, nil, nil, "getTypes", func(t *testing.T, exe string) {
 		a := assert.New(t)
 		r := require.New(t)
 		f, err := Open(exe)
