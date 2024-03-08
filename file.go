@@ -133,6 +133,8 @@ type GoFile struct {
 	runtimeText  uint64
 	pclntabAddr  uint64
 	pclntabBytes []byte
+	pclntabOnce  sync.Once
+	pclntabError error
 
 	moduledata moduledata
 
@@ -382,42 +384,46 @@ func (f *GoFile) Close() error {
 
 // PCLNTab returns the PCLN table.
 func (f *GoFile) PCLNTab() (*gosym.Table, error) {
-	// Check if we have already been called. If so, return the cached values.
-	if f.runtimeText != 0 && f.pclntabBytes != nil {
-		return gosym.NewTable(make([]byte, 0), gosym.NewLineTable(f.pclntabBytes, f.runtimeText))
-	}
+	f.pclntabOnce.Do(func() {
+		addr, data, err := f.fh.getPCLNTABData()
+		if err != nil {
+			f.pclntabError = fmt.Errorf("error when getting pclntab: %w", err)
+			return
+		}
+		f.pclntabBytes = data
+		f.pclntabAddr = addr
 
-	addr, data, err := f.fh.getPCLNTABData()
-	if err != nil {
-		return nil, fmt.Errorf("error when getting pclntab: %w", err)
-	}
-	f.pclntabBytes = data
-	f.pclntabAddr = addr
+		// All the function address in the pclntab uses the symbol "runtime.text" as the base address.
+		// This symbol is where the runtime uses as the start of the code section. While it should always
+		// be located within the binary's text section, it may not be at the start of the section. For example,
+		// external linkers may add additional code to the section before the "Go" code. We can find "runtime.text"
+		// in the moduledata structure in the binary.
+		_, moddataSection, err := f.fh.getSectionData(f.fh.moduledataSection())
+		if err != nil {
+			f.pclntabError = fmt.Errorf("failed to get the section %s where the moduledata structure is stored: %w", f.fh.moduledataSection(), err)
+			return
+		}
 
-	// All the function address in the pclntab uses the symbol "runtime.text" as the base address.
-	// This symbol is where the runtime uses as the start of the code section. While it should always
-	// be located within the binary's text section, it may not be at the start of the section. For example,
-	// external linkers may add additional code to the section before the "Go" code. We can find "runtime.text"
-	// in the moduledata structure in the binary.
-	_, moddataSection, err := f.fh.getSectionData(f.fh.moduledataSection())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get the section %s where the moduledata structure is stored: %w", f.fh.moduledataSection(), err)
-	}
+		// At this point, we don't know what compiler version was used so we can't parse the moduledata structure.
+		// We do know the field in different structure versions so we can check these offsets and see if the fall
+		// within the text section.
+		textStart, textData, err := f.fh.getCodeSection()
+		if err != nil {
+			f.pclntabError = fmt.Errorf("failed to get the file's text section: %w", err)
+			return
+		}
 
-	// At this point, we don't know what compiler version was used so we can't parse the moduledata structure.
-	// We do know the field in different structure versions so we can check these offsets and see if the fall
-	// within the text section.
-	textStart, textData, err := f.fh.getCodeSection()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get the file's text section: %w", err)
+		// Since the moduledata starts with the address to the pclntab, we can use this to find the moduledata structure.
+		runtimeText, err := f.findRuntimeText(textStart, textStart+uint64(len(textData)), f.pclntabAddr, moddataSection)
+		if err != nil {
+			f.pclntabError = fmt.Errorf("failed to find runtime.text symbol: %w", err)
+			return
+		}
+		f.runtimeText = runtimeText
+	})
+	if f.pclntabError != nil {
+		return nil, f.pclntabError
 	}
-
-	// Since the moduledata starts with the address to the pclntab, we can use this to find the moduledata structure.
-	runtimeText, err := f.findRuntimeText(textStart, textStart+uint64(len(textData)), f.pclntabAddr, moddataSection)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find runtime.text symbol: %w", err)
-	}
-	f.runtimeText = runtimeText
 
 	return gosym.NewTable(make([]byte, 0), gosym.NewLineTable(f.pclntabBytes, f.runtimeText))
 }
