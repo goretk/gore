@@ -1,6 +1,6 @@
 // This file is part of GoRE.
 //
-// Copyright (C) 2019-2021 GoRE Authors
+// Copyright (C) 2019-2024 GoRE Authors
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -19,7 +19,6 @@ package gore
 
 import (
 	"debug/dwarf"
-	"debug/gosym"
 	"debug/macho"
 	"fmt"
 	"os"
@@ -59,19 +58,6 @@ func (m *machoFile) Close() error {
 		return err
 	}
 	return m.osFile.Close()
-}
-
-func (m *machoFile) getPCLNTab() (*gosym.Table, error) {
-	section := m.file.Section("__gopclntab")
-	if section == nil {
-		return nil, ErrNoPCLNTab
-	}
-	data, err := section.Data()
-	if data == nil {
-		return nil, err
-	}
-	pcln := gosym.NewLineTable(data, m.file.Section("__text").Addr)
-	return gosym.NewTable(nil, pcln)
 }
 
 func (m *machoFile) getRData() ([]byte, error) {

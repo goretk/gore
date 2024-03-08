@@ -1,6 +1,6 @@
 // This file is part of GoRE.
 //
-// Copyright (C) 2019-2023 GoRE Authors
+// Copyright (C) 2019-2024 GoRE Authors
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -224,10 +224,14 @@ func (m ModuleDataSection) Data() ([]byte, error) {
 	return buf, nil
 }
 
-func buildPclnTabAddrBinary(order binary.ByteOrder, addr uint64) ([]byte, error) {
-	buf := make([]byte, intSize32)
-	order.PutUint32(buf, uint32(addr))
-	return buf, nil
+func buildPclnTabAddrBinary(wordSize int, order binary.ByteOrder, addr uint64) []byte {
+	buf := make([]byte, wordSize)
+	if wordSize == intSize32 {
+		order.PutUint32(buf, uint32(addr))
+	} else {
+		order.PutUint64(buf, addr)
+	}
+	return buf
 }
 
 func pickVersionedModuleData(info *FileInfo) (modulable, error) {
@@ -273,10 +277,7 @@ func extractModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
 		return moduledata{}, err
 	}
 
-	magic, err := buildPclnTabAddrBinary(fileInfo.ByteOrder, tabAddr)
-	if err != nil {
-		return moduledata{}, err
-	}
+	magic := buildPclnTabAddrBinary(fileInfo.WordSize, fileInfo.ByteOrder, tabAddr)
 
 search:
 	off := bytes.Index(secData, magic)
