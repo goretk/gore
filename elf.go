@@ -1,6 +1,6 @@
 // This file is part of GoRE.
 //
-// Copyright (C) 2019-2021 GoRE Authors
+// Copyright (C) 2019-2024 GoRE Authors
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -20,7 +20,6 @@ package gore
 import (
 	"debug/dwarf"
 	"debug/elf"
-	"debug/gosym"
 	"errors"
 	"fmt"
 	"os"
@@ -54,25 +53,6 @@ func (e *elfFile) getFile() *os.File {
 	return e.osFile
 }
 
-func (e *elfFile) getPCLNTab() (*gosym.Table, error) {
-	pclnSection := e.file.Section(".gopclntab")
-	if pclnSection == nil {
-		// No section found. Check if the PIE section exist instead.
-		pclnSection = e.file.Section(".data.rel.ro.gopclntab")
-	}
-	if pclnSection == nil {
-		return nil, fmt.Errorf("no gopclntab section found")
-	}
-
-	pclndat, err := pclnSection.Data()
-	if err != nil {
-		return nil, fmt.Errorf("could not get the data for the pclntab: %w", err)
-	}
-
-	pcln := gosym.NewLineTable(pclndat, e.file.Section(".text").Addr)
-	return gosym.NewTable(make([]byte, 0), pcln)
-}
-
 func (e *elfFile) Close() error {
 	err := e.file.Close()
 	if err != nil {
@@ -102,12 +82,42 @@ func (e *elfFile) getCodeSection() (uint64, []byte, error) {
 }
 
 func (e *elfFile) getPCLNTABData() (uint64, []byte, error) {
-	start, data, err := e.getSectionData(".gopclntab")
-	if errors.Is(err, ErrSectionDoesNotExist) {
-		// Try PIE location
-		return e.getSectionData(".data.rel.ro.gopclntab")
+	// If the standard linker was used when linking the Go binary, the pclntab is located
+	// in its own section in the ELF. We first check the section used when using the default
+	// build mode. If the section doesn't exist, we check the section used when the PIE
+	// build mode is used.
+	for _, s := range []string{".gopclntab", ".data.rel.ro.gopclntab"} {
+		start, data, err := e.getSectionData(s)
+		if errors.Is(err, ErrSectionDoesNotExist) {
+			continue
+		}
+		if err != nil {
+			return 0, nil, fmt.Errorf("accessing section data for %s failed: %w", s, err)
+		}
+		// We found the pclntab section so we can return it to the caller.
+		return start, data, nil
 	}
-	return start, data, err
+
+	// For files that have been linked with an external linker, the table is located
+	// in the .data.rel.ro section. Because it's not in its own section, we will have to
+	// search for it in the section.
+	start, data, err := e.getSectionData(".data.rel.ro")
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get section: .data.rel.ro: %w", err)
+	}
+
+	buf, err := searchSectionForTab(data)
+	if err != nil {
+		return 0, nil, fmt.Errorf("error when search for pclntab: %w", err)
+	}
+
+	// Calculate the virtual address of the PCLNTAB. We don't know the size of table so
+	// we search from the end of section until we find the start of the table. Doing it
+	// this way, we can use the difference between the size of the segment and the size
+	// of the "tail" to get the offset where the table starts.
+	vaddr := start + uint64(len(data)) - uint64(len(buf))
+
+	return vaddr, buf, err
 }
 
 func (e *elfFile) moduledataSection() string {

@@ -1,6 +1,6 @@
 // This file is part of GoRE.
 //
-// Copyright (C) 2019-2021 GoRE Authors
+// Copyright (C) 2019-2024 GoRE Authors
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -20,7 +20,6 @@ package gore
 import (
 	"debug/dwarf"
 	"debug/elf"
-	"debug/gosym"
 	"debug/macho"
 	"debug/pe"
 	"errors"
@@ -71,6 +70,53 @@ func TestIssue11NoNoteSectionELF(t *testing.T) {
 
 	_, err = Open(exe)
 	assert.NoError(t, err, "Should not fail to open an ELF file without a notes section.")
+}
+
+func TestIssue79PIEAndExternalLinker(t *testing.T) {
+	r := require.New(t)
+
+	tests := []struct {
+		file     string
+		version  string
+		mainAddr uint64
+	}{
+		{"linux-pie-ext", "go1.21.3", uint64(0x000987a0)},
+		{"gold-darwin-arm64-1.21.0", "go1.21.0", uint64(0x100088370)},
+		{"windows-pie-ext", "go1.21.3", uint64(0x00485960)},
+	}
+
+	for _, test := range tests {
+		t.Run(test.file, func(t *testing.T) {
+			testFile := filepath.Join("testdata", "gold", test.file)
+
+			f, err := Open(testFile)
+			r.NoError(err, "Failed to open test file")
+			defer f.Close()
+
+			ver, err := f.GetCompilerVersion()
+			r.NoError(err)
+			r.Equal(test.version, ver.Name)
+
+			pkgs, err := f.GetPackages()
+			r.NoError(err)
+
+			var mf *Function
+			for _, p := range pkgs {
+				if p.Name != "main" {
+					continue
+				}
+				for _, fck := range p.Functions {
+					if fck.Name == "main" {
+						mf = fck
+						break
+					}
+				}
+			}
+			r.NotNil(mf, "Main function not found.")
+
+			r.Equal(test.mainAddr, mf.Offset, "Address of main.main not correct.")
+		})
+	}
 }
 
 func TestGoldFiles(t *testing.T) {
@@ -184,10 +230,6 @@ func (m *mockFileHandler) getParsedFile() any {
 }
 
 func (m *mockFileHandler) Close() error {
-	panic("not implemented")
-}
-
-func (m *mockFileHandler) getPCLNTab() (*gosym.Table, error) {
 	panic("not implemented")
 }
 

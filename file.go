@@ -1,6 +1,6 @@
 // This file is part of GoRE.
 //
-// Copyright (C) 2019-2021 GoRE Authors
+// Copyright (C) 2019-2024 GoRE Authors
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -129,6 +129,12 @@ type GoFile struct {
 
 	initPackagesOnce  sync.Once
 	initPackagesError error
+
+	runtimeText  uint64
+	pclntabAddr  uint64
+	pclntabBytes []byte
+	pclntabOnce  sync.Once
+	pclntabError error
 
 	moduledata moduledata
 
@@ -378,7 +384,90 @@ func (f *GoFile) Close() error {
 
 // PCLNTab returns the PCLN table.
 func (f *GoFile) PCLNTab() (*gosym.Table, error) {
-	return f.fh.getPCLNTab()
+	f.pclntabOnce.Do(func() {
+		addr, data, err := f.fh.getPCLNTABData()
+		if err != nil {
+			f.pclntabError = fmt.Errorf("error when getting pclntab: %w", err)
+			return
+		}
+		f.pclntabBytes = data
+		f.pclntabAddr = addr
+
+		// All the function address in the pclntab uses the symbol "runtime.text" as the base address.
+		// This symbol is where the runtime uses as the start of the code section. While it should always
+		// be located within the binary's text section, it may not be at the start of the section. For example,
+		// external linkers may add additional code to the section before the "Go" code. We can find "runtime.text"
+		// in the moduledata structure in the binary.
+		_, moddataSection, err := f.fh.getSectionData(f.fh.moduledataSection())
+		if err != nil {
+			f.pclntabError = fmt.Errorf("failed to get the section %s where the moduledata structure is stored: %w", f.fh.moduledataSection(), err)
+			return
+		}
+
+		// At this point, we don't know what compiler version was used so we can't parse the moduledata structure.
+		// We do know the field in different structure versions so we can check these offsets and see if the fall
+		// within the text section.
+		textStart, textData, err := f.fh.getCodeSection()
+		if err != nil {
+			f.pclntabError = fmt.Errorf("failed to get the file's text section: %w", err)
+			return
+		}
+
+		// Since the moduledata starts with the address to the pclntab, we can use this to find the moduledata structure.
+		runtimeText, err := f.findRuntimeText(textStart, textStart+uint64(len(textData)), f.pclntabAddr, moddataSection)
+		if err != nil {
+			f.pclntabError = fmt.Errorf("failed to find runtime.text symbol: %w", err)
+			return
+		}
+		f.runtimeText = runtimeText
+	})
+	if f.pclntabError != nil {
+		return nil, f.pclntabError
+	}
+
+	return gosym.NewTable(make([]byte, 0), gosym.NewLineTable(f.pclntabBytes, f.runtimeText))
+}
+
+func (f *GoFile) findRuntimeText(textStart, textEnd, pclntabAddr uint64, modSectiondata []byte) (uint64, error) {
+	var text, etext uint64
+	magic := buildPclnTabAddrBinary(f.FileInfo.WordSize, f.FileInfo.ByteOrder, pclntabAddr)
+	for {
+		// Search for a potential match of the moduledata structure.
+		offset := bytes.Index(modSectiondata, magic)
+
+		// If we got -1 back, nothing was found. If the offset is close to the end of the section
+		// it's not the correct match and we didn't find the structure.
+		if offset == -1 || len(modSectiondata[offset:]) < 30*f.FileInfo.WordSize {
+			return 0, fmt.Errorf("moduledata structure not found")
+		}
+
+		// We first check field 22 and 23 for runtime.text and runtime.etext. Current Go versions.
+		if f.FileInfo.WordSize == intSize32 {
+			text = uint64(f.FileInfo.ByteOrder.Uint32(modSectiondata[offset+22*f.FileInfo.WordSize:]))
+			etext = uint64(f.FileInfo.ByteOrder.Uint32(modSectiondata[offset+23*f.FileInfo.WordSize:]))
+		} else {
+			text = f.FileInfo.ByteOrder.Uint64(modSectiondata[offset+22*f.FileInfo.WordSize:])
+			etext = f.FileInfo.ByteOrder.Uint64(modSectiondata[offset+23*f.FileInfo.WordSize:])
+		}
+		if text >= textStart && text < textEnd && etext > textStart && etext <= textEnd {
+			return text, nil
+		}
+
+		// If fields 22 and 23 didn't return what we expected, we check fields 12 and 13. These fields
+		// are for older Go versions.
+		if f.FileInfo.WordSize == intSize32 {
+			text = uint64(f.FileInfo.ByteOrder.Uint32(modSectiondata[offset+12*f.FileInfo.WordSize:]))
+			etext = uint64(f.FileInfo.ByteOrder.Uint32(modSectiondata[offset+13*f.FileInfo.WordSize:]))
+		} else {
+			text = f.FileInfo.ByteOrder.Uint64(modSectiondata[offset+12*f.FileInfo.WordSize:])
+			etext = f.FileInfo.ByteOrder.Uint64(modSectiondata[offset+13*f.FileInfo.WordSize:])
+		}
+		if text >= textStart && text < textEnd && etext > textStart && etext <= textEnd {
+			return text, nil
+		}
+
+		modSectiondata = modSectiondata[offset+1:]
+	}
 }
 
 // GetTypes returns a map of all types found in the binary file.
@@ -436,7 +525,6 @@ func sortTypes(types map[uint64]*GoType) []*GoType {
 
 type fileHandler interface {
 	io.Closer
-	getPCLNTab() (*gosym.Table, error)
 	getRData() ([]byte, error)
 	getCodeSection() (uint64, []byte, error)
 	getSectionDataFromAddress(uint64) (uint64, []byte, error)

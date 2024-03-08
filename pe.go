@@ -1,6 +1,6 @@
 // This file is part of GoRE.
 //
-// Copyright (C) 2019-2021 GoRE Authors
+// Copyright (C) 2019-2024 GoRE Authors
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -19,7 +19,6 @@ package gore
 
 import (
 	"debug/dwarf"
-	"debug/gosym"
 	"debug/pe"
 	"encoding/binary"
 	"fmt"
@@ -54,10 +53,9 @@ func openPE(fp string) (peF *peFile, err error) {
 var _ fileHandler = (*peFile)(nil)
 
 type peFile struct {
-	file        *pe.File
-	osFile      *os.File
-	pclntabAddr uint64
-	imageBase   uint64
+	file      *pe.File
+	osFile    *os.File
+	imageBase uint64
 }
 
 func (p *peFile) getParsedFile() any {
@@ -66,16 +64,6 @@ func (p *peFile) getParsedFile() any {
 
 func (p *peFile) getFile() *os.File {
 	return p.osFile
-}
-
-func (p *peFile) getPCLNTab() (*gosym.Table, error) {
-	addr, pclndat, err := searchFileForPCLNTab(p.file)
-	if err != nil {
-		return nil, err
-	}
-	pcln := gosym.NewLineTable(pclndat, uint64(p.file.Section(".text").VirtualAddress)+p.imageBase)
-	p.pclntabAddr = uint64(addr) + p.imageBase
-	return gosym.NewTable(make([]byte, 0), pcln)
 }
 
 func (p *peFile) Close() error {
