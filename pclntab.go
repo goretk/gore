@@ -20,6 +20,7 @@ package gore
 import (
 	"bytes"
 	"debug/pe"
+	"errors"
 )
 
 // pclntab12magic is the magic bytes used for binaries compiled with Go
@@ -52,7 +53,7 @@ func searchFileForPCLNTab(f *pe.File) (uint32, []byte, error) {
 			continue
 		}
 		tab, err := searchSectionForTab(secData)
-		if err == ErrNoPCLNTab {
+		if errors.Is(ErrNoPCLNTab, err) {
 			continue
 		}
 		// TODO: Switch to returning a uint64 instead.
@@ -66,7 +67,7 @@ func searchFileForPCLNTab(f *pe.File) (uint32, []byte, error) {
 func searchSectionForTab(secData []byte) ([]byte, error) {
 	// First check for the current magic used. If this fails, it could be
 	// an older version. So check for the old header.
-MAGIC_LOOP:
+MagicLoop:
 	for _, magic := range [][]byte{pclntab120magic, pclntab118magic, pclntab116magic, pclntab12magic} {
 		off := bytes.LastIndex(secData, magic)
 		if off == -1 {
@@ -80,7 +81,7 @@ MAGIC_LOOP:
 					(buf[7] != 4 && buf[7] != 8) { // pointer size
 					// Header doesn't match.
 					if off-1 <= 0 {
-						continue MAGIC_LOOP
+						continue MagicLoop
 					}
 					off = bytes.LastIndex(secData[:off-1], magic)
 					continue
