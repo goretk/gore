@@ -203,7 +203,7 @@ func (e *elfFile) getPCLNTABData() (uint64, []byte, error) {
 	// If we have symbol data, we can use that to find the pclntab.
 	if ok, err := e.hasSymbolTable(); err != nil && ok {
 		start, _, data := e.symbolData("runtime.pclntab", "runtime.epclntab")
-		if data != nil {
+		if data != nil && start != 0 {
 			return start, data, nil
 		}
 	}
