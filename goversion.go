@@ -122,14 +122,25 @@ func tryFromSchedInit(f *GoFile) *GoVersion {
 		return nil
 	}
 
+	var addr, size uint64
+	var fcn *Function
+	var std []*Package
+	var err error
+
 	is32 := false
 	if f.FileInfo.Arch == Arch386 {
 		is32 = true
 	}
 
+	if ok, err := f.fh.hasSymbolTable(); ok && err == nil {
+		addr, size, err = f.fh.getSymbol("runtime.schedinit")
+		if err == nil {
+			goto disasm
+		}
+	}
+
 	// Find schedinit function.
-	var fcn *Function
-	std, err := f.GetSTDLib()
+	std, err = f.GetSTDLib()
 	if err != nil {
 		return nil
 	}
@@ -150,12 +161,16 @@ pkgLoop:
 
 	// Check if the function was found
 	if fcn == nil {
-		// If we can't find the function there is nothing to do.
+		// If we can't find the function, there is nothing to do.
 		return nil
 	}
+	addr = fcn.Offset
+	size = fcn.End - fcn.Offset
+
+disasm:
 
 	// Get the raw hex.
-	buf, err := f.Bytes(fcn.Offset, fcn.End-fcn.Offset)
+	buf, err := f.Bytes(addr, size)
 	if err != nil {
 		return nil
 	}
