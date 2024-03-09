@@ -242,6 +242,10 @@ func pickVersionedModuleData(info *FileInfo) (modulable, error) {
 		bits = 64
 	}
 
+	if info.goversion == nil {
+		return nil, ErrNoGoVersionFound
+	}
+
 	ver := gover.Parse(extern.StripGo(info.goversion.Name))
 	zero := gover.Version{}
 	if ver == zero {
@@ -268,21 +272,40 @@ func extractModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
 
 	vmdSize := binary.Size(vmd)
 
-	_, secData, err := f.getSectionData(f.moduledataSection())
-	if err != nil {
-		return moduledata{}, err
-	}
-	tabAddr, _, err := f.getPCLNTABData()
+	// pre define these variables to follow the goto requirements
+	var off int
+	var magic []byte
+	var tabAddr uint64
+
+	secAddr, secData, err := f.getSectionData(f.moduledataSection())
 	if err != nil {
 		return moduledata{}, err
 	}
 
-	magic := buildPclnTabAddrBinary(fileInfo.WordSize, fileInfo.ByteOrder, tabAddr)
+	// if we can get the moduledata addr from the symbol, we have no need to search
+	if ok, err := f.hasSymbolTable(); ok && err == nil {
+		addr, _, err := f.getSymbol("runtime.firstmoduledata")
+		if err == nil {
+			off = int(addr - secAddr)
+			goto load
+		}
+	}
+
+	tabAddr, _, err = f.getPCLNTABData()
+	if err != nil {
+		return moduledata{}, err
+	}
+
+	magic = buildPclnTabAddrBinary(fileInfo.WordSize, fileInfo.ByteOrder, tabAddr)
 
 search:
-	off := bytes.Index(secData, magic)
-	if off == -1 || len(secData) < off+vmdSize {
+	off = bytes.Index(secData, magic)
+load:
+	if off == -1 {
 		return moduledata{}, errors.New("could not find moduledata")
+	}
+	if len(secData) < off+vmdSize {
+		return moduledata{}, fmt.Errorf("offset %d is out of bounds %d", off, len(secData))
 	}
 
 	data := secData[off : off+vmdSize]

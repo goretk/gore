@@ -398,6 +398,16 @@ func (f *GoFile) PCLNTab() (*gosym.Table, error) {
 		// be located within the binary's text section, it may not be at the start of the section. For example,
 		// external linkers may add additional code to the section before the "Go" code. We can find "runtime.text"
 		// in the moduledata structure in the binary.
+		// If we have the symbol table, just get it
+		if ok, err := f.fh.hasSymbolTable(); ok && err == nil {
+			val, _, err := f.fh.getSymbol("runtime.text")
+			if err == nil {
+				f.runtimeText = val
+				return
+			}
+		}
+
+		// Otherwise, we need to search it
 		_, moddataSection, err := f.fh.getSectionData(f.fh.moduledataSection())
 		if err != nil {
 			f.pclntabError = fmt.Errorf("failed to get the section %s where the moduledata structure is stored: %w", f.fh.moduledataSection(), err)
@@ -414,7 +424,7 @@ func (f *GoFile) PCLNTab() (*gosym.Table, error) {
 		}
 
 		// Since the moduledata starts with the address to the pclntab, we can use this to find the moduledata structure.
-		runtimeText, err := f.findRuntimeText(textStart, textStart+uint64(len(textData)), f.pclntabAddr, moddataSection)
+		runtimeText, err := f.findRuntimeText(textStart, textStart+uint64(len(textData)), addr, moddataSection)
 		if err != nil {
 			f.pclntabError = fmt.Errorf("failed to find runtime.text symbol: %w", err)
 			return
@@ -472,11 +482,7 @@ func (f *GoFile) findRuntimeText(textStart, textEnd, pclntabAddr uint64, modSect
 
 // GetTypes returns a map of all types found in the binary file.
 func (f *GoFile) GetTypes() ([]*GoType, error) {
-	err := f.ensureCompilerVersion()
-	if err != nil {
-		return nil, err
-	}
-	err = f.initModuleData()
+	err := f.initModuleData()
 	if err != nil {
 		return nil, err
 	}
@@ -525,6 +531,9 @@ func sortTypes(types map[uint64]*GoType) []*GoType {
 
 type fileHandler interface {
 	io.Closer
+	// returns the value, size and error
+	getSymbol(name string) (uint64, uint64, error)
+	hasSymbolTable() (bool, error)
 	getRData() ([]byte, error)
 	getCodeSection() (uint64, []byte, error)
 	getSectionDataFromAddress(uint64) (uint64, []byte, error)
