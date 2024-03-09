@@ -401,6 +401,16 @@ func (f *GoFile) PCLNTab() (*gosym.Table, error) {
 		// be located within the binary's text section, it may not be at the start of the section. For example,
 		// external linkers may add additional code to the section before the "Go" code. We can find "runtime.text"
 		// in the moduledata structure in the binary.
+		// If we have the symbol table, just get it
+		if ok, err := f.fh.hasSymbolTable(); ok && err == nil {
+			f.runtimeText, _, err = f.fh.getSymbol("runtime.text")
+			if err != nil {
+				f.pclntabError = fmt.Errorf("failed to get the symbol runtime.text: %w", err)
+				return
+			}
+		}
+
+		// Otherwise, we need to search it
 		_, moddataSection, err := f.fh.getSectionData(f.fh.moduledataSection())
 		if err != nil {
 			f.pclntabError = fmt.Errorf("failed to get the section %s where the moduledata structure is stored: %w", f.fh.moduledataSection(), err)
