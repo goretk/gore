@@ -403,9 +403,9 @@ func (f *GoFile) PCLNTab() (*gosym.Table, error) {
 		// in the moduledata structure in the binary.
 		// If we have the symbol table, just get it
 		if ok, err := f.fh.hasSymbolTable(); ok && err == nil {
-			f.runtimeText, _, err = f.fh.getSymbol("runtime.text")
-			if err != nil {
-				f.pclntabError = fmt.Errorf("failed to get the symbol runtime.text: %w", err)
+			val, _, err := f.fh.getSymbol("runtime.text")
+			if err == nil {
+				f.runtimeText = val
 				return
 			}
 		}
