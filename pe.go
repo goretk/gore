@@ -202,7 +202,7 @@ func (p *peFile) symbolData(start, end string) (uint64, uint64, []byte) {
 func (p *peFile) getPCLNTABData() (uint64, []byte, error) {
 	if ok, err := p.hasSymbolTable(); ok && err == nil {
 		start, _, data := p.symbolData("runtime.pclntab", "runtime.epclntab")
-		if data != nil {
+		if data != nil && start != 0 {
 			return start, data, nil
 		}
 	}
