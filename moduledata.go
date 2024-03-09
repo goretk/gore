@@ -272,23 +272,39 @@ func extractModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
 
 	vmdSize := binary.Size(vmd)
 
-	_, secData, err := f.getSectionData(f.moduledataSection())
+	// pre define these variables to follow the goto requirements
+	var off int
+	var secData []byte
+	var magic []byte
+	var tabAddr uint64
+
+	// if we can get the moduledata addr from the symbol, we have no need to search
+	if ok, err := f.hasSymbolTable(); err == nil && ok {
+		addr, _, err := f.getSymbol("runtime.firstmoduledata")
+		if err == nil {
+			off = int(addr)
+			goto load
+		}
+	}
+
+	_, secData, err = f.getSectionData(f.moduledataSection())
 	if err != nil {
 		return moduledata{}, err
 	}
-	tabAddr, _, err := f.getPCLNTABData()
+	tabAddr, _, err = f.getPCLNTABData()
 	if err != nil {
 		return moduledata{}, err
 	}
 
-	magic := buildPclnTabAddrBinary(fileInfo.WordSize, fileInfo.ByteOrder, tabAddr)
+	magic = buildPclnTabAddrBinary(fileInfo.WordSize, fileInfo.ByteOrder, tabAddr)
 
 search:
-	off := bytes.Index(secData, magic)
+	off = bytes.Index(secData, magic)
 	if off == -1 || len(secData) < off+vmdSize {
 		return moduledata{}, errors.New("could not find moduledata")
 	}
 
+load:
 	data := secData[off : off+vmdSize]
 
 	// Read the module struct from the file.
