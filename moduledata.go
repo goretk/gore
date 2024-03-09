@@ -242,6 +242,10 @@ func pickVersionedModuleData(info *FileInfo) (modulable, error) {
 		bits = 64
 	}
 
+	if info.goversion == nil {
+		return nil, ErrNoGoVersionFound
+	}
+
 	ver := gover.Parse(extern.StripGo(info.goversion.Name))
 	zero := gover.Version{}
 	if ver == zero {
