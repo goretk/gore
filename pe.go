@@ -196,7 +196,8 @@ func (p *peFile) symbolData(start, end string) (uint64, uint64, []byte) {
 	if err != nil {
 		return 0, 0, nil
 	}
-	return p.imageBase + uint64(ssym.Value), p.imageBase + uint64(esym.Value), data[ssym.Value:esym.Value]
+	base := p.imageBase + uint64(sect.VirtualAddress)
+	return base + uint64(ssym.Value), base + uint64(esym.Value), data[ssym.Value:esym.Value]
 }
 
 func (p *peFile) getPCLNTABData() (uint64, []byte, error) {

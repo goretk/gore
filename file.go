@@ -417,7 +417,7 @@ func (f *GoFile) PCLNTab() (*gosym.Table, error) {
 		}
 
 		// Since the moduledata starts with the address to the pclntab, we can use this to find the moduledata structure.
-		runtimeText, err := f.findRuntimeText(textStart, textStart+uint64(len(textData)), f.pclntabAddr, moddataSection)
+		runtimeText, err := f.findRuntimeText(textStart, textStart+uint64(len(textData)), addr, moddataSection)
 		if err != nil {
 			if f.FileInfo.OS == "macOS" && f.FileInfo.Arch == ArchARM64 {
 				t, err := f.findRuntimeTextMachoChainedFixups(f.pclntabAddr)
