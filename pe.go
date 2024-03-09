@@ -173,7 +173,40 @@ func (p *peFile) moduledataSection() string {
 	return ".data"
 }
 
+func (p *peFile) symbolData(start, end string) (uint64, uint64, []byte) {
+	var ssym, esym *pe.Symbol
+	for _, s := range p.file.Symbols {
+		if s.Name == start {
+			ssym = s
+		} else if s.Name == end {
+			esym = s
+		}
+		if ssym != nil && esym != nil {
+			break
+		}
+	}
+	if ssym == nil || esym == nil {
+		return 0, 0, nil
+	}
+	if ssym.SectionNumber != esym.SectionNumber {
+		return 0, 0, nil
+	}
+	sect := p.file.Sections[ssym.SectionNumber-1]
+	data, err := sect.Data()
+	if err != nil {
+		return 0, 0, nil
+	}
+	return p.imageBase + uint64(ssym.Value), p.imageBase + uint64(esym.Value), data[ssym.Value:esym.Value]
+}
+
 func (p *peFile) getPCLNTABData() (uint64, []byte, error) {
+	if ok, err := p.hasSymbolTable(); ok && err == nil {
+		start, _, data := p.symbolData("runtime.pclntab", "runtime.epclntab")
+		if data != nil {
+			return start, data, nil
+		}
+	}
+
 	for _, v := range []string{".rdata", ".text"} {
 		sec := p.file.Section(v)
 		if sec == nil {
