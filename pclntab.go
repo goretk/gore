@@ -19,57 +19,29 @@ package gore
 
 import (
 	"bytes"
-	"debug/pe"
-	"errors"
+	"encoding/binary"
 )
 
-// pclntab12magic is the magic bytes used for binaries compiled with Go
-// prior to 1.16
-var pclntab12magic = []byte{0xfb, 0xff, 0xff, 0xff, 0x0, 0x0}
-
-// pclntab116magic is the magic bytes used for binaries compiled with
-// Go 1.16 and Go 1.17.
-var pclntab116magic = []byte{0xfa, 0xff, 0xff, 0xff, 0x0, 0x0}
-
-// pclntab118magic is the magic bytes used for binaries compiled with
-// Go 1.18 and Go 1.19.
-var pclntab118magic = []byte{0xf0, 0xff, 0xff, 0xff, 0x0, 0x0}
-
-// pclntab120magic is the magic bytes used for binaries compiled with
-// Go 1.20 and onwards.
-var pclntab120magic = []byte{0xf1, 0xff, 0xff, 0xff, 0x0, 0x0}
-
-// searchFileForPCLNTab will search the .rdata and .text section for the
-// PCLN table. Note!! The address returned by this function needs to be
-// adjusted by adding the image base address!!!
-func searchFileForPCLNTab(f *pe.File) (uint32, []byte, error) {
-	for _, v := range []string{".rdata", ".text"} {
-		sec := f.Section(v)
-		if sec == nil {
-			continue
-		}
-		secData, err := sec.Data()
-		if err != nil {
-			continue
-		}
-		tab, err := searchSectionForTab(secData)
-		if errors.Is(ErrNoPCLNTab, err) {
-			continue
-		}
-		// TODO: Switch to returning a uint64 instead.
-		addr := sec.VirtualAddress + uint32(len(secData)-len(tab))
-		return addr, tab, err
-	}
-	return 0, []byte{}, ErrNoPCLNTab
-}
+// keep sync with debug/gosym/pclntab.go
+const (
+	gopclntab12magic  uint32 = 0xfffffffb
+	gopclntab116magic uint32 = 0xfffffffa
+	gopclntab118magic uint32 = 0xfffffff0
+	gopclntab120magic uint32 = 0xfffffff1
+)
 
 // searchSectionForTab looks for the PCLN table within the section.
-func searchSectionForTab(secData []byte) ([]byte, error) {
+func searchSectionForTab(secData []byte, order binary.ByteOrder) ([]byte, error) {
 	// First check for the current magic used. If this fails, it could be
 	// an older version. So check for the old header.
 MagicLoop:
 	for _, magic := range [][]byte{pclntab120magic, pclntab118magic, pclntab116magic, pclntab12magic} {
 		off := bytes.LastIndex(secData, magic)
+	for _, magic := range []uint32{gopclntab120magic, gopclntab118magic, gopclntab116magic, gopclntab12magic} {
+		bMagic := make([]byte, 6) // 4 bytes for the magic, 2 bytes for padding.
+		order.PutUint32(bMagic, magic)
+
+		off := bytes.LastIndex(secData, bMagic)
 		if off == -1 {
 			continue // Try other magic.
 		}
@@ -83,7 +55,7 @@ MagicLoop:
 					if off-1 <= 0 {
 						continue MagicLoop
 					}
-					off = bytes.LastIndex(secData[:off-1], magic)
+					off = bytes.LastIndex(secData[:off-1], bMagic)
 					continue
 				}
 				// Header match

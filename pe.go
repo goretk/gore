@@ -109,8 +109,24 @@ func (p *peFile) moduledataSection() string {
 }
 
 func (p *peFile) getPCLNTABData() (uint64, []byte, error) {
-	b, d, e := searchFileForPCLNTab(p.file)
-	return p.imageBase + uint64(b), d, e
+	for _, v := range []string{".rdata", ".text"} {
+		sec := p.file.Section(v)
+		if sec == nil {
+			continue
+		}
+		secData, err := sec.Data()
+		if err != nil {
+			continue
+		}
+		tab, err := searchSectionForTab(secData, p.getFileInfo().ByteOrder)
+		if errors.Is(ErrNoPCLNTab, err) {
+			continue
+		}
+
+		addr := uint64(sec.VirtualAddress) + uint64(len(secData)-len(tab))
+		return p.imageBase + addr, tab, err
+	}
+	return 0, []byte{}, ErrNoPCLNTab
 }
 
 func (p *peFile) getSectionDataFromAddress(address uint64) (uint64, []byte, error) {

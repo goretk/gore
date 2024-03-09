@@ -106,7 +106,7 @@ func (e *elfFile) getPCLNTABData() (uint64, []byte, error) {
 		return 0, nil, fmt.Errorf("failed to get section: .data.rel.ro: %w", err)
 	}
 
-	buf, err := searchSectionForTab(data)
+	buf, err := searchSectionForTab(data, e.file.FileHeader.ByteOrder)
 	if err != nil {
 		return 0, nil, fmt.Errorf("error when search for pclntab: %w", err)
 	}
