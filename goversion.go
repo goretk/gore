@@ -168,7 +168,6 @@ pkgLoop:
 	size = fcn.End - fcn.Offset
 
 disasm:
-
 	// Get the raw hex.
 	buf, err := f.Bytes(addr, size)
 	if err != nil {
@@ -202,10 +201,10 @@ disasm:
 		// Check what it's loading and if it's pointing to the compiler version used.
 		// First assume that the address is a direct addressing.
 		arg := inst.Args[1].(x86asm.Mem)
-		addr := arg.Disp
+		disp := arg.Disp
 		if arg.Base == x86asm.EIP || arg.Base == x86asm.RIP {
 			// If the addressing is based on the instruction pointer, fix the address.
-			addr = addr + int64(fcn.Offset) + int64(s)
+			disp += int64(addr) + int64(s)
 		}
 
 		// If the addressing is based on the stack pointer, this is not the right
@@ -216,7 +215,7 @@ disasm:
 
 		// Resolve the pointer to the string. If we get no data, this is not the
 		// right instruction.
-		b, _ := f.Bytes(uint64(addr), uint64(0x20))
+		b, _ := f.Bytes(uint64(disp), uint64(0x20))
 		if b == nil {
 			continue
 		}
