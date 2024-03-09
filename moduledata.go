@@ -283,7 +283,7 @@ func extractModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
 	}
 
 	// if we can get the moduledata addr from the symbol, we have no need to search
-	if ok, err := f.hasSymbolTable(); err == nil && ok {
+	if ok, err := f.hasSymbolTable(); ok && err == nil {
 		addr, _, err := f.getSymbol("runtime.firstmoduledata")
 		if err == nil {
 			off = int(addr - secAddr)

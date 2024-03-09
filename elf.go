@@ -46,34 +46,6 @@ type elfFile struct {
 	symtab *symbolTableOnce
 }
 
-func (e *elfFile) getSymbolData(start, end string) []byte {
-	ssym, _, err := e.getSymbol(start)
-	if err != nil {
-		return nil
-	}
-	esym, _, err := e.getSymbol(end)
-	if err != nil {
-		return nil
-	}
-
-	if esym < ssym {
-		return nil
-	}
-
-	size := esym - ssym
-
-	data := make([]byte, size)
-	for _, prog := range e.file.Progs {
-		if prog.Vaddr <= ssym && ssym+size-1 <= prog.Vaddr+prog.Filesz-1 {
-			if _, err := prog.ReadAt(data, int64(ssym-prog.Vaddr)); err != nil {
-				return nil
-			}
-			return data
-		}
-	}
-	return nil
-}
-
 func (e *elfFile) initSymTab() error {
 	e.symtab.Do(func() {
 		syms, err := e.file.Symbols()
@@ -201,7 +173,7 @@ func (e *elfFile) getPCLNTABData() (uint64, []byte, error) {
 	}
 
 	// If we have symbol data, we can use that to find the pclntab.
-	if ok, err := e.hasSymbolTable(); err != nil && ok {
+	if ok, err := e.hasSymbolTable(); ok && err == nil {
 		start, _, data := e.symbolData("runtime.pclntab", "runtime.epclntab")
 		if data != nil && start != 0 {
 			return start, data, nil
