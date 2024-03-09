@@ -35,7 +35,7 @@ func openELF(fp string) (*elfFile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error when parsing the ELF file: %w", err)
 	}
-	return &elfFile{file: f, osFile: osFile}, nil
+	return &elfFile{file: f, osFile: osFile, symtab: newSymbolTableOnce()}, nil
 }
 
 var _ fileHandler = (*elfFile)(nil)
@@ -43,6 +43,80 @@ var _ fileHandler = (*elfFile)(nil)
 type elfFile struct {
 	file   *elf.File
 	osFile *os.File
+	symtab *symbolTableOnce
+}
+
+func (e *elfFile) initSymTab() error {
+	e.symtab.Do(func() {
+		syms, err := e.file.Symbols()
+		if err != nil {
+			// If the error is ErrNoSymbols, we just ignore it.
+			if !errors.Is(err, elf.ErrNoSymbols) {
+				e.symtab.err = fmt.Errorf("error when getting the symbols: %w", err)
+			}
+			return
+		}
+		for _, sym := range syms {
+			e.symtab.table[sym.Name] = symbol{
+				Name:  sym.Name,
+				Value: sym.Value,
+				Size:  sym.Size,
+			}
+		}
+	})
+	return e.symtab.err
+}
+
+func (e *elfFile) hasSymbolTable() (bool, error) {
+	err := e.initSymTab()
+	if err != nil {
+		return false, err
+	}
+	return len(e.symtab.table) > 0, nil
+}
+
+func (e *elfFile) getSymbol(name string) (uint64, uint64, error) {
+	err := e.initSymTab()
+	if err != nil {
+		return 0, 0, err
+	}
+	sym, ok := e.symtab.table[name]
+	if !ok {
+		return 0, 0, ErrSymbolNotFound
+	}
+	return sym.Value, sym.Size, nil
+}
+
+func (e *elfFile) symbolData(start, end string) (uint64, uint64, []byte) {
+	elfSyms, err := e.file.Symbols()
+	if err != nil {
+		return 0, 0, nil
+	}
+	var addr, eaddr uint64
+	for _, s := range elfSyms {
+		if s.Name == start {
+			addr = s.Value
+		} else if s.Name == end {
+			eaddr = s.Value
+		}
+		if addr != 0 && eaddr != 0 {
+			break
+		}
+	}
+	if addr == 0 || eaddr < addr {
+		return 0, 0, nil
+	}
+	size := eaddr - addr
+	data := make([]byte, size)
+	for _, prog := range e.file.Progs {
+		if prog.Vaddr <= addr && addr+size-1 <= prog.Vaddr+prog.Filesz-1 {
+			if _, err := prog.ReadAt(data, int64(addr-prog.Vaddr)); err != nil {
+				return 0, 0, nil
+			}
+			return addr, eaddr, data
+		}
+	}
+	return 0, 0, nil
 }
 
 func (e *elfFile) getParsedFile() any {

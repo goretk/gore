@@ -35,8 +35,6 @@ func searchSectionForTab(secData []byte, order binary.ByteOrder) ([]byte, error)
 	// First check for the current magic used. If this fails, it could be
 	// an older version. So check for the old header.
 MagicLoop:
-	for _, magic := range [][]byte{pclntab120magic, pclntab118magic, pclntab116magic, pclntab12magic} {
-		off := bytes.LastIndex(secData, magic)
 	for _, magic := range []uint32{gopclntab120magic, gopclntab118magic, gopclntab116magic, gopclntab12magic} {
 		bMagic := make([]byte, 6) // 4 bytes for the magic, 2 bytes for padding.
 		order.PutUint32(bMagic, magic)

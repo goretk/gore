@@ -21,8 +21,11 @@ import (
 	"debug/dwarf"
 	"debug/pe"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"os"
+	"slices"
+	"sort"
 )
 
 func openPE(fp string) (peF *peFile, err error) {
@@ -69,6 +72,68 @@ type peFile struct {
 	file      *pe.File
 	osFile    *os.File
 	imageBase uint64
+	symtab    *symbolTableOnce
+}
+
+func (p *peFile) initSymTab() error {
+	p.symtab.Do(func() {
+		var addrs []uint64
+
+		var syms []symbol
+		for _, s := range p.file.Symbols {
+			const (
+				NUndef = 0  // An undefined (extern) symbol
+				NAbs   = -1 // An absolute symbol (e_value is a constant, not an address)
+				NDebug = -2 // A debugging symbol
+			)
+			sym := symbol{Name: s.Name, Value: uint64(s.Value), Size: 0}
+			switch s.SectionNumber {
+			case NUndef, NAbs, NDebug: // do nothing
+			default:
+				if s.SectionNumber < 0 || len(p.file.Sections) < int(s.SectionNumber) {
+					p.symtab.err = fmt.Errorf("invalid section number in symbol table")
+					return
+				}
+				sect := p.file.Sections[s.SectionNumber-1]
+				sym.Value += p.imageBase + uint64(sect.VirtualAddress)
+			}
+			syms = append(syms, sym)
+			addrs = append(addrs, sym.Value)
+		}
+
+		slices.Sort(addrs)
+		for i := range syms {
+			j := sort.Search(len(addrs), func(x int) bool { return addrs[x] > syms[i].Value })
+			if j < len(addrs) {
+				syms[i].Size = addrs[j] - syms[i].Value
+			}
+		}
+
+		for _, sym := range syms {
+			p.symtab.table[sym.Name] = sym
+		}
+	})
+	return p.symtab.err
+}
+
+func (p *peFile) hasSymbolTable() (bool, error) {
+	err := p.initSymTab()
+	if err != nil {
+		return false, err
+	}
+	return len(p.symtab.table) > 0, nil
+}
+
+func (p *peFile) getSymbol(name string) (uint64, uint64, error) {
+	err := p.initSymTab()
+	if err != nil {
+		return 0, 0, err
+	}
+	sym, ok := p.symtab.table[name]
+	if !ok {
+		return 0, 0, ErrSymbolNotFound
+	}
+	return sym.Value, sym.Size, nil
 }
 
 func (p *peFile) getParsedFile() any {
