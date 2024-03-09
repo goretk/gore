@@ -573,7 +573,7 @@ func sortTypes(types map[uint64]*GoType) []*GoType {
 
 type fileHandler interface {
 	io.Closer
-	// returns the size, value and error
+	// returns the value, size and error
 	getSymbol(name string) (uint64, uint64, error)
 	hasSymbolTable() (bool, error)
 	getRData() ([]byte, error)
