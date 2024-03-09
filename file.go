@@ -524,11 +524,7 @@ func (f *GoFile) findRuntimeText(textStart, textEnd, pclntabAddr uint64, modSect
 
 // GetTypes returns a map of all types found in the binary file.
 func (f *GoFile) GetTypes() ([]*GoType, error) {
-	err := f.ensureCompilerVersion()
-	if err != nil {
-		return nil, err
-	}
-	err = f.initModuleData()
+	err := f.initModuleData()
 	if err != nil {
 		return nil, err
 	}
