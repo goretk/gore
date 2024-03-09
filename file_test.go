@@ -225,6 +225,14 @@ func (m *mockFileHandler) getFile() *os.File {
 	panic("not implemented")
 }
 
+func (m *mockFileHandler) hasSymbolTable() (bool, error) {
+	panic("not implemented")
+}
+
+func (m *mockFileHandler) getSymbol(name string) (uint64, uint64, error) {
+	panic("not implemented")
+}
+
 func (m *mockFileHandler) getParsedFile() any {
 	panic("not implemented")
 }
@@ -321,6 +329,11 @@ func getGoldenResources() ([]string, error) {
 const testresourcesrc = `
 package main
 
+import (
+	"fmt"
+	"runtime"
+)
+
 //go:noinline
 func getData() string {
 	return "Name: GoRE"
@@ -329,18 +342,6 @@ func getData() string {
 func main() {
 	data := getData()
 	data += " | Test"
-}
-`
-
-const nostripSrc = `
-package main
-
-import (
-	"fmt"
-	"runtime"
-)
-
-func main() {
 	fmt.Println(runtime.GOROOT())
 }
 `
