@@ -62,7 +62,7 @@ func openPE(fp string) (peF *peFile, err error) {
 		return
 	}
 
-	peF = &peFile{file: f, osFile: osFile, imageBase: imageBase}
+	peF = &peFile{file: f, osFile: osFile, imageBase: imageBase, symtab: newSymbolTableOnce()}
 	return
 }
 
