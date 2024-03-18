@@ -219,17 +219,7 @@ func (c *PathPackageClassifier) Classify(pkg *Package) PackageClass {
 // Otherwise, false is retuned.
 func IsStandardLibrary(pkg string) bool {
 	_, ok := stdPkgs[pkg]
-	if ok {
-		return true
-	}
-
-	// Detect regexp.(*onePassInst).regexp/syntax type packages
-	tmp := strings.Split(pkg, ".")[0]
-	if len(tmp) < len(pkg) && IsStandardLibrary(tmp) {
-		return true
-	}
-
-	return false
+	return ok
 }
 
 func isGeneratedPackage(pkg *Package) bool {
