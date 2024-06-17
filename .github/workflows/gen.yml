@@ -38,7 +38,7 @@ jobs:
           # If there are changes to the generated files, commit them
           if [[ -n $(git status --porcelain) ]]; then
             git add .
-            git commit -m "chore: update generated files" -m "[skip ci]"
+            git commit -m "chore: update generated files"
             git push
           else
             echo "::notice::Generated files are up to date."
