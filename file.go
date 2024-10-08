@@ -29,6 +29,9 @@ import (
 	"path"
 	"sort"
 	"sync"
+
+	macho2 "github.com/blacktop/go-macho"
+	"github.com/blacktop/go-macho/pkg/fixupchains"
 )
 
 var (
@@ -416,6 +419,16 @@ func (f *GoFile) PCLNTab() (*gosym.Table, error) {
 		// Since the moduledata starts with the address to the pclntab, we can use this to find the moduledata structure.
 		runtimeText, err := f.findRuntimeText(textStart, textStart+uint64(len(textData)), f.pclntabAddr, moddataSection)
 		if err != nil {
+			if f.FileInfo.OS == "macOS" && f.FileInfo.Arch == ArchARM64 {
+				t, err := f.findRuntimeTextMachoChainedFixups(f.pclntabAddr)
+				if err != nil {
+					f.pclntabError = fmt.Errorf("failed to find runtime.text symbol: %w", err)
+					return
+				}
+				f.runtimeText = t
+				return
+			}
+
 			f.pclntabError = fmt.Errorf("failed to find runtime.text symbol: %w", err)
 			return
 		}
@@ -426,6 +439,45 @@ func (f *GoFile) PCLNTab() (*gosym.Table, error) {
 	}
 
 	return gosym.NewTable(make([]byte, 0), gosym.NewLineTable(f.pclntabBytes, f.runtimeText))
+}
+
+func (f *GoFile) findRuntimeTextMachoChainedFixups(pclntabAddr uint64) (uint64, error) {
+	of := f.fh.getFile()
+	_, err := of.Seek(0, io.SeekStart)
+	if err != nil {
+		return 0, err
+	}
+
+	f2, err := macho2.NewFile(of)
+	if err != nil {
+		return 0, err
+	}
+	fixups, err := f2.DyldChainedFixups()
+	if err != nil {
+		return 0, err
+	}
+	baseAddr := f2.GetBaseAddress()
+	var rebases []fixupchains.Rebase
+	for _, start := range fixups.Starts {
+		rebases = append(rebases, start.Rebases()...)
+	}
+
+	// First, we need to find the start of the moduledata
+	var moduledataAddr uint64
+	for _, rb := range rebases {
+		if rb.Target()+baseAddr == pclntabAddr {
+			moduledataAddr = baseAddr + rb.Offset()
+			break
+		}
+	}
+	// then, find field 22
+	addr22 := moduledataAddr + 22*8
+	for _, rb := range rebases {
+		if rb.Offset()+baseAddr == addr22 {
+			return baseAddr + rb.Target(), nil
+		}
+	}
+	return 0, fmt.Errorf("failed to find runtime.text symbol")
 }
 
 func (f *GoFile) findRuntimeText(textStart, textEnd, pclntabAddr uint64, modSectiondata []byte) (uint64, error) {

@@ -3,6 +3,7 @@ module github.com/goretk/gore
 go 1.21
 
 require (
+	github.com/blacktop/go-macho v1.1.232
 	github.com/go-git/go-git/v5 v5.11.0
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/arch v0.7.0
@@ -12,6 +13,7 @@ require (
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/ProtonMail/go-crypto v1.0.0 // indirect
+	github.com/blacktop/go-dwarf v1.0.10 // indirect
 	github.com/cloudflare/circl v1.3.7 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
