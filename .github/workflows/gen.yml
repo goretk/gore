@@ -2,7 +2,7 @@ name: "Auto generate sources"
 
 on:
   schedule:
-    - cron: '42 14 * * *'
+    - cron: '0 7 * * *'
   workflow_dispatch:
 
 jobs:
@@ -32,7 +32,7 @@ jobs:
         env:
           GORE_GO_REPO: ${{ runner.temp }}/go
       
-      - name: Commit changes if any
+      - name: Commit changes if any and push a new tag
         run: |
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
@@ -41,6 +41,9 @@ jobs:
             git add .
             git commit -m "chore: update generated files"
             git push
+            # Increment the patch version and create a new tag
+            git tag $(git describe --tags --abbrev=0 | awk -F. -v OFS=. '{$NF += 1 ; print}')
+            git push --tags
           else
             echo "::notice::Generated files are up to date."
           fi
