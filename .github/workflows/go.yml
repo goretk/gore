@@ -20,7 +20,8 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: ">=1.21.0"
+        check-latest: true
+        go-version: "stable"
 
     - name: Build
       run: go build -o a
