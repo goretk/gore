@@ -264,8 +264,8 @@ func pickVersionedModuleData(info *FileInfo) (modulable, error) {
 	return buf, nil
 }
 
-func extractModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
-	vmd, err := pickVersionedModuleData(fileInfo)
+func extractModuledata(f *GoFile) (moduledata, error) {
+	vmd, err := pickVersionedModuleData(f.FileInfo)
 	if err != nil {
 		return moduledata{}, err
 	}
@@ -277,26 +277,27 @@ func extractModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
 	var magic []byte
 	var tabAddr uint64
 
-	secAddr, secData, err := f.getSectionData(f.moduledataSection())
+	secAddr, secData, err := f.fh.getSectionData(f.fh.moduledataSection())
 	if err != nil {
 		return moduledata{}, err
 	}
 
 	// if we can get the moduledata addr from the symbol, we have no need to search
-	if ok, err := f.hasSymbolTable(); ok && err == nil {
-		addr, _, err := f.getSymbol("runtime.firstmoduledata")
+	if ok, err := f.fh.hasSymbolTable(); ok && err == nil {
+		addr, _, err := f.fh.getSymbol("runtime.firstmoduledata")
 		if err == nil {
 			off = int(addr - secAddr)
 			goto load
 		}
 	}
 
-	tabAddr, _, err = f.getPCLNTABData()
+	err = f.initPclntab()
 	if err != nil {
 		return moduledata{}, err
 	}
+	tabAddr = f.pclntabAddr
 
-	magic = buildPclnTabAddrBinary(fileInfo.WordSize, fileInfo.ByteOrder, tabAddr)
+	magic = buildPclnTabAddrBinary(f.FileInfo.WordSize, f.FileInfo.ByteOrder, tabAddr)
 
 search:
 	off = bytes.Index(secData, magic)
@@ -312,7 +313,7 @@ load:
 
 	// Read the module struct from the file.
 	r := bytes.NewReader(data)
-	err = binary.Read(r, fileInfo.ByteOrder, vmd)
+	err = binary.Read(r, f.FileInfo.ByteOrder, vmd)
 	if err != nil {
 		return moduledata{}, fmt.Errorf("error when reading module data from file: %w", err)
 	}
@@ -324,7 +325,7 @@ load:
 	text := md.TextAddr
 	etext := md.TextAddr + md.TextLen
 
-	textSectAddr, textSect, err := f.getCodeSection()
+	textSectAddr, textSect, err := f.fh.getCodeSection()
 	if err != nil {
 		return moduledata{}, err
 	}
@@ -337,7 +338,7 @@ load:
 	}
 
 	// Add the file handler.
-	md.fh = f
+	md.fh = f.fh
 
 	return md, nil
 

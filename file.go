@@ -154,7 +154,7 @@ func (f *GoFile) initModuleData() error {
 			f.initModuleDataError = err
 			return
 		}
-		f.moduledata, f.initModuleDataError = extractModuledata(f.FileInfo, f.fh)
+		f.moduledata, f.initModuleDataError = extractModuledata(f)
 	})
 	return f.initModuleDataError
 }
@@ -385,8 +385,7 @@ func (f *GoFile) Close() error {
 	return f.fh.Close()
 }
 
-// PCLNTab returns the PCLN table.
-func (f *GoFile) PCLNTab() (*gosym.Table, error) {
+func (f *GoFile) initPclntab() error {
 	f.pclntabOnce.Do(func() {
 		addr, data, err := f.fh.getPCLNTABData()
 		if err != nil {
@@ -444,10 +443,15 @@ func (f *GoFile) PCLNTab() (*gosym.Table, error) {
 		}
 		f.runtimeText = runtimeText
 	})
-	if f.pclntabError != nil {
-		return nil, f.pclntabError
-	}
+	return f.pclntabError
+}
 
+// PCLNTab returns the PCLN table.
+func (f *GoFile) PCLNTab() (*gosym.Table, error) {
+	err := f.initPclntab()
+	if err != nil {
+		return nil, err
+	}
 	return gosym.NewTable(make([]byte, 0), gosym.NewLineTable(f.pclntabBytes, f.runtimeText))
 }
 
