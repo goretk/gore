@@ -83,7 +83,7 @@ func (m *machoFile) initSymtab() error {
 			m.symtab.table[sym.Name] = sym
 		}
 	})
-	return m.symtab.err
+	return nil
 }
 
 func (m *machoFile) hasSymbolTable() (bool, error) {
