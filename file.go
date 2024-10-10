@@ -410,23 +410,26 @@ func (f *GoFile) getPCLNTABDataBySymbol() (uint64, []byte, error) {
 
 func (f *GoFile) initPclntab() error {
 	f.pclntabOnce.Do(func() {
+		pclntabFound := false
 		// If we have symbol data, we can use that to find the pclntab.
 		if ok, err := f.fh.hasSymbolTable(); ok && err == nil {
 			addr, data, err := f.getPCLNTABDataBySymbol()
 			if err == nil {
 				f.pclntabAddr = addr
 				f.pclntabBytes = data
-				return
+				pclntabFound = true
 			}
 		}
 
-		addr, data, err := f.fh.getPCLNTABData()
-		if err != nil {
-			f.pclntabError = fmt.Errorf("error when getting pclntab: %w", err)
-			return
+		if !pclntabFound {
+			addr, data, err := f.fh.getPCLNTABData()
+			if err != nil {
+				f.pclntabError = fmt.Errorf("error when getting pclntab: %w", err)
+				return
+			}
+			f.pclntabBytes = data
+			f.pclntabAddr = addr
 		}
-		f.pclntabBytes = data
-		f.pclntabAddr = addr
 
 		// All the function address in the pclntab uses the symbol "runtime.text" as the base address.
 		// This symbol is where the runtime uses as the start of the code section. While it should always
@@ -459,7 +462,7 @@ func (f *GoFile) initPclntab() error {
 		}
 
 		// Since the moduledata starts with the address to the pclntab, we can use this to find the moduledata structure.
-		runtimeText, err := f.findRuntimeText(textStart, textStart+uint64(len(textData)), addr, moddataSection)
+		runtimeText, err := f.findRuntimeText(textStart, textStart+uint64(len(textData)), f.pclntabAddr, moddataSection)
 		if err != nil {
 			if f.FileInfo.OS == "macOS" && f.FileInfo.Arch == ArchARM64 {
 				t, err := f.findRuntimeTextMachoChainedFixups(f.pclntabAddr)
