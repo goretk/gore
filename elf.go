@@ -87,38 +87,6 @@ func (e *elfFile) getSymbol(name string) (uint64, uint64, error) {
 	return sym.Value, sym.Size, nil
 }
 
-func (e *elfFile) symbolData(start, end string) (uint64, uint64, []byte) {
-	elfSyms, err := e.file.Symbols()
-	if err != nil {
-		return 0, 0, nil
-	}
-	var addr, eaddr uint64
-	for _, s := range elfSyms {
-		if s.Name == start {
-			addr = s.Value
-		} else if s.Name == end {
-			eaddr = s.Value
-		}
-		if addr != 0 && eaddr != 0 {
-			break
-		}
-	}
-	if addr == 0 || eaddr < addr {
-		return 0, 0, nil
-	}
-	size := eaddr - addr
-	data := make([]byte, size)
-	for _, prog := range e.file.Progs {
-		if prog.Vaddr <= addr && addr+size-1 <= prog.Vaddr+prog.Filesz-1 {
-			if _, err := prog.ReadAt(data, int64(addr-prog.Vaddr)); err != nil {
-				return 0, 0, nil
-			}
-			return addr, eaddr, data
-		}
-	}
-	return 0, 0, nil
-}
-
 func (e *elfFile) getParsedFile() any {
 	return e.file
 }
@@ -170,14 +138,6 @@ func (e *elfFile) getPCLNTABData() (uint64, []byte, error) {
 		}
 		// We found the pclntab section so we can return it to the caller.
 		return start, data, nil
-	}
-
-	// If we have symbol data, we can use that to find the pclntab.
-	if ok, err := e.hasSymbolTable(); ok && err == nil {
-		start, _, data := e.symbolData("runtime.pclntab", "runtime.epclntab")
-		if data != nil && start != 0 {
-			return start, data, nil
-		}
 	}
 
 	// For files that have been linked with an external linker, the table is located

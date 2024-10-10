@@ -385,8 +385,41 @@ func (f *GoFile) Close() error {
 	return f.fh.Close()
 }
 
+func (f *GoFile) getPCLNTABDataBySymbol() (uint64, []byte, error) {
+	start, _, err := f.fh.getSymbol("runtime.pclntab")
+	if err != nil {
+		return 0, nil, err
+	}
+	end, _, err := f.fh.getSymbol("runtime.epclntab")
+	if err != nil {
+		return 0, nil, err
+	}
+	if end < start {
+		return 0, nil, errors.New("invalid pclntab symbols")
+	}
+	sectStart, data, err := f.fh.getSectionDataFromAddress(start)
+	if err != nil {
+		return 0, nil, err
+	}
+	// ensure that the pclntab is within the same section
+	if end-sectStart > uint64(len(data)) {
+		return 0, nil, errors.New("pclntab out of bounds")
+	}
+	return start, data[start-sectStart : end-sectStart], nil
+}
+
 func (f *GoFile) initPclntab() error {
 	f.pclntabOnce.Do(func() {
+		// If we have symbol data, we can use that to find the pclntab.
+		if ok, err := f.fh.hasSymbolTable(); ok && err == nil {
+			addr, data, err := f.getPCLNTABDataBySymbol()
+			if err == nil {
+				f.pclntabAddr = addr
+				f.pclntabBytes = data
+				return
+			}
+		}
+
 		addr, data, err := f.fh.getPCLNTABData()
 		if err != nil {
 			f.pclntabError = fmt.Errorf("error when getting pclntab: %w", err)
