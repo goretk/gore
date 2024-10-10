@@ -57,7 +57,7 @@ func (e *elfFile) initSymTab() error {
 			return
 		}
 		for _, sym := range syms {
-			e.symtab.table[sym.Name] = symbol{
+			e.symtab.table[sym.Name] = Symbol{
 				Name:  sym.Name,
 				Value: sym.Value,
 				Size:  sym.Size,

@@ -79,14 +79,14 @@ func (p *peFile) initSymTab() error {
 	p.symtab.Do(func() {
 		var addrs []uint64
 
-		var syms []symbol
+		var syms []Symbol
 		for _, s := range p.file.Symbols {
 			const (
 				NUndef = 0  // An undefined (extern) symbol
 				NAbs   = -1 // An absolute symbol (e_value is a constant, not an address)
 				NDebug = -2 // A debugging symbol
 			)
-			sym := symbol{Name: s.Name, Value: uint64(s.Value), Size: 0}
+			sym := Symbol{Name: s.Name, Value: uint64(s.Value), Size: 0}
 			switch s.SectionNumber {
 			case NUndef, NAbs, NDebug: // do nothing
 			default:

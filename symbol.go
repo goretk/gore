@@ -7,19 +7,20 @@ import (
 
 var ErrSymbolNotFound = errors.New("symbol not found")
 
-// symbol A primitive representation of a symbol.
-type symbol struct {
-	Name  string
-	Value uint64
-	Size  uint64
+// Symbol A primitive representation of a symbol.
+type Symbol struct {
+	Name  string // Name of the symbol.
+	Value uint64 // Value of the symbol.
+	// Size of the symbol. Only accurate on ELF files. For Mach-O and PE files, it was inferred by looking at the next symbol.
+	Size uint64
 }
 
 type symbolTableOnce struct {
 	*sync.Once
-	table map[string]symbol
+	table map[string]Symbol
 	err   error
 }
 
 func newSymbolTableOnce() *symbolTableOnce {
-	return &symbolTableOnce{Once: &sync.Once{}, table: make(map[string]symbol)}
+	return &symbolTableOnce{Once: &sync.Once{}, table: make(map[string]Symbol)}
 }

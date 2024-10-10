@@ -65,13 +65,13 @@ func (m *machoFile) initSymtab() error {
 		}
 		slices.Sort(addrs)
 
-		var syms []symbol
+		var syms []Symbol
 		for _, s := range m.file.Symtab.Syms {
 			if s.Type&stabTypeMask != 0 {
 				// Skip stab debug info.
 				continue
 			}
-			sym := symbol{Name: s.Name, Value: s.Value}
+			sym := Symbol{Name: s.Name, Value: s.Value}
 			i := sort.Search(len(addrs), func(x int) bool { return addrs[x] > s.Value })
 			if i < len(addrs) {
 				sym.Size = addrs[i] - s.Value
