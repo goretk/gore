@@ -18,6 +18,7 @@
 package gore
 
 import (
+	"cmp"
 	"debug/dwarf"
 	"debug/macho"
 	"fmt"
@@ -49,43 +50,38 @@ type machoFile struct {
 	getsymtab func() map[string]Symbol
 }
 
-func (m *machoFile) initSymtab() (symm map[string]Symbol) {
+func (m *machoFile) initSymtab() map[string]Symbol {
 	if m.file.Symtab == nil {
 		// just do nothing, keep err nil and table empty
-		return
+		return nil
 	}
-	symm = make(map[string]Symbol)
-	const stabTypeMask = 0xe0
-	// Build a sorted list of addresses of all symbols.
-	// We infer the size of a symbol by looking at where the next symbol begins.
-	var addrs []uint64
-	for _, s := range m.file.Symtab.Syms {
-		// Skip stab debug info.
-		if s.Type&stabTypeMask == 0 {
-			addrs = append(addrs, s.Value)
-		}
-	}
-	slices.Sort(addrs)
 
-	var syms []Symbol
+	const stabTypeMask = 0xe0
+	// Build a sorted list of all symbols.
+	// We infer the size of a symbol by looking at where the next symbol begins.
+	syms := make([]Symbol, 0)
 	for _, s := range m.file.Symtab.Syms {
 		if s.Type&stabTypeMask != 0 {
 			// Skip stab debug info.
 			continue
 		}
-		sym := Symbol{Name: s.Name, Value: s.Value}
-		i, found := slices.BinarySearch(addrs, s.Value)
-		if found {
-			sym.Size = addrs[i] - s.Value
-		}
-		syms = append(syms, sym)
+		syms = append(syms, Symbol{Name: s.Name, Value: s.Value})
 	}
 
+	slices.SortStableFunc(syms, func(a, b Symbol) int {
+		return cmp.Compare(a.Value, b.Value)
+	})
+
+	for i := 0; i < len(syms)-1; i++ {
+		syms[i].Size = syms[i+1].Value - syms[i].Value
+	}
+
+	symm := make(map[string]Symbol)
 	for _, sym := range syms {
 		symm[sym.Name] = sym
 	}
 
-	return
+	return symm
 }
 
 func (m *machoFile) hasSymbolTable() (bool, error) {

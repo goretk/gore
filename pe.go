@@ -18,6 +18,7 @@
 package gore
 
 import (
+	"cmp"
 	"debug/dwarf"
 	"debug/pe"
 	"encoding/binary"
@@ -77,8 +78,6 @@ type peFile struct {
 }
 
 func (p *peFile) initSymTab() (map[string]Symbol, error) {
-	var addrs []uint64
-
 	var syms []Symbol
 	for _, s := range p.file.Symbols {
 		const (
@@ -97,15 +96,14 @@ func (p *peFile) initSymTab() (map[string]Symbol, error) {
 			sym.Value += p.imageBase + uint64(sect.VirtualAddress)
 		}
 		syms = append(syms, sym)
-		addrs = append(addrs, sym.Value)
 	}
 
-	slices.Sort(addrs)
-	for i := range syms {
-		j, found := slices.BinarySearch(addrs, syms[i].Value)
-		if found {
-			syms[i].Size = addrs[j] - syms[i].Value
-		}
+	slices.SortStableFunc(syms, func(a, b Symbol) int {
+		return cmp.Compare(a.Value, b.Value)
+	})
+
+	for i := 0; i < len(syms)-1; i++ {
+		syms[i].Size = syms[i+1].Value - syms[i].Value
 	}
 
 	symm := make(map[string]Symbol)
