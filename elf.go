@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 )
 
 func openELF(fp string) (*elfFile, error) {
@@ -35,52 +36,53 @@ func openELF(fp string) (*elfFile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error when parsing the ELF file: %w", err)
 	}
-	return &elfFile{file: f, osFile: osFile, symtab: newSymbolTableOnce()}, nil
+	ret := &elfFile{file: f, osFile: osFile}
+	ret.getsymtab = sync.OnceValues(ret.initSymTab)
+	return ret, nil
 }
 
 var _ fileHandler = (*elfFile)(nil)
 
 type elfFile struct {
-	file   *elf.File
-	osFile *os.File
-	symtab *symbolTableOnce
+	file      *elf.File
+	osFile    *os.File
+	getsymtab func() (map[string]Symbol, error)
 }
 
-func (e *elfFile) initSymTab() error {
-	e.symtab.Do(func() {
-		syms, err := e.file.Symbols()
-		if err != nil {
-			// If the error is ErrNoSymbols, we just ignore it.
-			if !errors.Is(err, elf.ErrNoSymbols) {
-				e.symtab.err = fmt.Errorf("error when getting the symbols: %w", err)
-			}
-			return
+func (e *elfFile) initSymTab() (map[string]Symbol, error) {
+	syms, err := e.file.Symbols()
+	if err != nil {
+		// If the error is ErrNoSymbols, we just ignore it.
+		if !errors.Is(err, elf.ErrNoSymbols) {
+			return nil, fmt.Errorf("error when getting the symbols: %w", err)
 		}
-		for _, sym := range syms {
-			e.symtab.table[sym.Name] = Symbol{
-				Name:  sym.Name,
-				Value: sym.Value,
-				Size:  sym.Size,
-			}
+		return nil, nil
+	}
+	symm := make(map[string]Symbol)
+	for _, sym := range syms {
+		symm[sym.Name] = Symbol{
+			Name:  sym.Name,
+			Value: sym.Value,
+			Size:  sym.Size,
 		}
-	})
-	return e.symtab.err
+	}
+	return symm, nil
 }
 
 func (e *elfFile) hasSymbolTable() (bool, error) {
-	err := e.initSymTab()
+	symm, err := e.getsymtab()
 	if err != nil {
 		return false, err
 	}
-	return len(e.symtab.table) > 0, nil
+	return len(symm) > 0, nil
 }
 
 func (e *elfFile) getSymbol(name string) (uint64, uint64, error) {
-	err := e.initSymTab()
+	symm, err := e.getsymtab()
 	if err != nil {
 		return 0, 0, err
 	}
-	sym, ok := e.symtab.table[name]
+	sym, ok := symm[name]
 	if !ok {
 		return 0, 0, ErrSymbolNotFound
 	}

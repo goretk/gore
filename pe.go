@@ -25,14 +25,14 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"sort"
+	"sync"
 )
 
 func openPE(fp string) (peF *peFile, err error) {
 	// Parsing by the file by debug/pe can panic if the PE file is malformed.
 	// To prevent a crash, we recover the panic and return it as an error
 	// instead.
-	go func() {
+	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("error when processing PE file, probably corrupt: %s", r)
 		}
@@ -62,7 +62,8 @@ func openPE(fp string) (peF *peFile, err error) {
 		return
 	}
 
-	peF = &peFile{file: f, osFile: osFile, imageBase: imageBase, symtab: newSymbolTableOnce()}
+	peF = &peFile{file: f, osFile: osFile, imageBase: imageBase}
+	peF.getsymtab = sync.OnceValues(peF.initSymTab)
 	return
 }
 
@@ -72,64 +73,63 @@ type peFile struct {
 	file      *pe.File
 	osFile    *os.File
 	imageBase uint64
-	symtab    *symbolTableOnce
+	getsymtab func() (map[string]Symbol, error)
 }
 
-func (p *peFile) initSymTab() error {
-	p.symtab.Do(func() {
-		var addrs []uint64
+func (p *peFile) initSymTab() (map[string]Symbol, error) {
+	var addrs []uint64
 
-		var syms []Symbol
-		for _, s := range p.file.Symbols {
-			const (
-				NUndef = 0  // An undefined (extern) symbol
-				NAbs   = -1 // An absolute symbol (e_value is a constant, not an address)
-				NDebug = -2 // A debugging symbol
-			)
-			sym := Symbol{Name: s.Name, Value: uint64(s.Value), Size: 0}
-			switch s.SectionNumber {
-			case NUndef, NAbs, NDebug: // do nothing
-			default:
-				if s.SectionNumber < 0 || len(p.file.Sections) < int(s.SectionNumber) {
-					p.symtab.err = fmt.Errorf("invalid section number in symbol table")
-					return
-				}
-				sect := p.file.Sections[s.SectionNumber-1]
-				sym.Value += p.imageBase + uint64(sect.VirtualAddress)
+	var syms []Symbol
+	for _, s := range p.file.Symbols {
+		const (
+			NUndef = 0  // An undefined (extern) symbol
+			NAbs   = -1 // An absolute symbol (e_value is a constant, not an address)
+			NDebug = -2 // A debugging symbol
+		)
+		sym := Symbol{Name: s.Name, Value: uint64(s.Value), Size: 0}
+		switch s.SectionNumber {
+		case NUndef, NAbs, NDebug: // do nothing
+		default:
+			if s.SectionNumber < 0 || len(p.file.Sections) < int(s.SectionNumber) {
+				return nil, fmt.Errorf("invalid section number in symbol table")
 			}
-			syms = append(syms, sym)
-			addrs = append(addrs, sym.Value)
+			sect := p.file.Sections[s.SectionNumber-1]
+			sym.Value += p.imageBase + uint64(sect.VirtualAddress)
 		}
+		syms = append(syms, sym)
+		addrs = append(addrs, sym.Value)
+	}
 
-		slices.Sort(addrs)
-		for i := range syms {
-			j := sort.Search(len(addrs), func(x int) bool { return addrs[x] > syms[i].Value })
-			if j < len(addrs) {
-				syms[i].Size = addrs[j] - syms[i].Value
-			}
+	slices.Sort(addrs)
+	for i := range syms {
+		j, found := slices.BinarySearch(addrs, syms[i].Value)
+		if found {
+			syms[i].Size = addrs[j] - syms[i].Value
 		}
+	}
 
-		for _, sym := range syms {
-			p.symtab.table[sym.Name] = sym
-		}
-	})
-	return p.symtab.err
+	symm := make(map[string]Symbol)
+	for _, sym := range syms {
+		symm[sym.Name] = sym
+	}
+
+	return symm, nil
 }
 
 func (p *peFile) hasSymbolTable() (bool, error) {
-	err := p.initSymTab()
+	symm, err := p.getsymtab()
 	if err != nil {
 		return false, err
 	}
-	return len(p.symtab.table) > 0, nil
+	return len(symm) > 0, nil
 }
 
 func (p *peFile) getSymbol(name string) (uint64, uint64, error) {
-	err := p.initSymTab()
+	symm, err := p.getsymtab()
 	if err != nil {
 		return 0, 0, err
 	}
-	sym, ok := p.symtab.table[name]
+	sym, ok := symm[name]
 	if !ok {
 		return 0, 0, ErrSymbolNotFound
 	}

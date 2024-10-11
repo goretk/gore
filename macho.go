@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"sort"
+	"sync"
 )
 
 func openMachO(fp string) (*machoFile, error) {
@@ -36,54 +36,56 @@ func openMachO(fp string) (*machoFile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error when parsing the Mach-O file: %w", err)
 	}
-	return &machoFile{file: f, osFile: osFile, symtab: newSymbolTableOnce()}, nil
+	ret := &machoFile{file: f, osFile: osFile}
+	ret.getsymtab = sync.OnceValue(ret.initSymtab)
+	return ret, nil
 }
 
 var _ fileHandler = (*machoFile)(nil)
 
 type machoFile struct {
-	file   *macho.File
-	osFile *os.File
-	symtab *symbolTableOnce
+	file      *macho.File
+	osFile    *os.File
+	getsymtab func() map[string]Symbol
 }
 
-func (m *machoFile) initSymtab() error {
-	m.symtab.Do(func() {
-		if m.file.Symtab == nil {
-			// just do nothing, keep err nil and table empty
-			return
+func (m *machoFile) initSymtab() (symm map[string]Symbol) {
+	if m.file.Symtab == nil {
+		// just do nothing, keep err nil and table empty
+		return
+	}
+	symm = make(map[string]Symbol)
+	const stabTypeMask = 0xe0
+	// Build a sorted list of addresses of all symbols.
+	// We infer the size of a symbol by looking at where the next symbol begins.
+	var addrs []uint64
+	for _, s := range m.file.Symtab.Syms {
+		// Skip stab debug info.
+		if s.Type&stabTypeMask == 0 {
+			addrs = append(addrs, s.Value)
 		}
-		const stabTypeMask = 0xe0
-		// Build a sorted list of addresses of all symbols.
-		// We infer the size of a symbol by looking at where the next symbol begins.
-		var addrs []uint64
-		for _, s := range m.file.Symtab.Syms {
+	}
+	slices.Sort(addrs)
+
+	var syms []Symbol
+	for _, s := range m.file.Symtab.Syms {
+		if s.Type&stabTypeMask != 0 {
 			// Skip stab debug info.
-			if s.Type&stabTypeMask == 0 {
-				addrs = append(addrs, s.Value)
-			}
+			continue
 		}
-		slices.Sort(addrs)
+		sym := Symbol{Name: s.Name, Value: s.Value}
+		i, found := slices.BinarySearch(addrs, s.Value)
+		if found {
+			sym.Size = addrs[i] - s.Value
+		}
+		syms = append(syms, sym)
+	}
 
-		var syms []Symbol
-		for _, s := range m.file.Symtab.Syms {
-			if s.Type&stabTypeMask != 0 {
-				// Skip stab debug info.
-				continue
-			}
-			sym := Symbol{Name: s.Name, Value: s.Value}
-			i := sort.Search(len(addrs), func(x int) bool { return addrs[x] > s.Value })
-			if i < len(addrs) {
-				sym.Size = addrs[i] - s.Value
-			}
-			syms = append(syms, sym)
-		}
+	for _, sym := range syms {
+		symm[sym.Name] = sym
+	}
 
-		for _, sym := range syms {
-			m.symtab.table[sym.Name] = sym
-		}
-	})
-	return nil
+	return
 }
 
 func (m *machoFile) hasSymbolTable() (bool, error) {
@@ -91,11 +93,7 @@ func (m *machoFile) hasSymbolTable() (bool, error) {
 }
 
 func (m *machoFile) getSymbol(name string) (uint64, uint64, error) {
-	err := m.initSymtab()
-	if err != nil {
-		return 0, 0, err
-	}
-	sym, ok := m.symtab.table[name]
+	sym, ok := m.getsymtab()[name]
 	if !ok {
 		return 0, 0, ErrSymbolNotFound
 	}
