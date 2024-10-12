@@ -404,15 +404,11 @@ func (f *GoFile) getPCLNTABDataBySymbol() (uint64, []byte, error) {
 	if end < start {
 		return 0, nil, errors.New("invalid pclntab symbols")
 	}
-	sectStart, data, err := f.fh.getSectionDataFromAddress(start)
+	data, err := f.Bytes(start, end-start)
 	if err != nil {
 		return 0, nil, err
 	}
-	// ensure that the pclntab is within the same section
-	if end-sectStart > uint64(len(data)) {
-		return 0, nil, errors.New("pclntab out of bounds")
-	}
-	return start, data[start-sectStart : end-sectStart], nil
+	return start, data, nil
 }
 
 func (f *GoFile) initPclntab() error {
