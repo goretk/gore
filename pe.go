@@ -114,16 +114,16 @@ func (p *peFile) initSymTab() (map[string]Symbol, error) {
 	return symm, nil
 }
 
-func (p *peFile) getSymbol(name string) (uint64, uint64, error) {
+func (p *peFile) getSymbol(name string) (Symbol, error) {
 	symm, err := p.getsymtab()
 	if err != nil {
-		return 0, 0, err
+		return Symbol{}, err
 	}
 	sym, ok := symm[name]
 	if !ok {
-		return 0, 0, ErrSymbolNotFound
+		return Symbol{}, ErrSymbolNotFound
 	}
-	return sym.Value, sym.Size, nil
+	return sym, nil
 }
 
 func (p *peFile) getParsedFile() any {

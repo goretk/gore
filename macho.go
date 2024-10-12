@@ -84,12 +84,12 @@ func (m *machoFile) initSymtab() map[string]Symbol {
 	return symm
 }
 
-func (m *machoFile) getSymbol(name string) (uint64, uint64, error) {
+func (m *machoFile) getSymbol(name string) (Symbol, error) {
 	sym, ok := m.getsymtab()[name]
 	if !ok {
-		return 0, 0, ErrSymbolNotFound
+		return Symbol{}, ErrSymbolNotFound
 	}
-	return sym.Value, sym.Size, nil
+	return sym, nil
 }
 
 func (m *machoFile) getParsedFile() any {

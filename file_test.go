@@ -225,7 +225,7 @@ func (m *mockFileHandler) getFile() *os.File {
 	panic("not implemented")
 }
 
-func (m *mockFileHandler) getSymbol(name string) (uint64, uint64, error) {
+func (m *mockFileHandler) getSymbol(name string) (Symbol, error) {
 	panic("not implemented")
 }
 

@@ -133,8 +133,9 @@ func tryFromSchedInit(f *GoFile) *GoVersion {
 		is32 = true
 	}
 
-	addr, size, err = f.fh.getSymbol("runtime.schedinit")
+	sym, err := f.fh.getSymbol("runtime.schedinit")
 	if err == nil {
+		addr = sym.Value
 		goto disasm
 	}
 

@@ -385,15 +385,22 @@ func (f *GoFile) Close() error {
 	return f.fh.Close()
 }
 
+// GetSymbol returns the symbol with the given name.
+func (f *GoFile) GetSymbol(name string) (Symbol, error) {
+	return f.fh.getSymbol(name)
+}
+
 func (f *GoFile) getPCLNTABDataBySymbol() (uint64, []byte, error) {
-	start, _, err := f.fh.getSymbol("runtime.pclntab")
+	sym, err := f.fh.getSymbol("runtime.pclntab")
 	if err != nil {
 		return 0, nil, err
 	}
-	end, _, err := f.fh.getSymbol("runtime.epclntab")
+	start := sym.Value
+	sym, err = f.fh.getSymbol("runtime.epclntab")
 	if err != nil {
 		return 0, nil, err
 	}
+	end := sym.Value
 	if end < start {
 		return 0, nil, errors.New("invalid pclntab symbols")
 	}
@@ -427,9 +434,9 @@ func (f *GoFile) initPclntab() error {
 		// external linkers may add additional code to the section before the "Go" code. We can find "runtime.text"
 		// in the moduledata structure in the binary.
 		// If we have the symbol table, just get it
-		val, _, err := f.fh.getSymbol("runtime.text")
+		sym, err := f.fh.getSymbol("runtime.text")
 		if err == nil {
-			f.runtimeText = val
+			f.runtimeText = sym.Value
 			return
 		}
 
@@ -612,7 +619,7 @@ func sortTypes(types map[uint64]*GoType) []*GoType {
 type fileHandler interface {
 	io.Closer
 	// returns the value, size and error
-	getSymbol(name string) (uint64, uint64, error)
+	getSymbol(name string) (Symbol, error)
 	getRData() ([]byte, error)
 	getCodeSection() (uint64, []byte, error)
 	getSectionDataFromAddress(uint64) (uint64, []byte, error)
