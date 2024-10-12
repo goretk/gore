@@ -114,14 +114,6 @@ func (p *peFile) initSymTab() (map[string]Symbol, error) {
 	return symm, nil
 }
 
-func (p *peFile) hasSymbolTable() (bool, error) {
-	symm, err := p.getsymtab()
-	if err != nil {
-		return false, err
-	}
-	return len(symm) > 0, nil
-}
-
 func (p *peFile) getSymbol(name string) (uint64, uint64, error) {
 	symm, err := p.getsymtab()
 	if err != nil {

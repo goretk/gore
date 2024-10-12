@@ -225,10 +225,6 @@ func (m *mockFileHandler) getFile() *os.File {
 	panic("not implemented")
 }
 
-func (m *mockFileHandler) hasSymbolTable() (bool, error) {
-	panic("not implemented")
-}
-
 func (m *mockFileHandler) getSymbol(name string) (uint64, uint64, error) {
 	panic("not implemented")
 }

@@ -84,10 +84,6 @@ func (m *machoFile) initSymtab() map[string]Symbol {
 	return symm
 }
 
-func (m *machoFile) hasSymbolTable() (bool, error) {
-	return m.file.Symtab != nil, nil
-}
-
 func (m *machoFile) getSymbol(name string) (uint64, uint64, error) {
 	sym, ok := m.getsymtab()[name]
 	if !ok {

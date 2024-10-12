@@ -69,14 +69,6 @@ func (e *elfFile) initSymTab() (map[string]Symbol, error) {
 	return symm, nil
 }
 
-func (e *elfFile) hasSymbolTable() (bool, error) {
-	symm, err := e.getsymtab()
-	if err != nil {
-		return false, err
-	}
-	return len(symm) > 0, nil
-}
-
 func (e *elfFile) getSymbol(name string) (uint64, uint64, error) {
 	symm, err := e.getsymtab()
 	if err != nil {

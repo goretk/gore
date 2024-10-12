@@ -283,12 +283,10 @@ func extractModuledata(f *GoFile) (moduledata, error) {
 	}
 
 	// if we can get the moduledata addr from the symbol, we have no need to search
-	if ok, err := f.fh.hasSymbolTable(); ok && err == nil {
-		addr, _, err := f.fh.getSymbol("runtime.firstmoduledata")
-		if err == nil {
-			off = int(addr - secAddr)
-			goto load
-		}
+	addr, _, err := f.fh.getSymbol("runtime.firstmoduledata")
+	if err == nil {
+		off = int(addr - secAddr)
+		goto load
 	}
 
 	err = f.initPclntab()

@@ -24,9 +24,10 @@ import (
 	"errors"
 	"regexp"
 
+	"golang.org/x/arch/x86/x86asm"
+
 	"github.com/goretk/gore/extern"
 	"github.com/goretk/gore/extern/gover"
-	"golang.org/x/arch/x86/x86asm"
 )
 
 var goVersionMatcher = regexp.MustCompile(`(go[\d+.]*(beta|rc)?[\d*])`)
@@ -132,11 +133,9 @@ func tryFromSchedInit(f *GoFile) *GoVersion {
 		is32 = true
 	}
 
-	if ok, err := f.fh.hasSymbolTable(); ok && err == nil {
-		addr, size, err = f.fh.getSymbol("runtime.schedinit")
-		if err == nil {
-			goto disasm
-		}
+	addr, size, err = f.fh.getSymbol("runtime.schedinit")
+	if err == nil {
+		goto disasm
 	}
 
 	// Find schedinit function.

@@ -410,26 +410,16 @@ func (f *GoFile) getPCLNTABDataBySymbol() (uint64, []byte, error) {
 
 func (f *GoFile) initPclntab() error {
 	f.pclntabOnce.Do(func() {
-		pclntabFound := false
-		// If we have symbol data, we can use that to find the pclntab.
-		if ok, err := f.fh.hasSymbolTable(); ok && err == nil {
-			addr, data, err := f.getPCLNTABDataBySymbol()
-			if err == nil {
-				f.pclntabAddr = addr
-				f.pclntabBytes = data
-				pclntabFound = true
-			}
-		}
-
-		if !pclntabFound {
-			addr, data, err := f.fh.getPCLNTABData()
+		addr, data, err := f.getPCLNTABDataBySymbol()
+		if err != nil {
+			addr, data, err = f.fh.getPCLNTABData()
 			if err != nil {
 				f.pclntabError = fmt.Errorf("error when getting pclntab: %w", err)
 				return
 			}
-			f.pclntabBytes = data
-			f.pclntabAddr = addr
 		}
+		f.pclntabAddr = addr
+		f.pclntabBytes = data
 
 		// All the function address in the pclntab uses the symbol "runtime.text" as the base address.
 		// This symbol is where the runtime uses as the start of the code section. While it should always
@@ -437,12 +427,10 @@ func (f *GoFile) initPclntab() error {
 		// external linkers may add additional code to the section before the "Go" code. We can find "runtime.text"
 		// in the moduledata structure in the binary.
 		// If we have the symbol table, just get it
-		if ok, err := f.fh.hasSymbolTable(); ok && err == nil {
-			val, _, err := f.fh.getSymbol("runtime.text")
-			if err == nil {
-				f.runtimeText = val
-				return
-			}
+		val, _, err := f.fh.getSymbol("runtime.text")
+		if err == nil {
+			f.runtimeText = val
+			return
 		}
 
 		// Otherwise, we need to search it
@@ -625,7 +613,6 @@ type fileHandler interface {
 	io.Closer
 	// returns the value, size and error
 	getSymbol(name string) (uint64, uint64, error)
-	hasSymbolTable() (bool, error)
 	getRData() ([]byte, error)
 	getCodeSection() (uint64, []byte, error)
 	getSectionDataFromAddress(uint64) (uint64, []byte, error)
