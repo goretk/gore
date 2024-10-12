@@ -56,7 +56,7 @@ func (e *elfFile) initSymTab() (map[string]Symbol, error) {
 		if !errors.Is(err, elf.ErrNoSymbols) {
 			return nil, fmt.Errorf("error when getting the symbols: %w", err)
 		}
-		return nil, nil
+		return nil, ErrSymbolNotFound
 	}
 	symm := make(map[string]Symbol)
 	for _, sym := range syms {
