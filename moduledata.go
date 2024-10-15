@@ -242,6 +242,10 @@ func pickVersionedModuleData(info *FileInfo) (modulable, error) {
 		bits = 64
 	}
 
+	if info.goversion == nil {
+		return nil, ErrNoGoVersionFound
+	}
+
 	ver := gover.Parse(extern.StripGo(info.goversion.Name))
 	zero := gover.Version{}
 	if ver == zero {
@@ -260,36 +264,54 @@ func pickVersionedModuleData(info *FileInfo) (modulable, error) {
 	return buf, nil
 }
 
-func extractModuledata(fileInfo *FileInfo, f fileHandler) (moduledata, error) {
-	vmd, err := pickVersionedModuleData(fileInfo)
+func extractModuledata(f *GoFile) (moduledata, error) {
+	vmd, err := pickVersionedModuleData(f.FileInfo)
 	if err != nil {
 		return moduledata{}, err
 	}
 
 	vmdSize := binary.Size(vmd)
 
-	_, secData, err := f.getSectionData(f.moduledataSection())
-	if err != nil {
-		return moduledata{}, err
-	}
-	tabAddr, _, err := f.getPCLNTABData()
+	// pre define these variables to follow the goto requirements
+	var off int
+	var magic []byte
+	var tabAddr uint64
+
+	secAddr, secData, err := f.fh.getSectionData(f.fh.moduledataSection())
 	if err != nil {
 		return moduledata{}, err
 	}
 
-	magic := buildPclnTabAddrBinary(fileInfo.WordSize, fileInfo.ByteOrder, tabAddr)
+	// if we can get the moduledata addr from the symbol, we have no need to search
+	sym, err := f.fh.getSymbol("runtime.firstmoduledata")
+	if err == nil {
+		off = int(sym.Value - secAddr)
+		goto load
+	}
+
+	err = f.initPclntab()
+	if err != nil {
+		return moduledata{}, err
+	}
+	tabAddr = f.pclntabAddr
+
+	magic = buildPclnTabAddrBinary(f.FileInfo.WordSize, f.FileInfo.ByteOrder, tabAddr)
 
 search:
-	off := bytes.Index(secData, magic)
-	if off == -1 || len(secData) < off+vmdSize {
+	off = bytes.Index(secData, magic)
+load:
+	if off == -1 {
 		return moduledata{}, errors.New("could not find moduledata")
+	}
+	if len(secData) < off+vmdSize {
+		return moduledata{}, fmt.Errorf("offset %d is out of bounds %d", off, len(secData))
 	}
 
 	data := secData[off : off+vmdSize]
 
 	// Read the module struct from the file.
 	r := bytes.NewReader(data)
-	err = binary.Read(r, fileInfo.ByteOrder, vmd)
+	err = binary.Read(r, f.FileInfo.ByteOrder, vmd)
 	if err != nil {
 		return moduledata{}, fmt.Errorf("error when reading module data from file: %w", err)
 	}
@@ -301,7 +323,7 @@ search:
 	text := md.TextAddr
 	etext := md.TextAddr + md.TextLen
 
-	textSectAddr, textSect, err := f.getCodeSection()
+	textSectAddr, textSect, err := f.fh.getCodeSection()
 	if err != nil {
 		return moduledata{}, err
 	}
@@ -314,7 +336,7 @@ search:
 	}
 
 	// Add the file handler.
-	md.fh = f
+	md.fh = f.fh
 
 	return md, nil
 

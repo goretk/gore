@@ -24,9 +24,10 @@ import (
 	"errors"
 	"regexp"
 
+	"golang.org/x/arch/x86/x86asm"
+
 	"github.com/goretk/gore/extern"
 	"github.com/goretk/gore/extern/gover"
-	"golang.org/x/arch/x86/x86asm"
 )
 
 var goVersionMatcher = regexp.MustCompile(`(go[\d+.]*(beta|rc)?[\d*])`)
@@ -122,14 +123,25 @@ func tryFromSchedInit(f *GoFile) *GoVersion {
 		return nil
 	}
 
+	var addr, size uint64
+	var fcn *Function
+	var std []*Package
+	var err error
+
 	is32 := false
 	if f.FileInfo.Arch == Arch386 {
 		is32 = true
 	}
 
+	sym, err := f.fh.getSymbol("runtime.schedinit")
+	if err == nil {
+		addr = sym.Value
+		size = sym.Size
+		goto disasm
+	}
+
 	// Find schedinit function.
-	var fcn *Function
-	std, err := f.GetSTDLib()
+	std, err = f.GetSTDLib()
 	if err != nil {
 		return nil
 	}
@@ -150,12 +162,15 @@ pkgLoop:
 
 	// Check if the function was found
 	if fcn == nil {
-		// If we can't find the function there is nothing to do.
+		// If we can't find the function, there is nothing to do.
 		return nil
 	}
+	addr = fcn.Offset
+	size = fcn.End - fcn.Offset
 
+disasm:
 	// Get the raw hex.
-	buf, err := f.Bytes(fcn.Offset, fcn.End-fcn.Offset)
+	buf, err := f.Bytes(addr, size)
 	if err != nil {
 		return nil
 	}
@@ -187,10 +202,10 @@ pkgLoop:
 		// Check what it's loading and if it's pointing to the compiler version used.
 		// First assume that the address is a direct addressing.
 		arg := inst.Args[1].(x86asm.Mem)
-		addr := arg.Disp
+		disp := arg.Disp
 		if arg.Base == x86asm.EIP || arg.Base == x86asm.RIP {
 			// If the addressing is based on the instruction pointer, fix the address.
-			addr = addr + int64(fcn.Offset) + int64(s)
+			disp += int64(addr) + int64(s)
 		}
 
 		// If the addressing is based on the stack pointer, this is not the right
@@ -201,7 +216,7 @@ pkgLoop:
 
 		// Resolve the pointer to the string. If we get no data, this is not the
 		// right instruction.
-		b, _ := f.Bytes(uint64(addr), uint64(0x20))
+		b, _ := f.Bytes(uint64(disp), uint64(0x20))
 		if b == nil {
 			continue
 		}

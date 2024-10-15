@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 )
 
 func openELF(fp string) (*elfFile, error) {
@@ -35,14 +36,49 @@ func openELF(fp string) (*elfFile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error when parsing the ELF file: %w", err)
 	}
-	return &elfFile{file: f, osFile: osFile}, nil
+	ret := &elfFile{file: f, osFile: osFile}
+	ret.getsymtab = sync.OnceValues(ret.initSymTab)
+	return ret, nil
 }
 
 var _ fileHandler = (*elfFile)(nil)
 
 type elfFile struct {
-	file   *elf.File
-	osFile *os.File
+	file      *elf.File
+	osFile    *os.File
+	getsymtab func() (map[string]Symbol, error)
+}
+
+func (e *elfFile) initSymTab() (map[string]Symbol, error) {
+	syms, err := e.file.Symbols()
+	if err != nil {
+		// If the error is ErrNoSymbols, we just ignore it.
+		if !errors.Is(err, elf.ErrNoSymbols) {
+			return nil, fmt.Errorf("error when getting the symbols: %w", err)
+		}
+		return nil, ErrSymbolNotFound
+	}
+	symm := make(map[string]Symbol)
+	for _, sym := range syms {
+		symm[sym.Name] = Symbol{
+			Name:  sym.Name,
+			Value: sym.Value,
+			Size:  sym.Size,
+		}
+	}
+	return symm, nil
+}
+
+func (e *elfFile) getSymbol(name string) (Symbol, error) {
+	symm, err := e.getsymtab()
+	if err != nil {
+		return Symbol{}, err
+	}
+	sym, ok := symm[name]
+	if !ok {
+		return Symbol{}, ErrSymbolNotFound
+	}
+	return sym, nil
 }
 
 func (e *elfFile) getParsedFile() any {
@@ -106,7 +142,7 @@ func (e *elfFile) getPCLNTABData() (uint64, []byte, error) {
 		return 0, nil, fmt.Errorf("failed to get section: .data.rel.ro: %w", err)
 	}
 
-	buf, err := searchSectionForTab(data)
+	buf, err := searchSectionForTab(data, e.file.FileHeader.ByteOrder)
 	if err != nil {
 		return 0, nil, fmt.Errorf("error when search for pclntab: %w", err)
 	}

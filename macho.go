@@ -18,10 +18,13 @@
 package gore
 
 import (
+	"cmp"
 	"debug/dwarf"
 	"debug/macho"
 	"fmt"
 	"os"
+	"slices"
+	"sync"
 )
 
 func openMachO(fp string) (*machoFile, error) {
@@ -34,14 +37,59 @@ func openMachO(fp string) (*machoFile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error when parsing the Mach-O file: %w", err)
 	}
-	return &machoFile{file: f, osFile: osFile}, nil
+	ret := &machoFile{file: f, osFile: osFile}
+	ret.getsymtab = sync.OnceValue(ret.initSymtab)
+	return ret, nil
 }
 
 var _ fileHandler = (*machoFile)(nil)
 
 type machoFile struct {
-	file   *macho.File
-	osFile *os.File
+	file      *macho.File
+	osFile    *os.File
+	getsymtab func() map[string]Symbol
+}
+
+func (m *machoFile) initSymtab() map[string]Symbol {
+	if m.file.Symtab == nil {
+		// just do nothing, keep err nil and table empty
+		return nil
+	}
+
+	const stabTypeMask = 0xe0
+	// Build a sorted list of all symbols.
+	// We infer the size of a symbol by looking at where the next symbol begins.
+	syms := make([]Symbol, 0)
+	for _, s := range m.file.Symtab.Syms {
+		if s.Type&stabTypeMask != 0 {
+			// Skip stab debug info.
+			continue
+		}
+		syms = append(syms, Symbol{Name: s.Name, Value: s.Value})
+	}
+
+	slices.SortStableFunc(syms, func(a, b Symbol) int {
+		return cmp.Compare(a.Value, b.Value)
+	})
+
+	for i := 0; i < len(syms)-1; i++ {
+		syms[i].Size = syms[i+1].Value - syms[i].Value
+	}
+
+	symm := make(map[string]Symbol)
+	for _, sym := range syms {
+		symm[sym.Name] = sym
+	}
+
+	return symm
+}
+
+func (m *machoFile) getSymbol(name string) (Symbol, error) {
+	sym, ok := m.getsymtab()[name]
+	if !ok {
+		return Symbol{}, ErrSymbolNotFound
+	}
+	return sym, nil
 }
 
 func (m *machoFile) getParsedFile() any {

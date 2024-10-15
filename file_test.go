@@ -73,8 +73,6 @@ func TestIssue11NoNoteSectionELF(t *testing.T) {
 }
 
 func TestIssue79PIEAndExternalLinker(t *testing.T) {
-	r := require.New(t)
-
 	tests := []struct {
 		file     string
 		version  string
@@ -87,6 +85,8 @@ func TestIssue79PIEAndExternalLinker(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.file, func(t *testing.T) {
+			r := require.New(t)
+
 			testFile := filepath.Join("testdata", "gold", test.file)
 
 			f, err := Open(testFile)
@@ -225,6 +225,10 @@ func (m *mockFileHandler) getFile() *os.File {
 	panic("not implemented")
 }
 
+func (m *mockFileHandler) getSymbol(name string) (Symbol, error) {
+	panic("not implemented")
+}
+
 func (m *mockFileHandler) getParsedFile() any {
 	panic("not implemented")
 }
@@ -321,6 +325,11 @@ func getGoldenResources() ([]string, error) {
 const testresourcesrc = `
 package main
 
+import (
+	"fmt"
+	"runtime"
+)
+
 //go:noinline
 func getData() string {
 	return "Name: GoRE"
@@ -329,18 +338,7 @@ func getData() string {
 func main() {
 	data := getData()
 	data += " | Test"
-}
-`
-
-const nostripSrc = `
-package main
-
-import (
-	"fmt"
-	"runtime"
-)
-
-func main() {
 	fmt.Println(runtime.GOROOT())
+	fmt.Println(data)
 }
 `

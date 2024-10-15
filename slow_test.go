@@ -15,7 +15,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 //go:build slow_test
-// +build slow_test
 
 package gore
 
@@ -47,254 +46,205 @@ var dynResources = []struct {
 var dynResourceFiles *testFiles
 
 type testFiles struct {
-	files   map[string]string
-	filesMu sync.RWMutex
+	files sync.Map
 }
 
 func (f *testFiles) get(os, arch string, pie, stripped bool) string {
-	f.filesMu.Lock()
-	defer f.filesMu.Unlock()
+	name := os + "-" + arch
 	if pie {
-		return f.files[os+arch+"-pie"]
+		name += "-pie"
 	}
 	if !stripped {
-		return f.files[os+arch+"-nostrip"]
+		name += "-nostrip"
 	}
-	return f.files[os+arch]
+	exe, ok := f.files.Load(name)
+	if !ok {
+		return ""
+	}
+	return exe.(string)
+}
+
+// pass nil to check means all combinations
+func getMatrix(t *testing.T, checkPie, checkStrip *bool, prefix string, cb func(*testing.T, string)) {
+	t.Helper()
+	for _, r := range dynResources {
+		var pieCases []bool
+		if checkPie != nil {
+			pieCases = append(pieCases, *checkPie)
+		} else {
+			pieCases = append(pieCases, true, false)
+		}
+		for _, pie := range pieCases {
+			var strippedCases []bool
+			if checkStrip != nil {
+				strippedCases = append(strippedCases, *checkStrip)
+			} else {
+				strippedCases = append(strippedCases, true, false)
+			}
+			for _, stripped := range strippedCases {
+				exe := dynResourceFiles.get(r.os, r.arch, pie, stripped)
+				name := r.os + "-" + r.arch
+				if pie {
+					name += "-pie"
+				}
+				if !stripped {
+					name += "-nostrip"
+				}
+				t.Run(prefix+"-"+name, func(tt *testing.T) {
+					tt.Parallel()
+					if exe == "" {
+						tt.Skip("no executable available")
+					}
+					cb(tt, exe)
+				})
+			}
+		}
+
+	}
 }
 
 func TestMain(m *testing.M) {
 	fmt.Println("Creating test resources, this can take some time...")
 	var tmpDirs []string
-	fs := make(map[string]string)
+
+	resultChan := make(chan buildResult)
+	wg := &sync.WaitGroup{}
+
+	dynResourceFiles = &testFiles{files: sync.Map{}}
+
+	go func() {
+		for r := range resultChan {
+			tmpDirs = append(tmpDirs, r.dir)
+			name := r.os + "-" + r.arch
+			if r.pie {
+				name += "-pie"
+			}
+			if !r.strip {
+				name += "-nostrip"
+			}
+			dynResourceFiles.files.Store(name, r.exe)
+		}
+	}()
+
 	for _, r := range dynResources {
 		fmt.Printf("Building resource file for %s_%s\n", r.os, r.arch)
-		exe, dir := buildTestResource(testresourcesrc, r.os, r.arch, false, true)
-		tmpDirs = append(tmpDirs, dir)
-		fs[r.os+r.arch] = exe
 
-		// Build PIE version of the file. Not all host systems, particular macOS, appears to be able
-		// to compile a PIE build of linux-386. In this case, we skip this combination.
-		if !(r.arch == "386" && r.os == "linux") {
-			exe, dir = buildTestResource(testresourcesrc, r.os, r.arch, true, true)
-			tmpDirs = append(tmpDirs, dir)
-			fs[r.os+r.arch+"-pie"] = exe
+		for _, pie := range []bool{false, true} {
+			for _, stripped := range []bool{false, true} {
+				if pie && r.arch == "386" && r.os == "linux" {
+					// seems impossible
+					continue
+				}
+				wg.Add(1)
+				go buildTestResource(testresourcesrc, r.os, r.arch, pie, stripped, wg, resultChan)
+			}
 		}
-
-		// build unstripped binary; needs separate source file with reference to GOROOT
-		// for test trying to access it to pass
-		exe, dir = buildTestResource(nostripSrc, r.os, r.arch, false, false)
-		tmpDirs = append(tmpDirs, dir)
-		fs[r.os+r.arch+"-nostrip"] = exe
-
 	}
-	dynResourceFiles = &testFiles{files: fs}
+
+	wg.Wait()
+	close(resultChan)
 
 	fmt.Println("Launching tests")
 	code := m.Run()
 
 	fmt.Println("Clean up test resources")
+
 	for _, d := range tmpDirs {
 		os.RemoveAll(d)
 	}
+
 	os.Exit(code)
 }
 
 func TestOpenAndCloseFile(t *testing.T) {
-	for _, test := range dynResources {
-		t.Run("open_"+test.os+"-"+test.arch, func(t *testing.T) {
-			assert := assert.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, false, true)
+	getMatrix(t, nil, nil, "open", func(t *testing.T, exe string) {
+		a := assert.New(t)
 
-			f, err := Open(exe)
-			assert.NoError(err)
-			assert.NotNil(f)
-			assert.NoError(f.Close())
-		})
-
-		t.Run("open_"+test.os+"-"+test.arch+"-pie", func(t *testing.T) {
-			assert := assert.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, true, true)
-			if exe == "" {
-				t.Skip("no PIE available")
-			}
-
-			f, err := Open(exe)
-			assert.NoError(err)
-			assert.NotNil(f)
-			assert.NoError(f.Close())
-		})
-	}
+		f, err := Open(exe)
+		a.NoError(err)
+		a.NotNil(f)
+		a.NoError(f.Close())
+	})
 }
 
 func TestGetPackages(t *testing.T) {
-	for _, test := range dynResources {
-		t.Run("open_"+test.os+"-"+test.arch, func(t *testing.T) {
-			assert := assert.New(t)
-			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, false, true)
-			if exe == "" {
-				t.Skip("no PIE available")
+	getMatrix(t, nil, nil, "getPackages", func(t *testing.T, exe string) {
+		a := assert.New(t)
+		r := require.New(t)
+
+		f, err := Open(exe)
+		r.NoError(err)
+		r.NotNil(f)
+		defer f.Close()
+
+		std, err := f.GetSTDLib()
+		a.NoError(err)
+		a.NotEmpty(std, "Should have a list of standard library packages.")
+
+		_, err = f.GetGeneratedPackages()
+		a.NoError(err)
+		// XXX: This check appears to be unstable. Sometimes files for unknown reason.
+		// assert.NotEmpty(gen, "Should have a list of generated packages.")
+
+		ven, err := f.GetVendors()
+		a.NoError(err)
+		a.Empty(ven, "Should not have a list of vendor packages.")
+
+		_, err = f.GetUnknown()
+		a.NoError(err)
+		// XXX: This check appears to be unstable. Sometimes files for unknown reason.
+		// assert.Empty(unk, "Should not have a list of unknown packages")
+
+		pkgs, err := f.GetPackages()
+		a.NoError(err)
+
+		var mainpkg *Package
+		for _, p := range pkgs {
+			if p.Name == "main" {
+				mainpkg = p
+				break
 			}
+		}
 
-			f, err := Open(exe)
-			require.NoError(err)
-			require.NotNil(f)
-			defer f.Close()
-
-			std, err := f.GetSTDLib()
-			assert.NoError(err)
-			assert.NotEmpty(std, "Should have a list of standard library packages.")
-
-			_, err = f.GetGeneratedPackages()
-			assert.NoError(err)
-			// XXX: This check appears to be unstable. Sometimes files for unknown reason.
-			// assert.NotEmpty(gen, "Should have a list of generated packages.")
-
-			ven, err := f.GetVendors()
-			assert.NoError(err)
-			assert.Empty(ven, "Should not have a list of vendor packages.")
-
-			_, err = f.GetUnknown()
-			assert.NoError(err)
-			// XXX: This check appears to be unstable. Sometimes files for unknown reason.
-			// assert.Empty(unk, "Should not have a list of unknown packages")
-
-			pkgs, err := f.GetPackages()
-			assert.NoError(err)
-
-			var mainpkg *Package
-			for _, p := range pkgs {
-				if p.Name == "main" {
-					mainpkg = p
-					break
-				}
+		mainPackageFound := false
+		getDataFuncFound := false
+		a.NotNil(mainpkg, "Should include main package")
+		for _, f := range mainpkg.Functions {
+			if f.Name == "main" {
+				mainPackageFound = true
+			} else if f.Name == "getData" {
+				getDataFuncFound = true
+			} else {
+				a.Fail("Unexpected function")
 			}
-
-			mp := false
-			gd := false
-			assert.NotNil(mainpkg, "Should include main package")
-			for _, f := range mainpkg.Functions {
-				if f.Name == "main" {
-					mp = true
-				} else if f.Name == "getData" {
-					gd = true
-				} else {
-					assert.Fail("Unexpected function")
-				}
-			}
-			assert.True(mp, "No main function found")
-			assert.True(gd, "getData function not found")
-		})
-
-		t.Run("open_"+test.os+"-"+test.arch+"-pie", func(t *testing.T) {
-			assert := assert.New(t)
-			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, false, true)
-			f, err := Open(exe)
-			require.NoError(err)
-			require.NotNil(f)
-			defer f.Close()
-
-			std, err := f.GetSTDLib()
-			assert.NoError(err)
-			assert.NotEmpty(std, "Should have a list of standard library packages.")
-
-			_, err = f.GetGeneratedPackages()
-			assert.NoError(err)
-			// XXX: This check appears to be unstable. Sometimes files for unknown reason.
-			// assert.NotEmpty(gen, "Should have a list of generated packages.")
-
-			ven, err := f.GetVendors()
-			assert.NoError(err)
-			assert.Empty(ven, "Should not have a list of vendor packages.")
-
-			_, err = f.GetUnknown()
-			assert.NoError(err)
-			// XXX: This check appears to be unstable. Sometimes files for unknown reason.
-			// assert.Empty(unk, "Should not have a list of unknown packages")
-
-			pkgs, err := f.GetPackages()
-			assert.NoError(err)
-
-			var mainpkg *Package
-			for _, p := range pkgs {
-				if p.Name == "main" {
-					mainpkg = p
-					break
-				}
-			}
-
-			mp := false
-			gd := false
-			assert.NotNil(mainpkg, "Should include main package")
-			for _, f := range mainpkg.Functions {
-				if f.Name == "main" {
-					mp = true
-				} else if f.Name == "getData" {
-					gd = true
-				} else {
-					assert.Fail("Unexpected function")
-				}
-			}
-			assert.True(mp, "No main function found")
-			assert.True(gd, "getData function not found")
-		})
-	}
+		}
+		a.True(mainPackageFound, "No main function found")
+		a.True(getDataFuncFound, "getData function not found")
+	})
 }
 
 func TestGetTypesFromDynamicBuiltResources(t *testing.T) {
-	for _, test := range dynResources {
-		t.Run("open_"+test.os+"-"+test.arch, func(t *testing.T) {
-			assert := assert.New(t)
-			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, false, true)
-			f, err := Open(exe)
-			require.NoError(err)
-			require.NotNil(f)
-			defer f.Close()
+	getMatrix(t, nil, nil, "getTypes", func(t *testing.T, exe string) {
+		a := assert.New(t)
+		r := require.New(t)
+		f, err := Open(exe)
+		r.NoError(err)
+		r.NotNil(f)
+		defer f.Close()
 
-			typs, err := f.GetTypes()
-			require.NoError(err)
+		typs, err := f.GetTypes()
+		r.NoError(err)
 
-			var stringer *GoType
-			for _, t := range typs {
-				if t.PackagePath == "runtime" && t.Name == "runtime.g" {
-					stringer = t
-					break
-				}
+		var stringer *GoType
+		for _, t := range typs {
+			if t.PackagePath == "runtime" && t.Name == "runtime.g" {
+				stringer = t
+				break
 			}
+		}
 
-			assert.NotNil(stringer, "the g type from runtime not found")
-		})
-
-		t.Run("open_"+test.os+"-"+test.arch+"-pie", func(t *testing.T) {
-			assert := assert.New(t)
-			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, true, true)
-			if exe == "" {
-				t.Skip(("PIE file not available"))
-			}
-
-			f, err := Open(exe)
-			require.NoError(err)
-			require.NotNil(f)
-			defer f.Close()
-
-			typs, err := f.GetTypes()
-			require.NoError(err)
-
-			var stringer *GoType
-			for _, t := range typs {
-				if t.PackagePath == "runtime" && t.Name == "runtime.g" {
-					stringer = t
-					break
-				}
-			}
-
-			assert.NotNil(stringer, "the g type from runtime not found")
-		})
-	}
+		a.NotNil(stringer, "the g type from runtime not found")
+	})
 }
 
 func TestGetCompilerVersion(t *testing.T) {
@@ -303,177 +253,104 @@ func TestGetCompilerVersion(t *testing.T) {
 
 	// If the version could not be resolved, the version is new
 	// and the library doesn't know about it. Use the version string
-	// to created a new version.
+	// to create a new version.
 	if expectedVersion == nil {
 		expectedVersion = &GoVersion{Name: testVersion}
 	}
 
-	for _, test := range dynResources {
-		t.Run("parsing_"+test.os+"-"+test.arch, func(t *testing.T) {
-			assert := assert.New(t)
-			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, false, true)
-			f, err := Open(exe)
-			require.NoError(err)
-			require.NotNil(f)
-			defer f.Close()
+	getMatrix(t, nil, nil, "compiler-version", func(t *testing.T, exe string) {
+		a := assert.New(t)
+		r := require.New(t)
+		f, err := Open(exe)
+		r.NoError(err)
+		r.NotNil(f)
+		defer f.Close()
 
-			// Test
-			version, err := f.GetCompilerVersion()
-			assert.NoError(err)
-			assert.Equal(expectedVersion, version)
-		})
-
-		t.Run("parsing_"+test.os+"-"+test.arch+"-pie", func(t *testing.T) {
-			assert := assert.New(t)
-			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, true, true)
-			if exe == "" {
-				t.Skip("no PIE available")
-			}
-
-			f, err := Open(exe)
-			require.NoError(err)
-			require.NotNil(f)
-			defer f.Close()
-
-			// Test
-			version, err := f.GetCompilerVersion()
-			assert.NoError(err)
-			assert.Equal(expectedVersion, version)
-		})
-	}
+		// Test
+		version, err := f.GetCompilerVersion()
+		a.NoError(err)
+		a.Equal(expectedVersion, version)
+	})
 }
 
 func TestGetBuildID(t *testing.T) {
-	for _, test := range dynResources {
-		t.Run("buildID_"+test.os+"-"+test.arch, func(t *testing.T) {
-			assert := assert.New(t)
-			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, false, true)
-			f, err := Open(exe)
-			require.NoError(err)
-			require.NotNil(f)
-			defer f.Close()
+	getMatrix(t, nil, nil, "buildID", func(t *testing.T, exe string) {
+		a := assert.New(t)
+		r := require.New(t)
+		f, err := Open(exe)
+		r.NoError(err)
+		r.NotNil(f)
+		defer f.Close()
 
-			assert.Equal(fixedBuildID, f.BuildID, "BuildID extracted doesn't match expected value.")
-		})
-
-		t.Run("buildID_"+test.os+"-"+test.arch+"-pie", func(t *testing.T) {
-			assert := assert.New(t)
-			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, true, true)
-			if exe == "" {
-				t.Skip("no PIE available")
-			}
-
-			f, err := Open(exe)
-			require.NoError(err)
-			require.NotNil(f)
-			defer f.Close()
-
-			assert.Equal(fixedBuildID, f.BuildID, "BuildID extracted doesn't match expected value.")
-		})
-	}
+		a.Equal(fixedBuildID, f.BuildID, "BuildID extracted doesn't match expected value.")
+	})
 }
 
 func TestSourceInfo(t *testing.T) {
-	for _, test := range dynResources {
-		t.Run("buildID_"+test.os+"-"+test.arch, func(t *testing.T) {
-			assert := assert.New(t)
-			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, false, true)
-			f, err := Open(exe)
-			require.NoError(err)
-			require.NotNil(f)
-			defer f.Close()
+	getMatrix(t, nil, nil, "sourceInfo", func(t *testing.T, exe string) {
+		a := assert.New(t)
+		r := require.New(t)
+		f, err := Open(exe)
+		r.NoError(err)
+		r.NotNil(f)
+		defer f.Close()
 
-			var testFn *Function
-			pkgs, err := f.GetPackages()
-			require.NoError(err)
-			for _, pkg := range pkgs {
-				if pkg.Name != "main" {
+		var testFn *Function
+		pkgs, err := f.GetPackages()
+		r.NoError(err)
+		for _, pkg := range pkgs {
+			if pkg.Name != "main" {
+				continue
+			}
+			for _, fn := range pkg.Functions {
+				if fn.Name != "getData" {
 					continue
 				}
-				for _, fn := range pkg.Functions {
-					if fn.Name != "getData" {
-						continue
-					}
-					testFn = fn
-					break
-				}
+				testFn = fn
+				break
 			}
-			require.NotNil(testFn)
+		}
+		r.NotNil(testFn)
 
-			file, start, end := f.SourceInfo(testFn)
+		file, start, end := f.SourceInfo(testFn)
 
-			assert.NotEqual(0, start)
-			assert.NotEqual(0, end)
-			assert.NotEqual("", file)
-		})
-
-		t.Run("buildID_"+test.os+"-"+test.arch+"-pie", func(t *testing.T) {
-			assert := assert.New(t)
-			require := require.New(t)
-			exe := dynResourceFiles.get(test.os, test.arch, true, true)
-			if exe == "" {
-				t.Skip("no PIE available")
-			}
-
-			f, err := Open(exe)
-			require.NoError(err)
-			require.NotNil(f)
-			defer f.Close()
-
-			var testFn *Function
-			pkgs, err := f.GetPackages()
-			require.NoError(err)
-			for _, pkg := range pkgs {
-				if pkg.Name != "main" {
-					continue
-				}
-				for _, fn := range pkg.Functions {
-					if fn.Name != "getData" {
-						continue
-					}
-					testFn = fn
-					break
-				}
-			}
-			require.NotNil(testFn)
-
-			file, start, end := f.SourceInfo(testFn)
-
-			assert.NotEqual(0, start)
-			assert.NotEqual(0, end)
-			assert.NotEqual("", file)
-		})
-	}
+		a.NotEqual(0, start)
+		a.NotEqual(0, end)
+		a.NotEqual("", file)
+	})
 }
 
 func TestDwarfString(t *testing.T) {
-	for _, test := range dynResources {
-		t.Run("dwarfString_"+test.os+"-"+test.arch, func(t *testing.T) {
-			require := require.New(t)
+	noStrip := false
+	getMatrix(t, nil, &noStrip, "dwarfString", func(t *testing.T, exe string) {
+		r := require.New(t)
 
-			exe := dynResourceFiles.get(test.os, test.arch, false, false)
-			f, err := Open(exe)
-			require.NoError(err)
-			require.NotNil(f)
-			defer f.Close()
+		f, err := Open(exe)
+		r.NoError(err)
+		r.NotNil(f)
+		defer f.Close()
 
-			gover, ok := getBuildVersionFromDwarf(f.fh)
-			require.True(ok)
-			require.Equal(gover, runtime.Version())
+		gover, ok := getBuildVersionFromDwarf(f.fh)
+		r.True(ok)
+		r.Equal(gover, runtime.Version())
 
-			goroot, ok := getGoRootFromDwarf(f.fh)
-			require.True(ok)
-			require.Equal(goroot, runtime.GOROOT())
-		})
-	}
+		goroot, ok := getGoRootFromDwarf(f.fh)
+		r.True(ok)
+		r.Equal(goroot, runtime.GOROOT())
+	})
 }
 
-func buildTestResource(body, goos, arch string, pie, stripped bool) (string, string) {
+type buildResult struct {
+	exe   string
+	dir   string
+	strip bool
+	pie   bool
+	os    string
+	arch  string
+}
+
+func buildTestResource(body, goos, arch string, pie, stripped bool, wg *sync.WaitGroup, result chan buildResult) {
+	defer wg.Done()
 	goBin, err := exec.LookPath("go")
 	if err != nil {
 		panic("No go tool chain found: " + err.Error())
@@ -491,8 +368,8 @@ func buildTestResource(body, goos, arch string, pie, stripped bool) (string, str
 	}
 
 	exe := filepath.Join(tmpdir, "a")
-	if pie {
-		exe = exe + "-pie"
+	if runtime.GOOS == "windows" {
+		exe += ".exe"
 	}
 
 	var ldFlags string
@@ -503,6 +380,9 @@ func buildTestResource(body, goos, arch string, pie, stripped bool) (string, str
 	args := []string{"build", "-o", exe, "-ldflags", ldFlags}
 	if pie {
 		args = append(args, "-buildmode=pie")
+	} else {
+		// Windows use pie by default
+		args = append(args, "-buildmode=exe")
 	}
 	args = append(args, src)
 
@@ -515,10 +395,11 @@ func buildTestResource(body, goos, arch string, pie, stripped bool) (string, str
 	cmd.Env = append(cmd.Env, "GOCACHE="+tmpdir, "GOARCH="+arch, "GOOS="+goos, "GOPATH="+gopath, "GOTMPDIR="+gopath, "PATH="+os.Getenv("PATH"))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		panic("building test executable failed: " + string(out))
+		fmt.Printf("building test executable failed: %s\n", string(out))
+		os.Exit(1)
 	}
 
-	return exe, tmpdir
+	result <- buildResult{exe: exe, dir: tmpdir, strip: stripped, pie: pie, os: goos, arch: arch}
 }
 
 func testCompilerVersion() string {

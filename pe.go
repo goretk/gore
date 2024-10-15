@@ -18,18 +18,22 @@
 package gore
 
 import (
+	"cmp"
 	"debug/dwarf"
 	"debug/pe"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"os"
+	"slices"
+	"sync"
 )
 
 func openPE(fp string) (peF *peFile, err error) {
 	// Parsing by the file by debug/pe can panic if the PE file is malformed.
 	// To prevent a crash, we recover the panic and return it as an error
 	// instead.
-	go func() {
+	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("error when processing PE file, probably corrupt: %s", r)
 		}
@@ -46,7 +50,21 @@ func openPE(fp string) (peF *peFile, err error) {
 		err = fmt.Errorf("error when parsing the PE file: %w", err)
 		return
 	}
-	peF = &peFile{file: f, osFile: osFile}
+
+	imageBase := uint64(0)
+
+	switch hdr := f.OptionalHeader.(type) {
+	case *pe.OptionalHeader32:
+		imageBase = uint64(hdr.ImageBase)
+	case *pe.OptionalHeader64:
+		imageBase = hdr.ImageBase
+	default:
+		err = errors.New("unknown optional header type")
+		return
+	}
+
+	peF = &peFile{file: f, osFile: osFile, imageBase: imageBase}
+	peF.getsymtab = sync.OnceValues(peF.initSymTab)
 	return
 }
 
@@ -56,6 +74,56 @@ type peFile struct {
 	file      *pe.File
 	osFile    *os.File
 	imageBase uint64
+	getsymtab func() (map[string]Symbol, error)
+}
+
+func (p *peFile) initSymTab() (map[string]Symbol, error) {
+	var syms []Symbol
+	for _, s := range p.file.Symbols {
+		const (
+			NUndef = 0  // An undefined (extern) symbol
+			NAbs   = -1 // An absolute symbol (e_value is a constant, not an address)
+			NDebug = -2 // A debugging symbol
+		)
+		sym := Symbol{Name: s.Name, Value: uint64(s.Value), Size: 0}
+		switch s.SectionNumber {
+		case NUndef, NAbs, NDebug: // do nothing
+		default:
+			if s.SectionNumber < 0 || len(p.file.Sections) < int(s.SectionNumber) {
+				return nil, fmt.Errorf("invalid section number in symbol table")
+			}
+			sect := p.file.Sections[s.SectionNumber-1]
+			sym.Value += p.imageBase + uint64(sect.VirtualAddress)
+		}
+		syms = append(syms, sym)
+	}
+
+	slices.SortStableFunc(syms, func(a, b Symbol) int {
+		return cmp.Compare(a.Value, b.Value)
+	})
+
+	for i := 0; i < len(syms)-1; i++ {
+		syms[i].Size = syms[i+1].Value - syms[i].Value
+	}
+
+	symm := make(map[string]Symbol)
+	for _, sym := range syms {
+		symm[sym.Name] = sym
+	}
+
+	return symm, nil
+}
+
+func (p *peFile) getSymbol(name string) (Symbol, error) {
+	symm, err := p.getsymtab()
+	if err != nil {
+		return Symbol{}, err
+	}
+	sym, ok := symm[name]
+	if !ok {
+		return Symbol{}, ErrSymbolNotFound
+	}
+	return sym, nil
 }
 
 func (p *peFile) getParsedFile() any {
@@ -96,8 +164,24 @@ func (p *peFile) moduledataSection() string {
 }
 
 func (p *peFile) getPCLNTABData() (uint64, []byte, error) {
-	b, d, e := searchFileForPCLNTab(p.file)
-	return p.imageBase + uint64(b), d, e
+	for _, v := range []string{".rdata", ".text"} {
+		sec := p.file.Section(v)
+		if sec == nil {
+			continue
+		}
+		secData, err := sec.Data()
+		if err != nil {
+			continue
+		}
+		tab, err := searchSectionForTab(secData, p.getFileInfo().ByteOrder)
+		if errors.Is(ErrNoPCLNTab, err) {
+			continue
+		}
+
+		addr := uint64(sec.VirtualAddress) + uint64(len(secData)-len(tab))
+		return p.imageBase + addr, tab, err
+	}
+	return 0, []byte{}, ErrNoPCLNTab
 }
 
 func (p *peFile) getSectionDataFromAddress(address uint64) (uint64, []byte, error) {
@@ -128,13 +212,9 @@ func (p *peFile) getFileInfo() *FileInfo {
 	fi := &FileInfo{ByteOrder: binary.LittleEndian, OS: "windows"}
 	if p.file.Machine == pe.IMAGE_FILE_MACHINE_I386 {
 		fi.WordSize = intSize32
-		optHdr := p.file.OptionalHeader.(*pe.OptionalHeader32)
-		p.imageBase = uint64(optHdr.ImageBase)
 		fi.Arch = Arch386
 	} else {
 		fi.WordSize = intSize64
-		optHdr := p.file.OptionalHeader.(*pe.OptionalHeader64)
-		p.imageBase = optHdr.ImageBase
 		fi.Arch = ArchAMD64
 	}
 	return fi
