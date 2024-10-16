@@ -22,21 +22,16 @@ import (
 	"debug/elf"
 	"errors"
 	"fmt"
-	"os"
+	"io"
 	"sync"
 )
 
-func openELF(fp string) (*elfFile, error) {
-	osFile, err := os.Open(fp)
-	if err != nil {
-		return nil, fmt.Errorf("error when opening the ELF file: %w", err)
-	}
-
-	f, err := elf.NewFile(osFile)
+func openELF(r io.ReaderAt) (*elfFile, error) {
+	f, err := elf.NewFile(r)
 	if err != nil {
 		return nil, fmt.Errorf("error when parsing the ELF file: %w", err)
 	}
-	ret := &elfFile{file: f, osFile: osFile}
+	ret := &elfFile{file: f, reader: r}
 	ret.getsymtab = sync.OnceValues(ret.initSymTab)
 	return ret, nil
 }
@@ -45,7 +40,7 @@ var _ fileHandler = (*elfFile)(nil)
 
 type elfFile struct {
 	file      *elf.File
-	osFile    *os.File
+	reader    io.ReaderAt
 	getsymtab func() (map[string]Symbol, error)
 }
 
@@ -85,8 +80,8 @@ func (e *elfFile) getParsedFile() any {
 	return e.file
 }
 
-func (e *elfFile) getFile() *os.File {
-	return e.osFile
+func (e *elfFile) getReader() io.ReaderAt {
+	return e.reader
 }
 
 func (e *elfFile) Close() error {
@@ -94,7 +89,7 @@ func (e *elfFile) Close() error {
 	if err != nil {
 		return err
 	}
-	return e.osFile.Close()
+	return tryClose(e.reader)
 }
 
 func (e *elfFile) getRData() ([]byte, error) {

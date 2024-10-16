@@ -30,7 +30,7 @@ import (
 	"sort"
 	"sync"
 
-	macho2 "github.com/blacktop/go-macho"
+	"github.com/blacktop/go-macho"
 	"github.com/blacktop/go-macho/pkg/fixupchains"
 )
 
@@ -50,15 +50,18 @@ func Open(filePath string) (*GoFile, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
 		return nil, err
 	}
 
+	return OpenReader(f)
+}
+
+// OpenReader opens a reader and returns a handler to the file.
+func OpenReader(f io.ReaderAt) (*GoFile, error) {
 	buf := make([]byte, maxMagicBufLen)
-	n, err := f.Read(buf)
-	_ = f.Close()
+	n, err := f.ReadAt(buf, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -67,23 +70,23 @@ func Open(filePath string) (*GoFile, error) {
 	}
 	gofile := new(GoFile)
 	if fileMagicMatch(buf, elfMagic) {
-		elf, err := openELF(filePath)
+		elf, err := openELF(f)
 		if err != nil {
 			return nil, err
 		}
 		gofile.fh = elf
 	} else if fileMagicMatch(buf, peMagic) {
-		pe, err := openPE(filePath)
+		pe, err := openPE(f)
 		if err != nil {
 			return nil, err
 		}
 		gofile.fh = pe
 	} else if fileMagicMatch(buf, machoMagic1) || fileMagicMatch(buf, machoMagic2) || fileMagicMatch(buf, machoMagic3) || fileMagicMatch(buf, machoMagic4) {
-		macho, err := openMachO(filePath)
+		machO, err := openMachO(f)
 		if err != nil {
 			return nil, err
 		}
-		gofile.fh = macho
+		gofile.fh = machO
 	} else {
 		return nil, ErrUnsupportedFile
 	}
@@ -181,16 +184,16 @@ func (f *GoFile) initPackages() error {
 	return f.initPackagesError
 }
 
-// GetFile returns the raw file opened by the library.
-func (f *GoFile) GetFile() *os.File {
-	return f.fh.getFile()
+// GetReader returns the reader passed to the file handler.
+func (f *GoFile) GetReader() io.ReaderAt {
+	return f.fh.getReader()
 }
 
 // GetParsedFile returns the parsed file, should be cast based on the file type.
 // Possible types are:
 //   - *elf.File
 //   - *pe.File
-//   - *macho.File
+//   - *github.com/blacktop/go-macho.File
 //
 // all from the debug package.
 func (f *GoFile) GetParsedFile() any {
@@ -483,21 +486,12 @@ func (f *GoFile) PCLNTab() (*gosym.Table, error) {
 }
 
 func (f *GoFile) findRuntimeTextMachoChainedFixups(pclntabAddr uint64) (uint64, error) {
-	of := f.fh.getFile()
-	_, err := of.Seek(0, io.SeekStart)
+	mf := f.fh.getParsedFile().(*macho.File)
+	fixups, err := mf.DyldChainedFixups()
 	if err != nil {
 		return 0, err
 	}
-
-	f2, err := macho2.NewFile(of)
-	if err != nil {
-		return 0, err
-	}
-	fixups, err := f2.DyldChainedFixups()
-	if err != nil {
-		return 0, err
-	}
-	baseAddr := f2.GetBaseAddress()
+	baseAddr := mf.GetBaseAddress()
 	var rebases []fixupchains.Rebase
 	for _, start := range fixups.Starts {
 		rebases = append(rebases, start.Rebases()...)
@@ -624,7 +618,7 @@ type fileHandler interface {
 	getPCLNTABData() (uint64, []byte, error)
 	moduledataSection() string
 	getBuildID() (string, error)
-	getFile() *os.File
+	getReader() io.ReaderAt
 	getParsedFile() any
 	getDwarf() (*dwarf.Data, error)
 }

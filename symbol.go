@@ -6,7 +6,7 @@ import (
 
 var ErrSymbolNotFound = errors.New("symbol not found")
 
-// Symbol A generic representation of [debug/elf.Symbol], [debug/pe.Symbol], and [debug/macho.Symbol].
+// Symbol A generic representation of [debug/elf.Symbol], [debug/pe.Symbol], and [github.com/blacktop/go-macho.Symbol].
 type Symbol struct {
 	// Name of the symbol.
 	Name string

@@ -24,12 +24,12 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"os"
+	"io"
 	"slices"
 	"sync"
 )
 
-func openPE(fp string) (peF *peFile, err error) {
+func openPE(r io.ReaderAt) (peF *peFile, err error) {
 	// Parsing by the file by debug/pe can panic if the PE file is malformed.
 	// To prevent a crash, we recover the panic and return it as an error
 	// instead.
@@ -39,13 +39,7 @@ func openPE(fp string) (peF *peFile, err error) {
 		}
 	}()
 
-	osFile, err := os.Open(fp)
-	if err != nil {
-		err = fmt.Errorf("error when opening the file: %w", err)
-		return
-	}
-
-	f, err := pe.NewFile(osFile)
+	f, err := pe.NewFile(r)
 	if err != nil {
 		err = fmt.Errorf("error when parsing the PE file: %w", err)
 		return
@@ -63,7 +57,7 @@ func openPE(fp string) (peF *peFile, err error) {
 		return
 	}
 
-	peF = &peFile{file: f, osFile: osFile, imageBase: imageBase}
+	peF = &peFile{file: f, reader: r, imageBase: imageBase}
 	peF.getsymtab = sync.OnceValues(peF.initSymTab)
 	return
 }
@@ -72,7 +66,7 @@ var _ fileHandler = (*peFile)(nil)
 
 type peFile struct {
 	file      *pe.File
-	osFile    *os.File
+	reader    io.ReaderAt
 	imageBase uint64
 	getsymtab func() (map[string]Symbol, error)
 }
@@ -130,8 +124,8 @@ func (p *peFile) getParsedFile() any {
 	return p.file
 }
 
-func (p *peFile) getFile() *os.File {
-	return p.osFile
+func (p *peFile) getReader() io.ReaderAt {
+	return p.reader
 }
 
 func (p *peFile) Close() error {
@@ -139,7 +133,7 @@ func (p *peFile) Close() error {
 	if err != nil {
 		return err
 	}
-	return p.osFile.Close()
+	return tryClose(p.reader)
 }
 
 func (p *peFile) getRData() ([]byte, error) {
