@@ -172,9 +172,8 @@ func TestGoldFiles(t *testing.T) {
 			require.NotNil(version, "Version should not be nil")
 			assert.Equal("go"+actualVersion, version.Name, "Incorrect version for "+file)
 
-			osFile := f.GetFile()
-			require.NotNil(osFile, "File should not be nil")
-			assert.IsType(&os.File{}, osFile, "File should be of type *os.File")
+			reader := f.GetReader()
+			require.NotNil(reader, "File should not be nil")
 
 			switch f.GetParsedFile().(type) {
 			case *elf.File:

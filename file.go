@@ -50,15 +50,18 @@ func Open(filePath string) (*GoFile, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
 		return nil, err
 	}
 
+	return OpenReader(f)
+}
+
+// OpenReader opens a reader and returns a handler to the file.
+func OpenReader(f io.ReaderAt) (*GoFile, error) {
 	buf := make([]byte, maxMagicBufLen)
-	n, err := f.Read(buf)
-	_ = f.Close()
+	n, err := f.ReadAt(buf, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -79,11 +82,11 @@ func Open(filePath string) (*GoFile, error) {
 		}
 		gofile.fh = pe
 	} else if fileMagicMatch(buf, machoMagic1) || fileMagicMatch(buf, machoMagic2) || fileMagicMatch(buf, machoMagic3) || fileMagicMatch(buf, machoMagic4) {
-		macho, err := openMachO(f)
+		machO, err := openMachO(f)
 		if err != nil {
 			return nil, err
 		}
-		gofile.fh = macho
+		gofile.fh = machO
 	} else {
 		return nil, ErrUnsupportedFile
 	}
