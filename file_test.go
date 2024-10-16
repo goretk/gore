@@ -22,6 +22,7 @@ import (
 	"debug/elf"
 	"debug/pe"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -222,7 +223,7 @@ type mockFileHandler struct {
 	mGetSectionDataFromAddress func(uint64) (uint64, []byte, error)
 }
 
-func (m *mockFileHandler) getFile() *os.File {
+func (m *mockFileHandler) getReader() io.ReaderAt {
 	panic("not implemented")
 }
 

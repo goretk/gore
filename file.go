@@ -67,19 +67,19 @@ func Open(filePath string) (*GoFile, error) {
 	}
 	gofile := new(GoFile)
 	if fileMagicMatch(buf, elfMagic) {
-		elf, err := openELF(filePath)
+		elf, err := openELF(f)
 		if err != nil {
 			return nil, err
 		}
 		gofile.fh = elf
 	} else if fileMagicMatch(buf, peMagic) {
-		pe, err := openPE(filePath)
+		pe, err := openPE(f)
 		if err != nil {
 			return nil, err
 		}
 		gofile.fh = pe
 	} else if fileMagicMatch(buf, machoMagic1) || fileMagicMatch(buf, machoMagic2) || fileMagicMatch(buf, machoMagic3) || fileMagicMatch(buf, machoMagic4) {
-		macho, err := openMachO(filePath)
+		macho, err := openMachO(f)
 		if err != nil {
 			return nil, err
 		}
@@ -181,16 +181,16 @@ func (f *GoFile) initPackages() error {
 	return f.initPackagesError
 }
 
-// GetFile returns the raw file opened by the library.
-func (f *GoFile) GetFile() *os.File {
-	return f.fh.getFile()
+// GetReader returns the reader passed to the file handler.
+func (f *GoFile) GetReader() io.ReaderAt {
+	return f.fh.getReader()
 }
 
 // GetParsedFile returns the parsed file, should be cast based on the file type.
 // Possible types are:
 //   - *elf.File
 //   - *pe.File
-//   - *macho.File
+//   - *github.com/blacktop/go-macho.File
 //
 // all from the debug package.
 func (f *GoFile) GetParsedFile() any {
@@ -615,7 +615,7 @@ type fileHandler interface {
 	getPCLNTABData() (uint64, []byte, error)
 	moduledataSection() string
 	getBuildID() (string, error)
-	getFile() *os.File
+	getReader() io.ReaderAt
 	getParsedFile() any
 	getDwarf() (*dwarf.Data, error)
 }

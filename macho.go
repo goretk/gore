@@ -25,7 +25,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -34,17 +33,12 @@ import (
 	"github.com/blacktop/go-macho/types"
 )
 
-func openMachO(fp string) (*machoFile, error) {
-	osFile, err := os.Open(fp)
-	if err != nil {
-		return nil, fmt.Errorf("error when opening the file: %w", err)
-	}
-
-	f, err := macho.NewFile(osFile)
+func openMachO(r io.ReaderAt) (*machoFile, error) {
+	f, err := macho.NewFile(r)
 	if err != nil {
 		return nil, fmt.Errorf("error when parsing the Mach-O file: %w", err)
 	}
-	ret := &machoFile{file: f, osFile: osFile}
+	ret := &machoFile{file: f, reader: r}
 	ret.getsymtab = sync.OnceValue(ret.initSymtab)
 	return ret, nil
 }
@@ -53,7 +47,7 @@ var _ fileHandler = (*machoFile)(nil)
 
 type machoFile struct {
 	file      *macho.File
-	osFile    *os.File
+	reader    io.ReaderAt
 	getsymtab func() map[string]Symbol
 }
 
@@ -103,8 +97,8 @@ func (m *machoFile) getParsedFile() any {
 	return m.file
 }
 
-func (m *machoFile) getFile() *os.File {
-	return m.osFile
+func (m *machoFile) getReader() io.ReaderAt {
+	return m.reader
 }
 
 func (m *machoFile) Close() error {
@@ -112,7 +106,7 @@ func (m *machoFile) Close() error {
 	if err != nil {
 		return err
 	}
-	return m.osFile.Close()
+	return tryClose(m.reader)
 }
 
 func (m *machoFile) getRData() ([]byte, error) {
