@@ -30,7 +30,7 @@ import (
 	"sort"
 	"sync"
 
-	macho2 "github.com/blacktop/go-macho"
+	"github.com/blacktop/go-macho"
 	"github.com/blacktop/go-macho/pkg/fixupchains"
 )
 
@@ -483,21 +483,12 @@ func (f *GoFile) PCLNTab() (*gosym.Table, error) {
 }
 
 func (f *GoFile) findRuntimeTextMachoChainedFixups(pclntabAddr uint64) (uint64, error) {
-	of := f.fh.getFile()
-	_, err := of.Seek(0, io.SeekStart)
+	mf := f.fh.getParsedFile().(*macho.File)
+	fixups, err := mf.DyldChainedFixups()
 	if err != nil {
 		return 0, err
 	}
-
-	f2, err := macho2.NewFile(of)
-	if err != nil {
-		return 0, err
-	}
-	fixups, err := f2.DyldChainedFixups()
-	if err != nil {
-		return 0, err
-	}
-	baseAddr := f2.GetBaseAddress()
+	baseAddr := mf.GetBaseAddress()
 	var rebases []fixupchains.Rebase
 	for _, start := range fixups.Starts {
 		rebases = append(rebases, start.Rebases()...)

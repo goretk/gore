@@ -20,7 +20,6 @@ package gore
 import (
 	"debug/dwarf"
 	"debug/elf"
-	"debug/macho"
 	"debug/pe"
 	"errors"
 	"os"
@@ -29,6 +28,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/blacktop/go-macho"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
