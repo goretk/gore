@@ -20,15 +20,17 @@ package gore
 import (
 	"debug/dwarf"
 	"debug/elf"
-	"debug/macho"
 	"debug/pe"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/blacktop/go-macho"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -170,9 +172,8 @@ func TestGoldFiles(t *testing.T) {
 			require.NotNil(version, "Version should not be nil")
 			assert.Equal("go"+actualVersion, version.Name, "Incorrect version for "+file)
 
-			osFile := f.GetFile()
-			require.NotNil(osFile, "File should not be nil")
-			assert.IsType(&os.File{}, osFile, "File should be of type *os.File")
+			reader := f.GetReader()
+			require.NotNil(reader, "File should not be nil")
 
 			switch f.GetParsedFile().(type) {
 			case *elf.File:
@@ -221,7 +222,7 @@ type mockFileHandler struct {
 	mGetSectionDataFromAddress func(uint64) (uint64, []byte, error)
 }
 
-func (m *mockFileHandler) getFile() *os.File {
+func (m *mockFileHandler) getReader() io.ReaderAt {
 	panic("not implemented")
 }
 

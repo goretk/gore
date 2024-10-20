@@ -18,26 +18,27 @@
 package gore
 
 import (
+	"bytes"
 	"cmp"
+	"compress/zlib"
 	"debug/dwarf"
-	"debug/macho"
+	"encoding/binary"
 	"fmt"
-	"os"
+	"io"
 	"slices"
+	"strings"
 	"sync"
+
+	"github.com/blacktop/go-macho"
+	"github.com/blacktop/go-macho/types"
 )
 
-func openMachO(fp string) (*machoFile, error) {
-	osFile, err := os.Open(fp)
-	if err != nil {
-		return nil, fmt.Errorf("error when opening the file: %w", err)
-	}
-
-	f, err := macho.NewFile(osFile)
+func openMachO(r io.ReaderAt) (*machoFile, error) {
+	f, err := macho.NewFile(r)
 	if err != nil {
 		return nil, fmt.Errorf("error when parsing the Mach-O file: %w", err)
 	}
-	ret := &machoFile{file: f, osFile: osFile}
+	ret := &machoFile{file: f, reader: r}
 	ret.getsymtab = sync.OnceValue(ret.initSymtab)
 	return ret, nil
 }
@@ -46,7 +47,7 @@ var _ fileHandler = (*machoFile)(nil)
 
 type machoFile struct {
 	file      *macho.File
-	osFile    *os.File
+	reader    io.ReaderAt
 	getsymtab func() map[string]Symbol
 }
 
@@ -96,8 +97,8 @@ func (m *machoFile) getParsedFile() any {
 	return m.file
 }
 
-func (m *machoFile) getFile() *os.File {
-	return m.osFile
+func (m *machoFile) getReader() io.ReaderAt {
+	return m.reader
 }
 
 func (m *machoFile) Close() error {
@@ -105,7 +106,7 @@ func (m *machoFile) Close() error {
 	if err != nil {
 		return err
 	}
-	return m.osFile.Close()
+	return tryClose(m.reader)
 }
 
 func (m *machoFile) getRData() ([]byte, error) {
@@ -133,7 +134,13 @@ func (m *machoFile) getSectionDataFromAddress(address uint64) (uint64, []byte, e
 }
 
 func (m *machoFile) getSectionData(s string) (uint64, []byte, error) {
-	section := m.file.Section(s)
+	var section *types.Section
+	for _, sect := range m.file.Sections {
+		if sect.Name == s {
+			section = sect
+			break
+		}
+	}
 	if section == nil {
 		return 0, nil, ErrSectionDoesNotExist
 	}
@@ -146,14 +153,14 @@ func (m *machoFile) getFileInfo() *FileInfo {
 		ByteOrder: m.file.ByteOrder,
 		OS:        "macOS",
 	}
-	switch m.file.Cpu {
-	case macho.Cpu386:
+	switch m.file.CPU {
+	case types.CPUI386:
 		fi.WordSize = intSize32
 		fi.Arch = Arch386
-	case macho.CpuAmd64:
+	case types.CPUAmd64:
 		fi.WordSize = intSize64
 		fi.Arch = ArchAMD64
-	case macho.CpuArm64:
+	case types.CPUArm64:
 		fi.WordSize = intSize64
 		fi.Arch = ArchARM64
 	default:
@@ -178,6 +185,92 @@ func (m *machoFile) getBuildID() (string, error) {
 	return parseBuildIDFromRaw(data)
 }
 
+// getDwarf mostly a copy of github.com/blacktop/go-macho.File.DWARF() function
+// removes dependency on github.com/blacktop/go-dwarf package
 func (m *machoFile) getDwarf() (*dwarf.Data, error) {
-	return m.file.DWARF()
+	dwarfSuffix := func(s *types.Section) string {
+		switch {
+		case strings.HasPrefix(s.Name, "__debug_"):
+			return s.Name[8:]
+		case strings.HasPrefix(s.Name, "__zdebug_"):
+			return s.Name[9:]
+		default:
+			return ""
+		}
+	}
+	sectionData := func(s *types.Section) ([]byte, error) {
+		b, err := s.Data()
+		if err != nil && uint64(len(b)) < s.Size {
+			return nil, err
+		}
+
+		if len(b) >= 12 && string(b[:4]) == "ZLIB" {
+			dlen := binary.BigEndian.Uint64(b[4:12])
+			dbuf := make([]byte, dlen)
+			r, err := zlib.NewReader(bytes.NewBuffer(b[12:]))
+			if err != nil {
+				return nil, err
+			}
+			if _, err := io.ReadFull(r, dbuf); err != nil {
+				return nil, err
+			}
+			if err := r.Close(); err != nil {
+				return nil, err
+			}
+			b = dbuf
+		}
+		return b, nil
+	}
+
+	// There are many other DWARF sections, but these
+	// are the ones the debug/dwarf package uses.
+	// Don't bother loading others.
+	var dat = map[string][]byte{"abbrev": nil, "info": nil, "str": nil, "line": nil, "ranges": nil}
+	for _, s := range m.file.Sections {
+		suffix := dwarfSuffix(s)
+		if suffix == "" {
+			continue
+		}
+		if _, ok := dat[suffix]; !ok {
+			continue
+		}
+		b, err := sectionData(s)
+		if err != nil {
+			return nil, err
+		}
+		dat[suffix] = b
+	}
+
+	d, err := dwarf.New(dat["abbrev"], nil, nil, dat["info"], dat["line"], nil, dat["ranges"], dat["str"])
+	if err != nil {
+		return nil, err
+	}
+
+	// Look for DWARF4 .debug_types sections and DWARF5 sections.
+	for i, s := range m.file.Sections {
+		suffix := dwarfSuffix(s)
+		if suffix == "" {
+			continue
+		}
+		if _, ok := dat[suffix]; ok {
+			// Already handled.
+			continue
+		}
+
+		b, err := sectionData(s)
+		if err != nil {
+			return nil, err
+		}
+
+		if suffix == "types" {
+			err = d.AddTypes(fmt.Sprintf("types-%d", i), b)
+		} else {
+			err = d.AddSection(".debug_"+suffix, b)
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return d, nil
 }
