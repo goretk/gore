@@ -31,7 +31,7 @@ import (
 
 */
 
-func newTypeParser(typesData []byte, baseAddres uint64, fi *FileInfo) *typeParser {
+func newTypeParser(typesData []byte, baseAddres uint64, fi *FileInfo, fh fileHandler, resolver pointerResolver) *typeParser {
 	goversion := fi.goversion.Name
 
 	p := &typeParser{
@@ -42,6 +42,8 @@ func newTypeParser(typesData []byte, baseAddres uint64, fi *FileInfo) *typeParse
 		cache:     make(map[uint64]*GoType),
 		typesData: typesData,
 		r:         bytes.NewReader(typesData),
+		fh:        fh,
+		resolver:  resolver,
 	}
 
 	if fi.WordSize == 8 {
@@ -127,6 +129,9 @@ type typeParser struct {
 	// located.
 	typesData []byte
 
+	fh       fileHandler
+	resolver pointerResolver
+
 	goversion string
 
 	// Parse functions
@@ -147,12 +152,23 @@ type typeParser struct {
 }
 
 func (p *typeParser) hasTag(off uint64) bool {
+	if off >= uint64(len(p.typesData)) {
+		return false
+	}
 	return p.typesData[off]&(1<<1) != 0
 }
 
 func (p *typeParser) resolveName(ptr uint64, flags uint8) (string, int) {
+	if ptr+1 >= uint64(len(p.typesData)) {
+		return "", 0
+	}
 	i, l := p.parseNameLen(p, ptr+1)
-	name := string(p.typesData[ptr+1+uint64(l) : ptr+1+uint64(l)+i])
+	end := ptr + 1 + uint64(l) + i
+	start := ptr + 1 + uint64(l)
+	if end > uint64(len(p.typesData)) || start > end {
+		return "", 0
+	}
+	name := string(p.typesData[start:end])
 	nl := int(i)
 	if nl == 0 {
 		return "", 0
@@ -174,6 +190,9 @@ func (p *typeParser) resolveTag(o uint64) string {
 		return ""
 	}
 	o += 1 + nl + uint64(nll+tll)
+	if o+tl > uint64(len(p.typesData)) {
+		return ""
+	}
 	return string(p.typesData[o : o+tl])
 }
 
@@ -185,9 +204,35 @@ func (p *typeParser) readType(obj interface{}) (int, error) {
 	return binary.Size(obj), nil
 }
 
+func (p *typeParser) currentFileAddr() uint64 {
+	pos, _ := p.r.Seek(0, io.SeekCurrent)
+	return p.base + uint64(pos)
+}
+
 func (p *typeParser) seekFromStart(off uint64) error {
+	if off > uint64(len(p.typesData)) {
+		return fmt.Errorf("seek offset 0x%x exceeds data length 0x%x", off, len(p.typesData))
+	}
 	_, err := p.r.Seek(int64(off), io.SeekStart)
 	return err
+}
+
+func (p *typeParser) switchToSection(addr uint64) func() {
+	if addr >= p.base && addr-p.base < uint64(len(p.typesData)) {
+		return nil
+	}
+	if p.fh == nil {
+		return nil
+	}
+	sectionBase, sectionData, err := p.fh.getSectionDataFromAddress(addr)
+	if err != nil {
+		return nil
+	}
+	oldBase, oldData, oldReader := p.base, p.typesData, p.r
+	p.base, p.typesData, p.r = sectionBase, sectionData, bytes.NewReader(sectionData)
+	return func() {
+		p.base, p.typesData, p.r = oldBase, oldData, oldReader
+	}
 }
 
 // parsedTypes returns all the parsed types for the file. This method
@@ -205,6 +250,10 @@ func (p *typeParser) parseType(address uint64) (*GoType, error) {
 	// First check the cache.
 	if t, ok := p.cache[address]; ok {
 		return t, nil
+	}
+
+	if restore := p.switchToSection(address); restore != nil {
+		defer restore()
 	}
 
 	/*
@@ -301,7 +350,10 @@ func (p *typeParser) parseType(address uint64) (*GoType, error) {
 
 		if iface.MethodsLen > 0 {
 			child = iface.Methods
-			typ.Methods = make([]*TypeMethod, int(iface.MethodsLen), int(iface.MethodsCap))
+			if iface.MethodsLen > 1<<20 {
+				return nil, fmt.Errorf("interface at 0x%x has unreasonable method count %d", address, iface.MethodsLen)
+			}
+			typ.Methods = make([]*TypeMethod, int(iface.MethodsLen))
 		}
 
 	case reflect.Map:
@@ -319,6 +371,7 @@ func (p *typeParser) parseType(address uint64) (*GoType, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse pointer to type for type located at 0x%x: %w", address, err)
 		}
+		ptr = resolvePointer(p.resolver,ptr, address+uint64(count))
 		count += c
 
 		child = ptr
@@ -335,7 +388,10 @@ func (p *typeParser) parseType(address uint64) (*GoType, error) {
 		count += c
 
 		child = s.FieldsData
-		typ.Fields = make([]*GoType, int(s.FieldsLen), int(s.FieldsCap))
+		if s.FieldsLen > 1<<20 {
+			return nil, fmt.Errorf("struct at 0x%x has unreasonable field count %d", address, s.FieldsLen)
+		}
+		typ.Fields = make([]*GoType, int(s.FieldsLen))
 
 		// Resolve package path.
 		if s.PkgPath > uint64(p.base) {
@@ -509,6 +565,7 @@ func (p *typeParser) parseType(address uint64) (*GoType, error) {
 				if err != nil {
 					return nil, fmt.Errorf("failed to read function argument/return type pointer at 0x%x: %w", child+uint64(n), err)
 				}
+				ptr = resolvePointer(p.resolver,ptr, child+n)
 				n += uint64(c)
 
 				// Parse the type for the function argument.
@@ -600,7 +657,10 @@ func (p *typeParser) parseType(address uint64) (*GoType, error) {
 				// embedded struct field was moved from the offset field to the name field. This changed was first part of the
 				// 1.19rc1 release.s
 				if GoVersionCompare(p.goversion, "go1.19rc1") >= 0 {
-					field.FieldAnon = p.typesData[sf.Name-p.base]&(1<<3) != 0
+					nameOff := sf.Name - p.base
+					if nameOff < uint64(len(p.typesData)) {
+						field.FieldAnon = p.typesData[nameOff]&(1<<3) != 0
+					}
 				} else {
 					field.FieldAnon = name == "" || sf.OffsetEmbed&1 != 0
 				}
@@ -625,8 +685,14 @@ func (p *typeParser) parseType(address uint64) (*GoType, error) {
 type arrayTypeParseFunc func(p *typeParser) (arrayType64, int, error)
 
 var arrayTypeParseFunc64 = func(p *typeParser) (arrayType64, int, error) {
+	fileAddr := p.currentFileAddr()
 	var typ arrayType64
 	c, err := p.readType(&typ)
+	if err != nil {
+		return typ, c, err
+	}
+	typ.Eem = resolvePointer(p.resolver,typ.Eem, fileAddr)
+	typ.Slice = resolvePointer(p.resolver,typ.Slice, fileAddr+8)
 	return typ, c, err
 }
 
@@ -649,8 +715,13 @@ var arrayTypeParseFunc32 = func(p *typeParser) (arrayType64, int, error) {
 type chanTypeParseFunc func(p *typeParser) (chanType, int, error)
 
 var chanTypeParseFunc64 = func(p *typeParser) (chanType, int, error) {
+	fileAddr := p.currentFileAddr()
 	var typ chanType
 	c, err := p.readType(&typ)
+	if err != nil {
+		return typ, c, err
+	}
+	typ.Elem = resolvePointer(p.resolver,typ.Elem, fileAddr)
 	return typ, c, err
 }
 
@@ -712,8 +783,14 @@ var imethodTypeParseFunc64 = func(p *typeParser) (imethod, int, error) {
 type interfaceTypeParseFunc func(p *typeParser) (interfaceType, int, error)
 
 var interfaceTypeParseFunc64 = func(p *typeParser) (interfaceType, int, error) {
+	fileAddr := p.currentFileAddr()
 	var typ interfaceType
 	c, err := p.readType(&typ)
+	if err != nil {
+		return typ, c, err
+	}
+	typ.PkgPath = resolvePointer(p.resolver,typ.PkgPath, fileAddr)
+	typ.Methods = resolvePointer(p.resolver,typ.Methods, fileAddr+8)
 	return typ, c, err
 }
 
@@ -737,8 +814,16 @@ var interfaceTypeParseFunc32 = func(p *typeParser) (interfaceType, int, error) {
 type mapTypeParseFunc func(p *typeParser) (mapType, int, error)
 
 var mapTypeParseFunc64 = func(p *typeParser) (mapType, int, error) {
+	fileAddr := p.currentFileAddr()
 	var typ mapType
 	c, err := p.readType(&typ)
+	if err != nil {
+		return typ, c, err
+	}
+	typ.Key = resolvePointer(p.resolver,typ.Key, fileAddr)
+	typ.Elem = resolvePointer(p.resolver,typ.Elem, fileAddr+8)
+	typ.Bucket = resolvePointer(p.resolver,typ.Bucket, fileAddr+16)
+	typ.Hasher = resolvePointer(p.resolver,typ.Hasher, fileAddr+24)
 	return typ, c, err
 }
 
@@ -763,6 +848,7 @@ var mapTypeParseFunc32 = func(p *typeParser) (mapType, int, error) {
 
 // Map parser for Go 1.7 to 1.10 (64 bit)
 var mapTypeParseFunc1764 = func(p *typeParser) (mapType, int, error) {
+	fileAddr := p.currentFileAddr()
 	var typ mapTypeGo1764
 	c, err := p.readType(&typ)
 	if err != nil {
@@ -770,9 +856,9 @@ var mapTypeParseFunc1764 = func(p *typeParser) (mapType, int, error) {
 	}
 
 	return mapType{
-		Key:        typ.Key,
-		Elem:       typ.Elem,
-		Bucket:     typ.Bucket,
+		Key:        resolvePointer(p.resolver,typ.Key, fileAddr),
+		Elem:       resolvePointer(p.resolver,typ.Elem, fileAddr+8),
+		Bucket:     resolvePointer(p.resolver,typ.Bucket, fileAddr+16),
 		Keysize:    typ.Keysize,
 		Valuesize:  typ.Valuesize,
 		Bucketsize: typ.Bucketsize,
@@ -799,6 +885,7 @@ var mapTypeParseFunc1732 = func(p *typeParser) (mapType, int, error) {
 
 // Map parser for Go 1.11 (64 bit)
 var mapTypeParseFunc1164 = func(p *typeParser) (mapType, int, error) {
+	fileAddr := p.currentFileAddr()
 	var typ mapTypeGo1164
 	c, err := p.readType(&typ)
 	if err != nil {
@@ -806,9 +893,9 @@ var mapTypeParseFunc1164 = func(p *typeParser) (mapType, int, error) {
 	}
 
 	return mapType{
-		Key:        typ.Key,
-		Elem:       typ.Elem,
-		Bucket:     typ.Bucket,
+		Key:        resolvePointer(p.resolver,typ.Key, fileAddr),
+		Elem:       resolvePointer(p.resolver,typ.Elem, fileAddr+8),
+		Bucket:     resolvePointer(p.resolver,typ.Bucket, fileAddr+16),
 		Keysize:    typ.Keysize,
 		Valuesize:  typ.Valuesize,
 		Bucketsize: typ.Bucketsize,
@@ -835,6 +922,7 @@ var mapTypeParseFunc1132 = func(p *typeParser) (mapType, int, error) {
 
 // Map parser for Go 1.12 and 1.13 (64 bit)
 var mapTypeParseFunc1264 = func(p *typeParser) (mapType, int, error) {
+	fileAddr := p.currentFileAddr()
 	var typ mapTypeGo1264
 	c, err := p.readType(&typ)
 	if err != nil {
@@ -842,9 +930,9 @@ var mapTypeParseFunc1264 = func(p *typeParser) (mapType, int, error) {
 	}
 
 	return mapType{
-		Key:        typ.Key,
-		Elem:       typ.Elem,
-		Bucket:     typ.Bucket,
+		Key:        resolvePointer(p.resolver,typ.Key, fileAddr),
+		Elem:       resolvePointer(p.resolver,typ.Elem, fileAddr+8),
+		Bucket:     resolvePointer(p.resolver,typ.Bucket, fileAddr+16),
 		Keysize:    typ.Keysize,
 		Valuesize:  typ.Valuesize,
 		Bucketsize: typ.Bucketsize,
@@ -920,8 +1008,14 @@ var rtypeParseFunc32 = func(p *typeParser) (rtypeGo64, int, error) {
 type structTypeParseFunc func(p *typeParser) (structType64, int, error)
 
 var structTypeParseFunc64 = func(p *typeParser) (structType64, int, error) {
+	fileAddr := p.currentFileAddr()
 	var typ structType64
 	c, err := p.readType(&typ)
+	if err != nil {
+		return typ, c, err
+	}
+	typ.PkgPath = resolvePointer(p.resolver,typ.PkgPath, fileAddr)
+	typ.FieldsData = resolvePointer(p.resolver,typ.FieldsData, fileAddr+8)
 	return typ, c, err
 }
 
@@ -945,8 +1039,14 @@ var structTypeParseFunc32 = func(p *typeParser) (structType64, int, error) {
 type structFieldTypeParseFunc func(p *typeParser) (structField, int, error)
 
 var structFieldTypeParseFunc64 = func(p *typeParser) (structField, int, error) {
+	fileAddr := p.currentFileAddr()
 	var typ structField
 	c, err := p.readType(&typ)
+	if err != nil {
+		return typ, c, err
+	}
+	typ.Name = resolvePointer(p.resolver,typ.Name, fileAddr)
+	typ.Typ = resolvePointer(p.resolver,typ.Typ, fileAddr+8)
 	return typ, c, err
 }
 
@@ -1004,10 +1104,16 @@ var uncommonTypeParseFunc17Beta1 = func(p *typeParser) (uncommonType, int, error
 type nameLenParseFunc func(p *typeParser, offset uint64) (uint64, int)
 
 var nameLenParseFuncTwoByteFixed = func(p *typeParser, offset uint64) (uint64, int) {
+	if offset+1 >= uint64(len(p.typesData)) {
+		return 0, 0
+	}
 	return uint64(uint16(p.typesData[offset])<<8 | uint16(p.typesData[offset+1])), 2
 }
 
 var nameLenParseFuncVarint = func(p *typeParser, offset uint64) (uint64, int) {
+	if offset >= uint64(len(p.typesData)) {
+		return 0, 0
+	}
 	return binary.Uvarint(p.typesData[offset:])
 }
 

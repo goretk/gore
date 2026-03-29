@@ -27,6 +27,7 @@ import (
 	"io"
 	"strconv"
 
+	"github.com/blacktop/go-macho"
 	"github.com/goretk/gore/extern"
 	"github.com/goretk/gore/extern/gover"
 )
@@ -276,6 +277,7 @@ func extractModuledata(f *GoFile) (moduledata, error) {
 	var off int
 	var magic []byte
 	var tabAddr uint64
+	var fromSymbol bool
 
 	secAddr, secData, err := f.fh.getSectionData(f.fh.moduledataSection())
 	if err != nil {
@@ -286,6 +288,7 @@ func extractModuledata(f *GoFile) (moduledata, error) {
 	sym, err := f.fh.getSymbol("runtime.firstmoduledata")
 	if err == nil {
 		off = int(sym.Value - secAddr)
+		fromSymbol = true
 		goto load
 	}
 
@@ -299,15 +302,36 @@ func extractModuledata(f *GoFile) (moduledata, error) {
 
 search:
 	off = bytes.Index(secData, magic)
+
+	if off == -1 {
+		if mf, ok := f.fh.getParsedFile().(*macho.File); ok && f.FileInfo.WordSize == 8 {
+			r := newMachoResolver(mf)
+			off = findPointerValue(r, secAddr, secData, tabAddr, f.FileInfo.WordSize, f.FileInfo.ByteOrder)
+		}
+	}
+
 load:
 	if off == -1 {
 		return moduledata{}, errors.New("could not find moduledata")
 	}
-	if len(secData) < off+vmdSize {
+
+	available := len(secData) - off
+	if available <= 0 {
 		return moduledata{}, fmt.Errorf("offset %d is out of bounds %d", off, len(secData))
 	}
 
-	data := secData[off : off+vmdSize]
+	var data []byte
+	if available >= vmdSize {
+		data = secData[off : off+vmdSize]
+	} else {
+		data = make([]byte, vmdSize)
+		copy(data, secData[off:])
+	}
+
+	if mf, ok := f.fh.getParsedFile().(*macho.File); ok && f.FileInfo.WordSize == 8 {
+		r := newMachoResolver(mf)
+		data = resolveBuffer(r, data, secAddr+uint64(off), f.FileInfo.WordSize, f.FileInfo.ByteOrder)
+	}
 
 	// Read the module struct from the file.
 	r := bytes.NewReader(data)
@@ -327,22 +351,19 @@ load:
 	if err != nil {
 		return moduledata{}, err
 	}
-	if text > etext {
-		goto invalidMD
-	}
 
-	if !(textSectAddr <= text && text < textSectAddr+uint64(len(textSect))) {
-		goto invalidMD
+	if text > etext || !(textSectAddr <= text && text < textSectAddr+uint64(len(textSect))) {
+		if fromSymbol {
+			return moduledata{}, fmt.Errorf("moduledata at symbol address failed text validation")
+		}
+		secData = secData[off+1:]
+		goto search
 	}
 
 	// Add the file handler.
 	md.fh = f.fh
 
 	return md, nil
-
-invalidMD:
-	secData = secData[off+1:]
-	goto search
 }
 
 func readUIntTo64(r io.Reader, byteOrder binary.ByteOrder, is32bit bool) (addr uint64, err error) {
