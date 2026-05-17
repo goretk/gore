@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"sync"
@@ -247,6 +248,36 @@ func TestGetTypesFromDynamicBuiltResources(t *testing.T) {
 	})
 }
 
+func TestSwissMapTypes(t *testing.T) {
+	testVersion := testCompilerVersion()
+	if GoVersionCompare(testVersion, "go1.24") < 0 {
+		t.Skipf("current Go toolchain %s does not support swiss maps", testVersion)
+	}
+
+	build := buildSingleTestResource(t, go126SwissMapTestSrc)
+	f, err := Open(build.exe)
+	require.NoError(t, err)
+	defer f.Close()
+
+	typs, err := f.GetTypes()
+	require.NoError(t, err)
+
+	for _, typ := range typs {
+		if typ.Name != "main.namedMap" || typ.Kind != reflect.Map {
+			continue
+		}
+		require.NotNil(t, typ.Key)
+		require.NotNil(t, typ.Element)
+		assert.Equal(t, reflect.String, typ.Key.Kind)
+		assert.Equal(t, reflect.Int, typ.Element.Kind)
+		require.Len(t, typ.Methods, 1)
+		assert.Equal(t, "Touch", typ.Methods[0].Name)
+		return
+	}
+
+	t.Fatal("main.namedMap was not found")
+}
+
 func TestGetCompilerVersion(t *testing.T) {
 	testVersion := testCompilerVersion()
 	expectedVersion := ResolveGoVersion(testVersion)
@@ -402,6 +433,24 @@ func buildTestResource(body, goos, arch string, pie, stripped bool, wg *sync.Wai
 	result <- buildResult{exe: exe, dir: tmpdir, strip: stripped, pie: pie, os: goos, arch: arch}
 }
 
+func buildSingleTestResource(t *testing.T, body string) buildResult {
+	t.Helper()
+
+	resultChan := make(chan buildResult, 1)
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go buildTestResource(body, runtime.GOOS, runtime.GOARCH, false, false, wg, resultChan)
+	wg.Wait()
+	close(resultChan)
+
+	result, ok := <-resultChan
+	require.True(t, ok, "no test resource was built")
+	t.Cleanup(func() {
+		os.RemoveAll(result.dir)
+	})
+	return result
+}
+
 func testCompilerVersion() string {
 	goBin, err := exec.LookPath("go")
 	if err != nil {
@@ -413,3 +462,27 @@ func testCompilerVersion() string {
 	}
 	return strings.Split(string(out), " ")[2]
 }
+
+const go126SwissMapTestSrc = `package main
+
+import "reflect"
+
+type namedMap map[string]int
+
+func (m namedMap) Touch() int {
+	return m["answer"]
+}
+
+type mapHolder struct {
+	M namedMap
+}
+
+var sink any
+
+func main() {
+	h := mapHolder{M: namedMap{"answer": 42}}
+	sink = reflect.TypeOf(h)
+	sink = reflect.TypeOf(h.M)
+	sink = h.M.Touch()
+}
+`

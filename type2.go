@@ -57,13 +57,16 @@ func newTypeParser(typesData []byte, baseAddres uint64, fi *FileInfo, fh fileHan
 		p.parseStructType = structTypeParseFunc64
 		p.parseUint = readUintFunc64
 
-		// Use the correct map parser based on Go version.
+		// Use the correct map parser based on Go version and map experiment.
+		useSwissMap := usesSwissMapTypeLayout(goversion, typesData)
 		if GoVersionCompare(goversion, "go1.11beta1") < 0 {
 			p.parseMap = mapTypeParseFunc1764
 		} else if GoVersionCompare(goversion, "go1.12beta1") < 0 {
 			p.parseMap = mapTypeParseFunc1164
 		} else if GoVersionCompare(goversion, "go1.14beta1") < 0 {
 			p.parseMap = mapTypeParseFunc1264
+		} else if useSwissMap {
+			p.parseMap = mapTypeParseFuncSwiss64
 		} else {
 			p.parseMap = mapTypeParseFunc64
 		}
@@ -78,13 +81,16 @@ func newTypeParser(typesData []byte, baseAddres uint64, fi *FileInfo, fh fileHan
 		p.parseStructType = structTypeParseFunc32
 		p.parseUint = readUintFunc32
 
-		// Use the correct map parser based on Go version.
+		// Use the correct map parser based on Go version and map experiment.
+		useSwissMap := usesSwissMapTypeLayout(goversion, typesData)
 		if GoVersionCompare(goversion, "go1.11beta1") < 0 {
 			p.parseMap = mapTypeParseFunc1732
 		} else if GoVersionCompare(goversion, "go1.12beta1") < 0 {
 			p.parseMap = mapTypeParseFunc1132
 		} else if GoVersionCompare(goversion, "go1.14beta1") < 0 {
 			p.parseMap = mapTypeParseFunc1232
+		} else if useSwissMap {
+			p.parseMap = mapTypeParseFuncSwiss32
 		} else {
 			p.parseMap = mapTypeParseFunc32
 		}
@@ -107,6 +113,15 @@ func newTypeParser(typesData []byte, baseAddres uint64, fi *FileInfo, fh fileHan
 	}
 
 	return p
+}
+
+func usesSwissMapTypeLayout(goversion string, typesData []byte) bool {
+	if GoVersionCompare(goversion, "go1.26rc1") >= 0 {
+		return true
+	}
+
+	return bytes.Contains(typesData, []byte("internal/runtime/maps")) ||
+		bytes.Contains(typesData, []byte("SwissMapType"))
 }
 
 // typeParser can parse the Go type structures for binaries compiled with the
@@ -371,7 +386,7 @@ func (p *typeParser) parseType(address uint64) (*GoType, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse pointer to type for type located at 0x%x: %w", address, err)
 		}
-		ptr = resolvePointer(p.resolver,ptr, address+uint64(count))
+		ptr = resolvePointer(p.resolver, ptr, address+uint64(count))
 		count += c
 
 		child = ptr
@@ -565,7 +580,7 @@ func (p *typeParser) parseType(address uint64) (*GoType, error) {
 				if err != nil {
 					return nil, fmt.Errorf("failed to read function argument/return type pointer at 0x%x: %w", child+uint64(n), err)
 				}
-				ptr = resolvePointer(p.resolver,ptr, child+n)
+				ptr = resolvePointer(p.resolver, ptr, child+n)
 				n += uint64(c)
 
 				// Parse the type for the function argument.
@@ -691,8 +706,8 @@ var arrayTypeParseFunc64 = func(p *typeParser) (arrayType64, int, error) {
 	if err != nil {
 		return typ, c, err
 	}
-	typ.Eem = resolvePointer(p.resolver,typ.Eem, fileAddr)
-	typ.Slice = resolvePointer(p.resolver,typ.Slice, fileAddr+8)
+	typ.Eem = resolvePointer(p.resolver, typ.Eem, fileAddr)
+	typ.Slice = resolvePointer(p.resolver, typ.Slice, fileAddr+8)
 	return typ, c, err
 }
 
@@ -721,7 +736,7 @@ var chanTypeParseFunc64 = func(p *typeParser) (chanType, int, error) {
 	if err != nil {
 		return typ, c, err
 	}
-	typ.Elem = resolvePointer(p.resolver,typ.Elem, fileAddr)
+	typ.Elem = resolvePointer(p.resolver, typ.Elem, fileAddr)
 	return typ, c, err
 }
 
@@ -789,8 +804,8 @@ var interfaceTypeParseFunc64 = func(p *typeParser) (interfaceType, int, error) {
 	if err != nil {
 		return typ, c, err
 	}
-	typ.PkgPath = resolvePointer(p.resolver,typ.PkgPath, fileAddr)
-	typ.Methods = resolvePointer(p.resolver,typ.Methods, fileAddr+8)
+	typ.PkgPath = resolvePointer(p.resolver, typ.PkgPath, fileAddr)
+	typ.Methods = resolvePointer(p.resolver, typ.Methods, fileAddr+8)
 	return typ, c, err
 }
 
@@ -820,10 +835,10 @@ var mapTypeParseFunc64 = func(p *typeParser) (mapType, int, error) {
 	if err != nil {
 		return typ, c, err
 	}
-	typ.Key = resolvePointer(p.resolver,typ.Key, fileAddr)
-	typ.Elem = resolvePointer(p.resolver,typ.Elem, fileAddr+8)
-	typ.Bucket = resolvePointer(p.resolver,typ.Bucket, fileAddr+16)
-	typ.Hasher = resolvePointer(p.resolver,typ.Hasher, fileAddr+24)
+	typ.Key = resolvePointer(p.resolver, typ.Key, fileAddr)
+	typ.Elem = resolvePointer(p.resolver, typ.Elem, fileAddr+8)
+	typ.Bucket = resolvePointer(p.resolver, typ.Bucket, fileAddr+16)
+	typ.Hasher = resolvePointer(p.resolver, typ.Hasher, fileAddr+24)
 	return typ, c, err
 }
 
@@ -846,6 +861,41 @@ var mapTypeParseFunc32 = func(p *typeParser) (mapType, int, error) {
 	}, c, err
 }
 
+// Map parser for swiss maps (64 bit)
+var mapTypeParseFuncSwiss64 = func(p *typeParser) (mapType, int, error) {
+	fileAddr := p.currentFileAddr()
+	var typ mapTypeSwiss64
+	c, err := p.readType(&typ)
+	if err != nil {
+		return mapType{}, c, err
+	}
+
+	return mapType{
+		Key:    resolvePointer(p.resolver, typ.Key, fileAddr),
+		Elem:   resolvePointer(p.resolver, typ.Elem, fileAddr+8),
+		Bucket: resolvePointer(p.resolver, typ.Group, fileAddr+16),
+		Hasher: resolvePointer(p.resolver, typ.Hasher, fileAddr+24),
+		Flags:  typ.Flags,
+	}, c, err
+}
+
+// Map parser for swiss maps (32 bit)
+var mapTypeParseFuncSwiss32 = func(p *typeParser) (mapType, int, error) {
+	var typ mapTypeSwiss32
+	c, err := p.readType(&typ)
+	if err != nil {
+		return mapType{}, c, err
+	}
+
+	return mapType{
+		Key:    uint64(typ.Key),
+		Elem:   uint64(typ.Elem),
+		Bucket: uint64(typ.Group),
+		Hasher: uint64(typ.Hasher),
+		Flags:  typ.Flags,
+	}, c, err
+}
+
 // Map parser for Go 1.7 to 1.10 (64 bit)
 var mapTypeParseFunc1764 = func(p *typeParser) (mapType, int, error) {
 	fileAddr := p.currentFileAddr()
@@ -856,9 +906,9 @@ var mapTypeParseFunc1764 = func(p *typeParser) (mapType, int, error) {
 	}
 
 	return mapType{
-		Key:        resolvePointer(p.resolver,typ.Key, fileAddr),
-		Elem:       resolvePointer(p.resolver,typ.Elem, fileAddr+8),
-		Bucket:     resolvePointer(p.resolver,typ.Bucket, fileAddr+16),
+		Key:        resolvePointer(p.resolver, typ.Key, fileAddr),
+		Elem:       resolvePointer(p.resolver, typ.Elem, fileAddr+8),
+		Bucket:     resolvePointer(p.resolver, typ.Bucket, fileAddr+16),
 		Keysize:    typ.Keysize,
 		Valuesize:  typ.Valuesize,
 		Bucketsize: typ.Bucketsize,
@@ -893,9 +943,9 @@ var mapTypeParseFunc1164 = func(p *typeParser) (mapType, int, error) {
 	}
 
 	return mapType{
-		Key:        resolvePointer(p.resolver,typ.Key, fileAddr),
-		Elem:       resolvePointer(p.resolver,typ.Elem, fileAddr+8),
-		Bucket:     resolvePointer(p.resolver,typ.Bucket, fileAddr+16),
+		Key:        resolvePointer(p.resolver, typ.Key, fileAddr),
+		Elem:       resolvePointer(p.resolver, typ.Elem, fileAddr+8),
+		Bucket:     resolvePointer(p.resolver, typ.Bucket, fileAddr+16),
 		Keysize:    typ.Keysize,
 		Valuesize:  typ.Valuesize,
 		Bucketsize: typ.Bucketsize,
@@ -930,9 +980,9 @@ var mapTypeParseFunc1264 = func(p *typeParser) (mapType, int, error) {
 	}
 
 	return mapType{
-		Key:        resolvePointer(p.resolver,typ.Key, fileAddr),
-		Elem:       resolvePointer(p.resolver,typ.Elem, fileAddr+8),
-		Bucket:     resolvePointer(p.resolver,typ.Bucket, fileAddr+16),
+		Key:        resolvePointer(p.resolver, typ.Key, fileAddr),
+		Elem:       resolvePointer(p.resolver, typ.Elem, fileAddr+8),
+		Bucket:     resolvePointer(p.resolver, typ.Bucket, fileAddr+16),
 		Keysize:    typ.Keysize,
 		Valuesize:  typ.Valuesize,
 		Bucketsize: typ.Bucketsize,
@@ -1014,8 +1064,8 @@ var structTypeParseFunc64 = func(p *typeParser) (structType64, int, error) {
 	if err != nil {
 		return typ, c, err
 	}
-	typ.PkgPath = resolvePointer(p.resolver,typ.PkgPath, fileAddr)
-	typ.FieldsData = resolvePointer(p.resolver,typ.FieldsData, fileAddr+8)
+	typ.PkgPath = resolvePointer(p.resolver, typ.PkgPath, fileAddr)
+	typ.FieldsData = resolvePointer(p.resolver, typ.FieldsData, fileAddr+8)
 	return typ, c, err
 }
 
@@ -1045,8 +1095,8 @@ var structFieldTypeParseFunc64 = func(p *typeParser) (structField, int, error) {
 	if err != nil {
 		return typ, c, err
 	}
-	typ.Name = resolvePointer(p.resolver,typ.Name, fileAddr)
-	typ.Typ = resolvePointer(p.resolver,typ.Typ, fileAddr+8)
+	typ.Name = resolvePointer(p.resolver, typ.Name, fileAddr)
+	typ.Typ = resolvePointer(p.resolver, typ.Typ, fileAddr+8)
 	return typ, c, err
 }
 
@@ -1213,7 +1263,7 @@ type interfaceType32 struct {
 	MethodsCap uint32
 }
 
-// Map structure used for Go 1.14 to current.
+// mapType is the common parser result and the old bucket map binary layout.
 type mapType struct {
 	Key        uint64
 	Elem       uint64
@@ -1234,6 +1284,30 @@ type mapType32 struct {
 	Valuesize  uint8
 	Bucketsize uint16
 	Flags      uint32
+}
+
+// Map structure used for swiss maps.
+type mapTypeSwiss64 struct {
+	Key       uint64
+	Elem      uint64
+	Group     uint64
+	Hasher    uint64
+	GroupSize uint64
+	SlotSize  uint64
+	ElemOff   uint64
+	Flags     uint32
+	_         uint32 // padding for the next field after MapType
+}
+
+type mapTypeSwiss32 struct {
+	Key       uint32
+	Elem      uint32
+	Group     uint32
+	Hasher    uint32
+	GroupSize uint32
+	SlotSize  uint32
+	ElemOff   uint32
+	Flags     uint32
 }
 
 // Map structure for Go 1.7 to Go 1.10
