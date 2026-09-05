@@ -27,6 +27,17 @@ f, err := gore.Open(fileStr)
 typs, err := f.GetTypes()
 ```
 
+List the addresses of static interface tables:
+```go
+f, err := gore.Open(fileStr)
+md, err := f.Moduledata()
+itabs, err := md.ITabLinksData()
+```
+
+`ITabLinksData` handles both layouts: the pointer array used before Go 1.27
+and the contiguous records used in Go 1.27 and later. `GetTypes` includes
+the interface and concrete types referenced by the Go 1.27 records.
+
 ## Update get new Go release information
 
 Instead of downloading a new library release for Go version detection, you can perform a local pull.

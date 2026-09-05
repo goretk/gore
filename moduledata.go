@@ -34,8 +34,12 @@ type Moduledata interface {
 	PCLNTab() ModuleDataSection
 	// FuncTab returns the functab section.
 	FuncTab() ModuleDataSection
-	// ITabLinks returns the itablinks section.
+	// ITabLinks returns the itablinks pointer array used before Go 1.27.
+	// Length is the number of pointers. Go 1.27+ has no separate pointer array;
+	// use ITabLinksData to read interface table addresses from either layout.
 	ITabLinks() ModuleDataSection
+	// ITabLinksData returns the virtual addresses of the static interface tables.
+	ITabLinksData() ([]uint64, error)
 	// TypeLink returns the typelink section.
 	TypeLink() ModuleDataSection
 	// TypeLinkData returns the typelink section data.
